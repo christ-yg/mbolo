@@ -1,0 +1,48 @@
+# Secrets
+.env
+.env.*
+!.env.example
+secrets/
+credentials/
+
+# Git
+.git/
+.github/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node.js
+node_modules/
+dist/
+build/
+coverage/
+
+# Éditeurs
+.vscode/
+.idea/
+
+# Données locales
+media/
+staticfiles/
+postgres-data/
+redis-data/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# Fichiers temporaires
+*.log
+tmp/
+temp/
+.cache/

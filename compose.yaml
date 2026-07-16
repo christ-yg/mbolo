@@ -1,0 +1,114 @@
+name: mbolo
+
+services:
+  postgres:
+    image: postgres:18.4-alpine
+    container_name: mbolo-postgres
+
+    # Redémarre le service en cas d'arrêt accidentel,
+    # sauf si nous l'avons explicitement arrêté.
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+
+      # Initialise la base en UTF-8.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+
+    volumes:
+      # Volume Docker persistant.
+      # Les données survivent à la suppression du conteneur.
+      - postgres_data:/var/lib/postgresql
+
+    ports:
+      # La base n'est accessible que depuis la machine locale.
+      # Elle n'est pas publiée sur toutes les interfaces réseau.
+      - "127.0.0.1:${POSTGRES_EXPOSED_PORT:-5432}:5432"
+
+    networks:
+      - data_network
+
+    healthcheck:
+      # pg_isready vérifie que PostgreSQL accepte les connexions.
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    security_opt:
+      # Empêche les processus du conteneur d'acquérir
+      # de nouveaux privilèges Linux.
+      - no-new-privileges:true
+
+    shm_size: 256mb
+
+  redis:
+    image: redis:8.8-alpine
+    container_name: mbolo-redis
+    restart: unless-stopped
+
+    # Redis démarre sans persistance de snapshots RDB,
+    # mais avec le journal AOF activé.
+    #
+    # Le mot de passe est fourni par notre fichier .env local.
+    # Cette méthode convient au développement, mais sera remplacée
+    # par un gestionnaire de secrets en production.
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - --protected-mode
+      - "yes"
+
+    volumes:
+      - redis_data:/data
+
+    ports:
+      # Redis n'est accessible que sur localhost.
+      - "127.0.0.1:${REDIS_EXPOSED_PORT:-6379}:6379"
+
+    networks:
+      - data_network
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli --no-auth-warning -a \"$${REDIS_PASSWORD}\" ping | grep PONG"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  postgres_data:
+    name: mbolo_postgres_data
+
+  redis_data:
+    name: mbolo_redis_data
+
+networks:
+  data_network:
+    name: mbolo_data_network
+
+    # Ce réseau est réservé aux communications internes
+    # entre nos services de données et le futur backend.
+    internal: true
