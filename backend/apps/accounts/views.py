@@ -2,19 +2,21 @@ from django.contrib.auth import login, logout
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.generics import RetrieveAPIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.generics import RetrieveAPIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.request import Request
 
 from .models import User
-
 from .serializers import (
     CurrentUserSerializer,
     LoginSerializer,
     RegistrationSerializer,
+)
+from .throttles import (
+    LoginEmailThrottle,
+    LoginIPThrottle,
 )
 
 
@@ -26,14 +28,18 @@ class RegisterView(APIView):
     """
     Crée un nouveau compte Mbolo.
 
-    Cette route est publique, mais une protection CSRF est exigée
-    parce qu'elle réalise une écriture dans la base de données.
+    Cette route est publique, mais elle exige un jeton CSRF,
+    car elle modifie les données de l'application.
     """
 
     authentication_classes: tuple = ()
     permission_classes = (AllowAny,)
 
     def post(self, request: Request) -> Response:
+        """
+        Valide les données reçues puis crée le compte.
+        """
+
         serializer = RegistrationSerializer(
             data=request.data,
         )
@@ -66,16 +72,26 @@ class RegisterView(APIView):
 )
 class LoginView(APIView):
     """
-    Authentifie un utilisateur et crée une session Django sécurisée.
+    Authentifie un utilisateur et crée une session Django.
 
-    La fonction login() effectue une rotation de la clé de session,
-    ce qui limite les attaques par fixation de session.
+    Les tentatives sont limitées :
+    - par adresse IP ;
+    - par adresse e-mail.
     """
 
     authentication_classes: tuple = ()
     permission_classes = (AllowAny,)
 
+    throttle_classes = (
+        LoginIPThrottle,
+        LoginEmailThrottle,
+    )
+
     def post(self, request: Request) -> Response:
+        """
+        Vérifie les identifiants puis ouvre une session.
+        """
+
         serializer = LoginSerializer(
             data=request.data,
             context={
@@ -89,9 +105,6 @@ class LoginView(APIView):
 
         user = serializer.validated_data["user"]
 
-        # Django renouvelle l'identifiant de session lors
-        # de l'authentification afin d'éviter la réutilisation
-        # d'une session anonyme prédéfinie par un attaquant.
         login(
             request,
             user,
@@ -116,12 +129,16 @@ class LoginView(APIView):
 )
 class LogoutView(APIView):
     """
-    Déconnecte l'utilisateur et détruit sa session actuelle.
+    Déconnecte l'utilisateur et détruit la session active.
     """
 
     permission_classes = (IsAuthenticated,)
 
     def post(self, request: Request) -> Response:
+        """
+        Supprime la session serveur de l'utilisateur.
+        """
+
         logout(request)
 
         return Response(
@@ -135,9 +152,6 @@ class LogoutView(APIView):
 class CurrentUserView(RetrieveAPIView):
     """
     Retourne les informations minimales de l'utilisateur connecté.
-
-    L'accès exige une session Django authentifiée.
-    Un utilisateur ne peut obtenir que ses propres informations.
     """
 
     serializer_class = CurrentUserSerializer
@@ -145,10 +159,7 @@ class CurrentUserView(RetrieveAPIView):
 
     def get_object(self) -> User:
         """
-        Retourne exclusivement l'utilisateur associé à la requête.
-
-        Aucun identifiant utilisateur n'est accepté dans l'URL,
-        ce qui réduit le risque d'accès horizontal non autorisé.
+        Retourne uniquement l'utilisateur associé à la requête.
         """
 
         request: Request = self.request

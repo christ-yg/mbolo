@@ -162,6 +162,30 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "same-origin"
 
+# ==========================================================
+# CACHE REDIS
+# ==========================================================
+
+REDIS_CACHE_URL = (
+    f"redis://:{env('REDIS_PASSWORD')}"
+    f"@127.0.0.1:"
+    f"{env.int('REDIS_EXPOSED_PORT', default=6379)}"
+    "/1"
+)
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_CACHE_URL,
+        "TIMEOUT": 300,
+        "KEY_PREFIX": "mbolo",
+        "OPTIONS": {
+            "socket_connect_timeout": 3,
+            "socket_timeout": 3,
+        },
+    }
+}
+
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
