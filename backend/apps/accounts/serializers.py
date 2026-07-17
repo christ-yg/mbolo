@@ -6,21 +6,16 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
+from .email_verification import (
+    ExpiredEmailVerificationToken,
+    InvalidEmailVerificationToken,
+    read_email_verification_token,
+)
 from .models import User
 
 
 class CurrentUserSerializer(serializers.ModelSerializer):
-    """
-    Sérialiseur minimal de l'utilisateur connecté.
-
-    Les champs sensibles ou internes ne sont jamais exposés :
-    - mot de passe ;
-    - permissions internes ;
-    - statut de superutilisateur ;
-    - numéro de téléphone ;
-    - jetons ;
-    - groupes administratifs.
-    """
+    """Données minimales de l'utilisateur connecté."""
 
     class Meta:
         model = User
@@ -37,12 +32,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
 
 
 class RegistrationSerializer(serializers.Serializer):
-    """
-    Valide et crée un nouveau compte utilisateur.
-
-    Le mot de passe et sa confirmation sont acceptés uniquement
-    en écriture et ne sont jamais retournés dans une réponse.
-    """
+    """Validation et création d'un compte."""
 
     email = serializers.EmailField(
         max_length=254,
@@ -54,9 +44,7 @@ class RegistrationSerializer(serializers.Serializer):
         max_length=128,
         write_only=True,
         trim_whitespace=False,
-        style={
-            "input_type": "password",
-        },
+        style={"input_type": "password"},
     )
 
     password_confirmation = serializers.CharField(
@@ -64,46 +52,26 @@ class RegistrationSerializer(serializers.Serializer):
         max_length=128,
         write_only=True,
         trim_whitespace=False,
-        style={
-            "input_type": "password",
-        },
+        style={"input_type": "password"},
     )
 
     def validate_email(
         self,
         value: str,
     ) -> str:
-        """
-        Normalise systématiquement l'adresse e-mail.
-
-        Exemple :
-        New.User@Example.COM devient new.user@example.com.
-        """
-
-        normalized_email = (
+        return (
             User.objects.normalize_email(value)
             .strip()
             .lower()
         )
 
-        return normalized_email
-
     def validate(
         self,
         attrs: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Vérifie la confirmation du mot de passe et applique
-        les validateurs de sécurité configurés dans Django.
-        """
-
         password = attrs["password"]
 
-        password_confirmation = attrs[
-            "password_confirmation"
-        ]
-
-        if password != password_confirmation:
+        if password != attrs["password_confirmation"]:
             raise serializers.ValidationError(
                 {
                     "password_confirmation": (
@@ -124,11 +92,7 @@ class RegistrationSerializer(serializers.Serializer):
             )
         except DjangoValidationError as exc:
             raise serializers.ValidationError(
-                {
-                    "password": list(
-                        exc.messages
-                    ),
-                }
+                {"password": list(exc.messages)}
             ) from exc
 
         return attrs
@@ -138,30 +102,18 @@ class RegistrationSerializer(serializers.Serializer):
         self,
         validated_data: dict[str, Any],
     ) -> User:
-        """
-        Crée le compte dans une transaction atomique.
-
-        Si une erreur intervient pendant la création,
-        aucune donnée partielle ne reste en base.
-        """
-
         validated_data.pop(
             "password_confirmation",
         )
 
-        email = validated_data["email"]
-        password = validated_data["password"]
-
         try:
-            user = User.objects.create_user(
-                email=email,
-                password=password,
+            return User.objects.create_user(
+                email=validated_data["email"],
+                password=validated_data["password"],
                 is_email_verified=False,
                 is_phone_verified=False,
             )
         except IntegrityError as exc:
-            # Le message reste générique afin de limiter
-            # l'énumération des adresses déjà enregistrées.
             raise serializers.ValidationError(
                 {
                     "detail": (
@@ -171,19 +123,9 @@ class RegistrationSerializer(serializers.Serializer):
                 }
             ) from exc
 
-        return user
-
 
 class LoginSerializer(serializers.Serializer):
-    """
-    Valide les identifiants de connexion.
-
-    Les erreurs retournées au client restent génériques afin
-    de ne pas révéler si une adresse e-mail existe.
-
-    L'attribut failure_reason est exclusivement destiné
-    à la journalisation interne de sécurité.
-    """
+    """Validation sécurisée des identifiants."""
 
     email = serializers.EmailField(
         max_length=254,
@@ -194,27 +136,16 @@ class LoginSerializer(serializers.Serializer):
         max_length=128,
         write_only=True,
         trim_whitespace=False,
-        style={
-            "input_type": "password",
-        },
+        style={"input_type": "password"},
     )
 
-    # Cette valeur n'est jamais renvoyée dans la réponse API.
-    # Elle permet uniquement à la vue de classifier l'événement
-    # de journalisation.
     failure_reason = "invalid_credentials"
 
     def validate(
         self,
         attrs: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Normalise l'e-mail puis authentifie l'utilisateur.
-        """
-
-        request = self.context.get(
-            "request"
-        )
+        request = self.context.get("request")
 
         email = (
             User.objects.normalize_email(
@@ -224,23 +155,14 @@ class LoginSerializer(serializers.Serializer):
             .lower()
         )
 
-        password = attrs["password"]
-
         user = authenticate(
             request=request,
             email=email,
-            password=password,
+            password=attrs["password"],
         )
 
-        # Le message HTTP reste identique pour :
-        # - adresse inconnue ;
-        # - mot de passe incorrect ;
-        # - compte désactivé par le backend ;
-        # - compte non authentifiable.
         if user is None:
-            self.failure_reason = (
-                "invalid_credentials"
-            )
+            self.failure_reason = "invalid_credentials"
 
             raise serializers.ValidationError(
                 {
@@ -252,34 +174,108 @@ class LoginSerializer(serializers.Serializer):
             )
 
         if not user.is_active:
-            self.failure_reason = (
-                "account_inactive"
-            )
+            self.failure_reason = "account_inactive"
 
             raise serializers.ValidationError(
                 {
                     "detail": (
-                        "Ce compte ne peut pas "
-                        "être utilisé."
+                        "Ce compte ne peut pas être utilisé."
                     )
                 }
             )
 
         if user.is_suspended:
-            self.failure_reason = (
-                "account_suspended"
-            )
+            self.failure_reason = "account_suspended"
 
             raise serializers.ValidationError(
                 {
                     "detail": (
-                        "Ce compte ne peut pas "
-                        "être utilisé."
+                        "Ce compte ne peut pas être utilisé."
                     )
                 }
             )
 
         attrs["email"] = email
+        attrs["user"] = user
+
+        return attrs
+
+
+class EmailVerificationRequestSerializer(
+    serializers.Serializer
+):
+    """
+    Valide une demande de nouvel e-mail de vérification.
+    """
+
+    email = serializers.EmailField(
+        max_length=254,
+        write_only=True,
+    )
+
+    def validate_email(
+        self,
+        value: str,
+    ) -> str:
+        return (
+            User.objects.normalize_email(value)
+            .strip()
+            .lower()
+        )
+
+
+class EmailVerificationConfirmSerializer(
+    serializers.Serializer
+):
+    """
+    Valide le jeton puis retrouve le compte correspondant.
+    """
+
+    token = serializers.CharField(
+        max_length=2048,
+        write_only=True,
+        trim_whitespace=True,
+    )
+
+    def validate(
+        self,
+        attrs: dict[str, Any],
+    ) -> dict[str, Any]:
+        try:
+            payload = read_email_verification_token(
+                attrs["token"]
+            )
+        except ExpiredEmailVerificationToken as exc:
+            raise serializers.ValidationError(
+                {
+                    "token": (
+                        "Le lien de vérification a expiré."
+                    )
+                }
+            ) from exc
+        except InvalidEmailVerificationToken as exc:
+            raise serializers.ValidationError(
+                {
+                    "token": (
+                        "Le lien de vérification est invalide."
+                    )
+                }
+            ) from exc
+
+        try:
+            user = User.objects.get(
+                id=payload.user_id,
+                email=payload.email,
+            )
+        except User.DoesNotExist as exc:
+            raise serializers.ValidationError(
+                {
+                    "token": (
+                        "Le lien de vérification est invalide."
+                    )
+                }
+            ) from exc
+
         attrs["user"] = user
 
         return attrs

@@ -1,4 +1,5 @@
 from django.contrib.auth import login, logout
+from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from rest_framework import status
@@ -11,30 +12,27 @@ from rest_framework.views import APIView
 
 from apps.core.security_logging import log_security_event
 
+from .email_verification import (
+    send_email_verification_message,
+)
 from .models import User
 from .serializers import (
     CurrentUserSerializer,
+    EmailVerificationConfirmSerializer,
+    EmailVerificationRequestSerializer,
     LoginSerializer,
     RegistrationSerializer,
 )
 from .throttles import (
+    EmailVerificationRequestEmailThrottle,
+    EmailVerificationRequestIPThrottle,
     LoginEmailThrottle,
     LoginIPThrottle,
 )
 
 
-@method_decorator(
-    csrf_protect,
-    name="dispatch",
-)
+@method_decorator(csrf_protect, name="dispatch")
 class RegisterView(APIView):
-    """
-    Crée un nouveau compte Mbolo.
-
-    La route est publique, mais exige un jeton CSRF,
-    car elle modifie les données de l'application.
-    """
-
     authentication_classes: tuple = ()
     permission_classes = (AllowAny,)
 
@@ -42,10 +40,6 @@ class RegisterView(APIView):
         self,
         request: Request,
     ) -> Response:
-        """
-        Valide les données reçues puis crée le compte.
-        """
-
         serializer = RegistrationSerializer(
             data=request.data,
         )
@@ -55,6 +49,10 @@ class RegisterView(APIView):
         )
 
         user = serializer.save()
+
+        send_email_verification_message(
+            user=user,
+        )
 
         log_security_event(
             request=request,
@@ -75,30 +73,16 @@ class RegisterView(APIView):
                     ),
                 },
                 "message": (
-                    "Compte créé. La vérification "
-                    "de l'adresse e-mail sera nécessaire."
+                    "Compte créé. Un message de "
+                    "vérification a été envoyé."
                 ),
             },
             status=status.HTTP_201_CREATED,
         )
 
 
-@method_decorator(
-    csrf_protect,
-    name="dispatch",
-)
+@method_decorator(csrf_protect, name="dispatch")
 class LoginView(APIView):
-    """
-    Authentifie un utilisateur et crée une session Django.
-
-    Les tentatives sont limitées :
-    - par adresse IP ;
-    - par adresse e-mail.
-
-    Les événements sont journalisés sans stocker
-    les identifiants en clair.
-    """
-
     authentication_classes: tuple = ()
     permission_classes = (AllowAny,)
 
@@ -111,15 +95,9 @@ class LoginView(APIView):
         self,
         request: Request,
     ) -> Response:
-        """
-        Vérifie les identifiants puis ouvre une session.
-        """
-
         serializer = LoginSerializer(
             data=request.data,
-            context={
-                "request": request,
-            },
+            context={"request": request},
         )
 
         submitted_email = request.data.get(
@@ -127,10 +105,7 @@ class LoginView(APIView):
             "",
         )
 
-        if not isinstance(
-            submitted_email,
-            str,
-        ):
+        if not isinstance(submitted_email, str):
             submitted_email = ""
 
         try:
@@ -149,20 +124,11 @@ class LoginView(APIView):
                 ),
                 email=submitted_email,
             )
-
             raise
 
-        user = serializer.validated_data[
-            "user"
-        ]
+        user = serializer.validated_data["user"]
 
-        # Django renouvelle automatiquement l'identifiant
-        # de session afin de limiter les attaques
-        # par fixation de session.
-        login(
-            request,
-            user,
-        )
+        login(request, user)
 
         log_security_event(
             request=request,
@@ -192,62 +158,30 @@ class LoginView(APIView):
         request: Request,
         wait: float,
     ) -> None:
-        """
-        Journalise les requêtes de connexion bloquées
-        par la limitation Redis.
+        email = request.data.get("email", "")
 
-        DRF générera ensuite automatiquement la réponse HTTP 429.
-        """
-
-        submitted_email = request.data.get(
-            "email",
-            "",
-        )
-
-        if not isinstance(
-            submitted_email,
-            str,
-        ):
-            submitted_email = ""
+        if not isinstance(email, str):
+            email = ""
 
         log_security_event(
             request=request,
             event="auth.login",
             outcome="blocked",
             reason="rate_limited",
-            email=submitted_email,
+            email=email,
         )
 
-        return super().throttled(
-            request,
-            wait,
-        )
+        return super().throttled(request, wait)
 
 
-@method_decorator(
-    csrf_protect,
-    name="dispatch",
-)
+@method_decorator(csrf_protect, name="dispatch")
 class LogoutView(APIView):
-    """
-    Déconnecte l'utilisateur et détruit la session active.
-    """
-
-    permission_classes = (
-        IsAuthenticated,
-    )
+    permission_classes = (IsAuthenticated,)
 
     def post(
         self,
         request: Request,
     ) -> Response:
-        """
-        Journalise la déconnexion puis détruit la session.
-
-        La journalisation est effectuée avant logout(),
-        car request.user deviendra ensuite anonyme.
-        """
-
         current_user = request.user
 
         log_security_event(
@@ -263,40 +197,148 @@ class LogoutView(APIView):
             ),
         )
 
-        logout(
-            request,
+        logout(request)
+
+        return Response(
+            {"message": "Déconnexion réussie."},
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class EmailVerificationRequestView(APIView):
+    """
+    Demande ou redemande un e-mail de vérification.
+
+    La réponse reste identique que le compte existe ou non.
+    """
+
+    authentication_classes: tuple = ()
+    permission_classes = (AllowAny,)
+
+    throttle_classes = (
+        EmailVerificationRequestIPThrottle,
+        EmailVerificationRequestEmailThrottle,
+    )
+
+    def post(
+        self,
+        request: Request,
+    ) -> Response:
+        serializer = EmailVerificationRequestSerializer(
+            data=request.data,
+        )
+
+        serializer.is_valid(
+            raise_exception=True,
+        )
+
+        email = serializer.validated_data["email"]
+
+        user = User.objects.filter(
+            email=email,
+            is_active=True,
+            is_suspended=False,
+            is_email_verified=False,
+        ).first()
+
+        if user is not None:
+            send_email_verification_message(
+                user=user,
+            )
+
+            log_security_event(
+                request=request,
+                event="auth.email_verification_request",
+                outcome="success",
+                reason="message_sent",
+                user=user,
+                email=email,
+            )
+        else:
+            log_security_event(
+                request=request,
+                event="auth.email_verification_request",
+                outcome="accepted",
+                reason="generic_response",
+                email=email,
+            )
+
+        return Response(
+            {
+                "message": (
+                    "Si un compte éligible correspond à cette "
+                    "adresse, un message de vérification sera envoyé."
+                )
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class EmailVerificationConfirmView(APIView):
+    """
+    Confirme l'adresse e-mail à partir d'un jeton signé.
+    """
+
+    authentication_classes: tuple = ()
+    permission_classes = (AllowAny,)
+
+    @transaction.atomic
+    def post(
+        self,
+        request: Request,
+    ) -> Response:
+        serializer = EmailVerificationConfirmSerializer(
+            data=request.data,
+        )
+
+        serializer.is_valid(
+            raise_exception=True,
+        )
+
+        user = serializer.validated_data["user"]
+
+        if not user.is_email_verified:
+            user.is_email_verified = True
+
+            user.save(
+                update_fields=[
+                    "is_email_verified",
+                    "updated_at",
+                ]
+            )
+
+            reason = "email_verified"
+        else:
+            reason = "already_verified"
+
+        log_security_event(
+            request=request,
+            event="auth.email_verification_confirm",
+            outcome="success",
+            reason=reason,
+            user=user,
+            email=user.email,
         )
 
         return Response(
             {
-                "message": "Déconnexion réussie.",
+                "data": {
+                    "email": user.email,
+                    "isEmailVerified": True,
+                },
+                "message": (
+                    "L'adresse e-mail est vérifiée."
+                ),
             },
             status=status.HTTP_200_OK,
         )
 
 
 class CurrentUserView(RetrieveAPIView):
-    """
-    Retourne les informations minimales
-    de l'utilisateur connecté.
-    """
+    serializer_class = CurrentUserSerializer
+    permission_classes = (IsAuthenticated,)
 
-    serializer_class = (
-        CurrentUserSerializer
-    )
-
-    permission_classes = (
-        IsAuthenticated,
-    )
-
-    def get_object(
-        self,
-    ) -> User:
-        """
-        Retourne uniquement l'utilisateur
-        associé à la requête.
-        """
-
-        request: Request = self.request
-
-        return request.user
+    def get_object(self) -> User:
+        return self.request.user

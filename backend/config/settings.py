@@ -201,3 +201,17 @@ REST_FRAMEWORK = {
 
 
 
+# ==========================================================
+# E-MAILS DE DÉVELOPPEMENT
+# ==========================================================
+
+EMAIL_BACKEND = (
+    "django.core.mail.backends.console.EmailBackend"
+)
+
+DEFAULT_FROM_EMAIL = "Mbolo <no-reply@mbolo.local>"
+
+FRONTEND_BASE_URL = env(
+    "FRONTEND_BASE_URL",
+    default="http://localhost:5173",
+)

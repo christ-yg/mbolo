@@ -13,11 +13,11 @@ class AtomicRedisThrottle(BaseThrottle):
     """
     Limiteur générique utilisant Redis.
 
-    Les compteurs sont partagés entre les processus Django
-    et les identifiants sont pseudonymisés avant stockage.
+    Les identifiants sont pseudonymisés avant stockage.
+    Les compteurs sont partagés entre les processus Django.
     """
 
-    cache_prefix: Final[str] = "auth-throttle"
+    cache_prefix: Final[str] = "security-throttle"
     limit: int
     window_seconds: int
 
@@ -99,9 +99,7 @@ class AtomicRedisThrottle(BaseThrottle):
 
 
 class LoginIPThrottle(AtomicRedisThrottle):
-    """
-    Limite les tentatives provenant d'une même adresse IP.
-    """
+    """Dix tentatives par minute pour une même IP."""
 
     limit = 10
     window_seconds = 60
@@ -120,12 +118,57 @@ class LoginIPThrottle(AtomicRedisThrottle):
 
 
 class LoginEmailThrottle(AtomicRedisThrottle):
-    """
-    Limite les tentatives visant une même adresse e-mail.
-    """
+    """Cinq tentatives par minute pour un même e-mail."""
 
     limit = 5
     window_seconds = 60
+
+    def get_identifier(
+        self,
+        request: Request,
+        view,
+    ) -> str:
+        email = request.data.get(
+            "email",
+            "",
+        )
+
+        if not isinstance(email, str):
+            return ""
+
+        return email.strip().lower()
+
+
+class EmailVerificationRequestIPThrottle(AtomicRedisThrottle):
+    """
+    Dix demandes de vérification maximum par cinq minutes
+    depuis une même adresse IP.
+    """
+
+    limit = 10
+    window_seconds = 300
+
+    def get_identifier(
+        self,
+        request: Request,
+        view,
+    ) -> str:
+        return str(
+            request.META.get(
+                "REMOTE_ADDR",
+                "",
+            )
+        )
+
+
+class EmailVerificationRequestEmailThrottle(AtomicRedisThrottle):
+    """
+    Trois demandes maximum par quinze minutes
+    pour une même adresse e-mail.
+    """
+
+    limit = 3
+    window_seconds = 900
 
     def get_identifier(
         self,
