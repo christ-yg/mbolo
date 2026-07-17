@@ -5,6 +5,42 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.middleware.csrf import get_token
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
+
+
+@method_decorator(
+    ensure_csrf_cookie,
+    name="dispatch",
+)
+class CSRFTokenView(APIView):
+    """
+    Fournit un jeton CSRF au frontend.
+
+    Le navigateur reçoit également le cookie CSRF correspondant.
+
+    Ce jeton devra être envoyé dans l'en-tête HTTP X-CSRFToken
+    pour toutes les opérations qui modifient des données.
+    """
+
+    authentication_classes: tuple = ()
+    permission_classes = (AllowAny,)
+
+    def get(self, request: Request) -> Response:
+        """
+        Génère ou récupère le jeton CSRF de la session courante.
+        """
+
+        csrf_token = get_token(request)
+
+        return Response(
+            {
+                "csrfToken": csrf_token,
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
 
 class HealthCheckView(APIView):
