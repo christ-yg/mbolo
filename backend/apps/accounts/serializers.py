@@ -1,3 +1,4 @@
+from django.contrib.auth import authenticate
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -152,3 +153,83 @@ class RegistrationSerializer(serializers.Serializer):
             ) from exc
 
         return user
+
+
+
+class LoginSerializer(serializers.Serializer):
+    """
+    Valide les identifiants de connexion.
+
+    Le message d'erreur reste volontairement générique afin
+    de ne pas révéler si une adresse e-mail existe.
+    """
+
+    email = serializers.EmailField(
+        max_length=254,
+        write_only=True,
+    )
+
+    password = serializers.CharField(
+        max_length=128,
+        write_only=True,
+        trim_whitespace=False,
+        style={
+            "input_type": "password",
+        },
+    )
+
+    def validate(self, attrs: dict) -> dict:
+        """
+        Normalise l'e-mail puis authentifie l'utilisateur.
+        """
+
+        request = self.context.get("request")
+
+        email = (
+            User.objects.normalize_email(attrs["email"])
+            .strip()
+            .lower()
+        )
+
+        password = attrs["password"]
+
+        user = authenticate(
+            request=request,
+            email=email,
+            password=password,
+        )
+
+        # Message identique pour :
+        # - compte inexistant ;
+        # - mot de passe incorrect ;
+        # - compte non authentifiable.
+        if user is None:
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "Adresse e-mail ou mot de passe incorrect."
+                    )
+                }
+            )
+
+        if not user.is_active:
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "Ce compte ne peut pas être utilisé."
+                    )
+                }
+            )
+
+        if user.is_suspended:
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "Ce compte ne peut pas être utilisé."
+                    )
+                }
+            )
+
+        attrs["user"] = user
+
+        return attrs

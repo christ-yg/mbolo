@@ -1,3 +1,4 @@
+from django.contrib.auth import login, logout
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from rest_framework import status
@@ -9,8 +10,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 
 from .models import User
+
 from .serializers import (
     CurrentUserSerializer,
+    LoginSerializer,
     RegistrationSerializer,
 )
 
@@ -54,6 +57,78 @@ class RegisterView(APIView):
                 ),
             },
             status=status.HTTP_201_CREATED,
+        )
+
+
+@method_decorator(
+    csrf_protect,
+    name="dispatch",
+)
+class LoginView(APIView):
+    """
+    Authentifie un utilisateur et crée une session Django sécurisée.
+
+    La fonction login() effectue une rotation de la clé de session,
+    ce qui limite les attaques par fixation de session.
+    """
+
+    authentication_classes: tuple = ()
+    permission_classes = (AllowAny,)
+
+    def post(self, request: Request) -> Response:
+        serializer = LoginSerializer(
+            data=request.data,
+            context={
+                "request": request,
+            },
+        )
+
+        serializer.is_valid(
+            raise_exception=True,
+        )
+
+        user = serializer.validated_data["user"]
+
+        # Django renouvelle l'identifiant de session lors
+        # de l'authentification afin d'éviter la réutilisation
+        # d'une session anonyme prédéfinie par un attaquant.
+        login(
+            request,
+            user,
+        )
+
+        return Response(
+            {
+                "data": {
+                    "id": str(user.id),
+                    "email": user.email,
+                    "isEmailVerified": user.is_email_verified,
+                },
+                "message": "Connexion réussie.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(
+    csrf_protect,
+    name="dispatch",
+)
+class LogoutView(APIView):
+    """
+    Déconnecte l'utilisateur et détruit sa session actuelle.
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request: Request) -> Response:
+        logout(request)
+
+        return Response(
+            {
+                "message": "Déconnexion réussie.",
+            },
+            status=status.HTTP_200_OK,
         )
 
 
