@@ -4,7 +4,8 @@ services:
   postgres:
     image: postgres:18.4-alpine
     container_name: mbolo-postgres
-
+    ports:
+      - "127.0.0.1:5432:5432"
     # Redémarre le service en cas d'arrêt accidentel,
     # sauf si nous l'avons explicitement arrêté.
     restart: unless-stopped
@@ -21,11 +22,6 @@ services:
       # Volume Docker persistant.
       # Les données survivent à la suppression du conteneur.
       - postgres_data:/var/lib/postgresql
-
-    ports:
-      # La base n'est accessible que depuis la machine locale.
-      # Elle n'est pas publiée sur toutes les interfaces réseau.
-      - "127.0.0.1:${POSTGRES_EXPOSED_PORT:-5432}:5432"
 
     networks:
       - data_network
@@ -53,6 +49,8 @@ services:
     image: redis:8.8-alpine
     container_name: mbolo-redis
     restart: unless-stopped
+    ports:
+     - "127.0.0.1:6379:6379"
 
     # Redis démarre sans persistance de snapshots RDB,
     # mais avec le journal AOF activé.
@@ -73,10 +71,6 @@ services:
 
     volumes:
       - redis_data:/data
-
-    ports:
-      # Redis n'est accessible que sur localhost.
-      - "127.0.0.1:${REDIS_EXPOSED_PORT:-6379}:6379"
 
     networks:
       - data_network
@@ -111,4 +105,4 @@ networks:
 
     # Ce réseau est réservé aux communications internes
     # entre nos services de données et le futur backend.
-    internal: true
+    driver: bridge
