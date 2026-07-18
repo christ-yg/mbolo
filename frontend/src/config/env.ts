@@ -1,15 +1,22 @@
 /**
  * Configuration centralisée du frontend Mbolo.
  *
- * Nous évitons de lire import.meta.env dans plusieurs composants.
- * Toutes les variables sont validées une seule fois ici.
+ * L'application ne doit pas lire directement import.meta.env
+ * dans plusieurs composants.
+ *
+ * Tous les paramètres publics sont :
+ *
+ * - récupérés ;
+ * - validés ;
+ * - normalisés ;
+ * - exposés depuis ce fichier unique.
  */
 
 /**
  * Retourne une variable d'environnement obligatoire.
  *
- * L'application s'arrête avec une erreur explicite lorsque la variable
- * est absente ou vide. Cela évite les erreurs silencieuses.
+ * Une erreur explicite est déclenchée au démarrage lorsqu'une
+ * variable est absente ou vide.
  */
 function getRequiredEnvironmentVariable(
   variableName: keyof ImportMetaEnv,
@@ -26,34 +33,84 @@ function getRequiredEnvironmentVariable(
 }
 
 /**
- * Supprime les barres obliques placées à la fin d'une URL.
+ * Supprime les barres obliques finales d'une URL ou d'un chemin.
  *
- * Exemple :
+ * Exemples :
  *
- * http://127.0.0.1:8000/
+ *     /api/                         devient /api
+ *     http://127.0.0.1:8000/        devient http://127.0.0.1:8000
  *
- * devient :
- *
- * http://127.0.0.1:8000
+ * Cela empêche la création involontaire d'URLs contenant "//".
  */
 function removeTrailingSlashes(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
 /**
+ * Vérifie que le préfixe public de l'API est un chemin local.
+ *
+ * En développement et dans l'architecture de production envisagée,
+ * le frontend doit appeler l'API par le même domaine.
+ *
+ * Exemple accepté :
+ *
+ *     /api
+ *
+ * Cette règle réduit les risques d'envoyer accidentellement
+ * les cookies ou les jetons CSRF vers un domaine externe.
+ */
+function validateApiBaseUrl(value: string): string {
+  const normalizedValue = removeTrailingSlashes(value);
+
+  if (!normalizedValue.startsWith("/")) {
+    throw new Error(
+      "VITE_API_BASE_URL doit être un chemin local commençant par '/'.",
+    );
+  }
+
+  if (normalizedValue.startsWith("//")) {
+    throw new Error(
+      "VITE_API_BASE_URL ne doit pas être une URL réseau commençant par '//'.",
+    );
+  }
+
+  return normalizedValue;
+}
+
+/**
  * Configuration immuable du frontend.
  *
- * Object.freeze empêche les modifications accidentelles pendant
+ * Object.freeze empêche une modification accidentelle pendant
  * l'exécution de l'application.
  */
 export const env = Object.freeze({
-  apiBaseUrl: removeTrailingSlashes(
+  /**
+   * Préfixe utilisé par Axios.
+   *
+   * Valeur actuelle :
+   *
+   *     /api
+   */
+  apiBaseUrl: validateApiBaseUrl(
     getRequiredEnvironmentVariable("VITE_API_BASE_URL"),
   ),
 
+  /**
+   * Environnement Vite courant :
+   *
+   * - development ;
+   * - production ;
+   * - test éventuel.
+   */
   mode: import.meta.env.MODE,
 
+  /**
+   * Vrai uniquement pendant le développement.
+   */
   isDevelopment: import.meta.env.DEV,
 
+  /**
+   * Vrai uniquement après compilation de production.
+   */
   isProduction: import.meta.env.PROD,
 });

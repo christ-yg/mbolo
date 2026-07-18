@@ -151,10 +151,50 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = "accounts.User"
 
-CSRF_TRUSTED_ORIGINS = env.list(
-    "DJANGO_CSRF_TRUSTED_ORIGINS",
-    default=["http://localhost:3000"],
-)
+# ============================================================
+# HÔTES HTTP AUTORISÉS
+# ============================================================
+#
+# Django vérifie l'en-tête HTTP Host afin d'empêcher certaines
+# attaques utilisant un nom d'hôte falsifié.
+#
+# En développement local, nous autorisons uniquement :
+#
+# - 127.0.0.1 ;
+# - localhost.
+#
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+]
+
+
+# ============================================================
+# ORIGINES CSRF AUTORISÉES
+# ============================================================
+#
+# Le frontend React/Vite fonctionne actuellement sur le port 5173.
+#
+# Le navigateur peut utiliser :
+#
+# - http://127.0.0.1:5173 ;
+# - http://localhost:5173.
+#
+# Ces origines sont explicitement autorisées pour les requêtes
+# protégées par CSRF :
+#
+# - POST ;
+# - PUT ;
+# - PATCH ;
+# - DELETE.
+#
+# Nous n'utilisons jamais "*" ici, car cela affaiblirait
+# la vérification de l'origine.
+#
+CSRF_TRUSTED_ORIGINS = [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+]
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
