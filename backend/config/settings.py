@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.profiles.apps.ProfilesConfig",
     "apps.interactions.apps.InteractionsConfig",
     "apps.safety.apps.SafetyConfig",
+    "apps.photos.apps.PhotosConfig",
 ]
 
 MIDDLEWARE = [
@@ -218,3 +219,66 @@ FRONTEND_BASE_URL = env(
     "FRONTEND_BASE_URL",
     default="http://localhost:5173",
 )
+
+
+
+
+
+# ============================================================
+# FICHIERS MÉDIAS ET PHOTOS DE PROFIL
+# ============================================================
+
+# URL publique utilisée pendant le développement local.
+#
+# En production, les médias seront servis par un stockage dédié,
+# un CDN ou un proxy web sécurisé, et non directement par Django.
+MEDIA_URL = "/media/"
+
+# Dossier physique de stockage pendant le développement.
+MEDIA_ROOT = BASE_DIR / "media"
+
+
+# ============================================================
+# LIMITES DE TÉLÉVERSEMENT
+# ============================================================
+
+# Taille maximale du corps global d'une requête multipart.
+#
+# La valeur est légèrement supérieure à la limite de l'image
+# afin de conserver de la place pour les en-têtes multipart.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024
+
+# Taille maximale avant que Django utilise un fichier temporaire
+# plutôt que de conserver entièrement l'upload en mémoire.
+FILE_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024
+
+
+# ============================================================
+# POLITIQUE DE SÉCURITÉ DES PHOTOS
+# ============================================================
+
+# Six photos maximum par profil.
+PROFILE_PHOTO_MAX_COUNT = 6
+
+# Taille maximale du fichier original : 8 Mio.
+PROFILE_PHOTO_MAX_BYTES = 8 * 1024 * 1024
+
+# Dimensions minimales.
+#
+# Une image trop petite devient floue après recadrage.
+PROFILE_PHOTO_MIN_WIDTH = 320
+PROFILE_PHOTO_MIN_HEIGHT = 320
+
+# Dimensions maximales acceptées avant réencodage.
+#
+# Cette limite contribue à réduire les risques liés
+# aux bombes de décompression et à la consommation mémoire.
+PROFILE_PHOTO_MAX_WIDTH = 6000
+PROFILE_PHOTO_MAX_HEIGHT = 6000
+
+# Dimensions du fichier final réencodé.
+PROFILE_PHOTO_OUTPUT_MAX_WIDTH = 1600
+PROFILE_PHOTO_OUTPUT_MAX_HEIGHT = 1600
+
+# Qualité WebP du fichier final.
+PROFILE_PHOTO_WEBP_QUALITY = 88

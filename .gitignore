@@ -115,3 +115,9 @@ temp/
 *.bak
 *.backup
 *.old
+
+# Fichiers médias téléversés localement.
+backend/media/
+
+# Fichiers temporaires créés pendant le traitement des images.
+backend/tmp/

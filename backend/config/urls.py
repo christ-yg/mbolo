@@ -18,7 +18,8 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import include, path
-
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path(
@@ -48,4 +49,21 @@ urlpatterns = [
     	"api/v1/safety/",
     	include("apps.safety.urls"),
     ),
+
+    path(
+    	"api/v1/profiles/photos/",
+    	include("apps.photos.urls"),
+    ),
+
 ]
+
+
+# Django sert les médias uniquement pendant le développement local.
+#
+# En production, cette responsabilité sera confiée à un stockage
+# d'objets, un CDN ou un proxy web sécurisé.
+if settings.DEBUG:
+    urlpatterns += static(
+        settings.MEDIA_URL,
+        document_root=settings.MEDIA_ROOT,
+    )
