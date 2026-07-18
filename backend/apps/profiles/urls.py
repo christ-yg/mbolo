@@ -1,6 +1,9 @@
 from django.urls import path
 
-from .views import CurrentProfileView
+from .views import (
+    CurrentProfileView,
+    CurrentSearchPreferencesView,
+)
 
 
 app_name = "profiles"
@@ -10,5 +13,10 @@ urlpatterns = [
         "me/",
         CurrentProfileView.as_view(),
         name="current-profile",
+    ),
+    path(
+        "preferences/me/",
+        CurrentSearchPreferencesView.as_view(),
+        name="current-search-preferences",
     ),
 ]

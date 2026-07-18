@@ -3,21 +3,22 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
 class Gender(models.TextChoices):
     """
-    Valeurs initiales proposées pour le genre public.
-
-    Nous stockons des codes techniques stables en base et
-    affichons des libellés français dans l'interface.
+    Valeurs techniques stables utilisées pour le genre public.
     """
 
     MAN = "man", "Homme"
     WOMAN = "woman", "Femme"
     NON_BINARY = "non_binary", "Non binaire"
-    PREFER_NOT_TO_SAY = "prefer_not_to_say", "Préfère ne pas préciser"
+    PREFER_NOT_TO_SAY = (
+        "prefer_not_to_say",
+        "Préfère ne pas préciser",
+    )
 
 
 class DatingIntent(models.TextChoices):
@@ -38,9 +39,6 @@ class DatingIntent(models.TextChoices):
 class GabonCity(models.TextChoices):
     """
     Première liste normalisée de villes gabonaises.
-
-    Cette liste pourra ensuite être remplacée par une table
-    géographique plus complète avec provinces et coordonnées.
     """
 
     LIBREVILLE = "libreville", "Libreville"
@@ -62,10 +60,10 @@ def calculate_age(
     reference_date: date | None = None,
 ) -> int:
     """
-    Calcule l'âge exact à une date de référence.
+    Calcule l'âge exact à une date donnée.
 
-    La soustraction tient compte du fait que l'anniversaire
-    ait déjà eu lieu ou non pendant l'année courante.
+    La formule tient compte du fait que l'anniversaire
+    soit déjà passé ou non pendant l'année courante.
     """
 
     today = reference_date or date.today()
@@ -84,10 +82,7 @@ def validate_adult_birth_date(
     value: date,
 ) -> None:
     """
-    Refuse les utilisateurs de moins de 18 ans.
-
-    Une application de rencontre ne doit pas permettre
-    l'inscription ou l'exposition publique de mineurs.
+    Refuse les dates futures et les personnes de moins de 18 ans.
     """
 
     if value > date.today():
@@ -101,18 +96,73 @@ def validate_adult_birth_date(
         )
 
 
+def validate_choice_list(
+    *,
+    values,
+    allowed_values: set[str],
+    field_name: str,
+) -> None:
+    """
+    Valide une liste stockée dans un JSONField.
+
+    Contrôles :
+    - la valeur doit être une liste ;
+    - chaque élément doit être une chaîne ;
+    - aucun doublon ;
+    - toutes les valeurs doivent être autorisées.
+    """
+
+    if not isinstance(values, list):
+        raise ValidationError(
+            {
+                field_name: (
+                    "La valeur doit être une liste."
+                )
+            }
+        )
+
+    if any(
+        not isinstance(value, str)
+        for value in values
+    ):
+        raise ValidationError(
+            {
+                field_name: (
+                    "Chaque élément doit être une chaîne."
+                )
+            }
+        )
+
+    if len(values) != len(set(values)):
+        raise ValidationError(
+            {
+                field_name: (
+                    "La liste ne doit pas contenir de doublons."
+                )
+            }
+        )
+
+    invalid_values = sorted(
+        set(values) - allowed_values
+    )
+
+    if invalid_values:
+        raise ValidationError(
+            {
+                field_name: (
+                    "Valeurs non autorisées : "
+                    + ", ".join(invalid_values)
+                )
+            }
+        )
+
+
 class Profile(models.Model):
     """
     Profil public de rencontre associé à un compte Mbolo.
 
-    Le compte d'authentification contient les données techniques :
-    - e-mail ;
-    - mot de passe ;
-    - permissions ;
-    - statut du compte.
-
-    Le profil contient les données sociales et publiques.
-    Cette séparation réduit les risques de surexposition.
+    Les données publiques sont séparées des informations
+    techniques d'authentification.
     """
 
     id = models.UUIDField(
@@ -170,10 +220,6 @@ class Profile(models.Model):
 
     is_discoverable = models.BooleanField(
         default=False,
-        help_text=(
-            "Autorise l'apparition du profil dans les résultats "
-            "de découverte."
-        ),
     )
 
     created_at = models.DateTimeField(
@@ -189,19 +235,12 @@ class Profile(models.Model):
         ordering = ("-created_at",)
 
     def __str__(self) -> str:
-        """
-        Représentation administrative sans exposer l'e-mail.
-        """
-
         return f"Profile<{self.id}>"
 
     @property
     def age(self) -> int | None:
         """
-        Retourne l'âge calculé sans le stocker en base.
-
-        L'âge évolue avec le temps ; le stocker directement
-        créerait une donnée rapidement obsolète.
+        Calcule l'âge à la demande sans le stocker.
         """
 
         if self.birth_date is None:
@@ -214,7 +253,7 @@ class Profile(models.Model):
     @property
     def is_complete(self) -> bool:
         """
-        Indique si les informations minimales sont présentes.
+        Vérifie la présence des informations minimales.
         """
 
         return all(
@@ -229,7 +268,7 @@ class Profile(models.Model):
 
     def clean(self) -> None:
         """
-        Applique les validations métier du modèle.
+        Applique les principales règles métier.
         """
 
         super().clean()
@@ -239,7 +278,10 @@ class Profile(models.Model):
                 self.birth_date
             )
 
-        if self.is_discoverable and not self.is_complete:
+        if (
+            self.is_discoverable
+            and not self.is_complete
+        ):
             raise ValidationError(
                 {
                     "is_discoverable": (
@@ -268,11 +310,154 @@ class Profile(models.Model):
         **kwargs,
     ) -> None:
         """
-        Valide le modèle avant chaque sauvegarde.
+        Exécute les validations avant chaque sauvegarde.
+        """
 
-        Cela évite de dépendre uniquement du sérialiseur API :
-        les règles restent actives dans l'administration,
-        les scripts et les tâches asynchrones.
+        self.full_clean()
+
+        super().save(
+            *args,
+            **kwargs,
+        )
+
+
+class SearchPreferences(models.Model):
+    """
+    Préférences privées utilisées par le moteur de découverte.
+
+    Elles ne sont pas destinées à être visibles publiquement.
+
+    JSONField est utilisé pour stocker plusieurs choix tout en
+    conservant une architecture compatible avec PostgreSQL.
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid4,
+        editable=False,
+    )
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="search_preferences",
+    )
+
+    minimum_age = models.PositiveSmallIntegerField(
+        default=18,
+        validators=[
+            MinValueValidator(18),
+            MaxValueValidator(99),
+        ],
+    )
+
+    maximum_age = models.PositiveSmallIntegerField(
+        default=45,
+        validators=[
+            MinValueValidator(18),
+            MaxValueValidator(99),
+        ],
+    )
+
+    preferred_genders = models.JSONField(
+        default=list,
+        blank=True,
+    )
+
+    preferred_cities = models.JSONField(
+        default=list,
+        blank=True,
+    )
+
+    preferred_dating_intents = models.JSONField(
+        default=list,
+        blank=True,
+    )
+
+    maximum_distance_km = models.PositiveSmallIntegerField(
+        default=50,
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(500),
+        ],
+    )
+
+    only_verified_profiles = models.BooleanField(
+        default=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        db_table = "profiles_search_preferences"
+        ordering = ("-created_at",)
+        verbose_name = "Préférences de recherche"
+        verbose_name_plural = "Préférences de recherche"
+
+    def __str__(self) -> str:
+        """
+        Représentation administrative sans e-mail.
+        """
+
+        return f"SearchPreferences<{self.id}>"
+
+    def clean(self) -> None:
+        """
+        Valide la cohérence des préférences.
+        """
+
+        super().clean()
+
+        if self.minimum_age > self.maximum_age:
+            raise ValidationError(
+                {
+                    "maximum_age": (
+                        "L'âge maximum doit être supérieur "
+                        "ou égal à l'âge minimum."
+                    )
+                }
+            )
+
+        validate_choice_list(
+            values=self.preferred_genders,
+            allowed_values={
+                choice.value
+                for choice in Gender
+            },
+            field_name="preferred_genders",
+        )
+
+        validate_choice_list(
+            values=self.preferred_cities,
+            allowed_values={
+                choice.value
+                for choice in GabonCity
+            },
+            field_name="preferred_cities",
+        )
+
+        validate_choice_list(
+            values=self.preferred_dating_intents,
+            allowed_values={
+                choice.value
+                for choice in DatingIntent
+            },
+            field_name="preferred_dating_intents",
+        )
+
+    def save(
+        self,
+        *args,
+        **kwargs,
+    ) -> None:
+        """
+        Valide systématiquement les préférences avant sauvegarde.
         """
 
         self.full_clean()

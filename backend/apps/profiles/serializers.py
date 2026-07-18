@@ -4,15 +4,18 @@ from typing import Any
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from .models import Profile
+from .models import (
+    DatingIntent,
+    GabonCity,
+    Gender,
+    Profile,
+    SearchPreferences,
+)
 
 
 class ProfileSerializer(serializers.ModelSerializer):
     """
-    Sérialiseur du profil appartenant à l'utilisateur connecté.
-
-    Les champs techniques et la relation User ne peuvent pas
-    être modifiés directement par le client.
+    Sérialiseur du profil de l'utilisateur connecté.
     """
 
     age = serializers.IntegerField(
@@ -53,17 +56,17 @@ class ProfileSerializer(serializers.ModelSerializer):
         self,
         value: str,
     ) -> str:
-        """
-        Nettoie le nom public et refuse les valeurs trop faibles.
-        """
-
         normalized_value = " ".join(
             value.split()
         )
 
-        if normalized_value and len(normalized_value) < 2:
+        if (
+            normalized_value
+            and len(normalized_value) < 2
+        ):
             raise serializers.ValidationError(
-                "Le nom public doit contenir au moins deux caractères."
+                "Le nom public doit contenir "
+                "au moins deux caractères."
             )
 
         return normalized_value
@@ -72,20 +75,12 @@ class ProfileSerializer(serializers.ModelSerializer):
         self,
         value: str,
     ) -> str:
-        """
-        Supprime les espaces inutiles sans transformer le contenu.
-        """
-
         return value.strip()
 
     def validate_birth_date(
         self,
         value: date,
     ) -> date:
-        """
-        Exécute explicitement les validateurs du champ modèle.
-        """
-
         field = Profile._meta.get_field(
             "birth_date"
         )
@@ -105,13 +100,6 @@ class ProfileSerializer(serializers.ModelSerializer):
         self,
         attrs: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Valide l'état final du profil, y compris pour PATCH.
-
-        Lors d'une mise à jour partielle, nous fusionnons les nouvelles
-        valeurs avec celles déjà enregistrées avant d'évaluer les règles.
-        """
-
         instance = self.instance
 
         if instance is None:
@@ -145,13 +133,9 @@ class ProfileSerializer(serializers.ModelSerializer):
             instance.is_discoverable,
         )
 
-        future_is_complete = all(
-            future_values.values()
-        )
-
         if (
             future_is_discoverable
-            and not future_is_complete
+            and not all(future_values.values())
         ):
             raise serializers.ValidationError(
                 {
@@ -171,6 +155,151 @@ class ProfileSerializer(serializers.ModelSerializer):
                     "is_discoverable": (
                         "Vérifiez votre adresse e-mail avant "
                         "de rendre le profil visible."
+                    )
+                }
+            )
+
+        return attrs
+
+
+class SearchPreferencesSerializer(
+    serializers.ModelSerializer
+):
+    """
+    Sérialiseur privé des préférences de découverte.
+
+    Le client ne peut jamais remplacer :
+    - l'identifiant ;
+    - le propriétaire ;
+    - les dates techniques.
+    """
+
+    preferred_genders = serializers.ListField(
+        child=serializers.ChoiceField(
+            choices=Gender.choices,
+        ),
+        allow_empty=True,
+        required=False,
+    )
+
+    preferred_cities = serializers.ListField(
+        child=serializers.ChoiceField(
+            choices=GabonCity.choices,
+        ),
+        allow_empty=True,
+        required=False,
+    )
+
+    preferred_dating_intents = serializers.ListField(
+        child=serializers.ChoiceField(
+            choices=DatingIntent.choices,
+        ),
+        allow_empty=True,
+        required=False,
+    )
+
+    class Meta:
+        model = SearchPreferences
+
+        fields = (
+            "id",
+            "minimum_age",
+            "maximum_age",
+            "preferred_genders",
+            "preferred_cities",
+            "preferred_dating_intents",
+            "maximum_distance_km",
+            "only_verified_profiles",
+            "created_at",
+            "updated_at",
+        )
+
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+        )
+
+    @staticmethod
+    def validate_unique_list(
+        value: list[str],
+    ) -> list[str]:
+        """
+        Refuse les doublons tout en conservant l'ordre.
+        """
+
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError(
+                "La liste ne doit pas contenir de doublons."
+            )
+
+        return value
+
+    def validate_preferred_genders(
+        self,
+        value: list[str],
+    ) -> list[str]:
+        return self.validate_unique_list(
+            value
+        )
+
+    def validate_preferred_cities(
+        self,
+        value: list[str],
+    ) -> list[str]:
+        return self.validate_unique_list(
+            value
+        )
+
+    def validate_preferred_dating_intents(
+        self,
+        value: list[str],
+    ) -> list[str]:
+        return self.validate_unique_list(
+            value
+        )
+
+    def validate(
+        self,
+        attrs: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Vérifie la cohérence de la tranche d'âge finale.
+
+        Cette logique fonctionne également lors d'un PATCH
+        ne contenant qu'un seul des deux âges.
+        """
+
+        instance = self.instance
+
+        current_minimum = (
+            instance.minimum_age
+            if instance is not None
+            else 18
+        )
+
+        current_maximum = (
+            instance.maximum_age
+            if instance is not None
+            else 45
+        )
+
+        future_minimum = attrs.get(
+            "minimum_age",
+            current_minimum,
+        )
+
+        future_maximum = attrs.get(
+            "maximum_age",
+            current_maximum,
+        )
+
+        if future_minimum > future_maximum:
+            raise serializers.ValidationError(
+                {
+                    "maximum_age": (
+                        "L'âge maximum doit être supérieur "
+                        "ou égal à l'âge minimum."
                     )
                 }
             )
