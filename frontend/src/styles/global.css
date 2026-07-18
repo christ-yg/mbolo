@@ -1774,3 +1774,218 @@ svg {
     animation-duration: 1.8s;
   }
 }
+
+/* ============================================================
+   EN-TÊTE — SESSION UTILISATEUR AUTHENTIFIÉE
+   ============================================================ */
+
+/**
+ * Conteneur de l'identité et du bouton de déconnexion.
+ */
+.public-header__account {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+/**
+ * Zone affichant l'avatar et l'adresse e-mail.
+ */
+.public-header__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+/**
+ * Avatar provisoire utilisant la première lettre
+ * de l'adresse e-mail.
+ */
+.public-header__avatar {
+  display: grid;
+  width: 39px;
+  height: 39px;
+  flex: 0 0 39px;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-primary),
+      var(--color-primary-dark)
+    );
+  box-shadow:
+    0 8px 22px rgb(163 47 97 / 20%);
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+/**
+ * Les deux lignes :
+ *
+ * - Compte connecté ;
+ * - adresse e-mail.
+ */
+.public-header__identity-text {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.public-header__identity-text small {
+  color: var(--color-text-muted);
+  font-size: 0.61rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.public-header__identity-text span {
+  max-width: 190px;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 0.76rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/**
+ * Bouton de déconnexion.
+ *
+ * Son apparence est volontairement moins dominante que
+ * le bouton principal d'inscription.
+ */
+.public-header__logout-button {
+  min-height: 42px;
+  padding: 0 17px;
+  cursor: pointer;
+  border: 1px solid rgb(163 47 97 / 18%);
+  border-radius: 999px;
+  color: var(--color-primary);
+  background: white;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.public-header__logout-button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: white;
+  background: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.public-header__logout-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+/**
+ * Texte temporaire pendant la récupération de /auth/me/.
+ */
+.public-header__session-loading {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/**
+ * Message global lorsqu'une déconnexion échoue.
+ */
+.global-session-alert {
+  position: fixed;
+  z-index: 1000;
+  right: 22px;
+  bottom: 22px;
+  display: flex;
+  width: min(calc(100% - 44px), 430px);
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px 16px;
+  border: 1px solid rgb(180 35 60 / 16%);
+  border-radius: 16px;
+  color: #8d1830;
+  background: #fff0f3;
+  box-shadow:
+    0 20px 55px rgb(80 30 50 / 18%);
+}
+
+.global-session-alert > span {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background: #ae2540;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.global-session-alert p {
+  flex: 1;
+  margin: 2px 0 0;
+  font-size: 0.79rem;
+  line-height: 1.5;
+}
+
+.global-session-alert button {
+  padding: 0;
+  cursor: pointer;
+  border: 0;
+  color: currentColor;
+  background: transparent;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+/* ============================================================
+   RESPONSIVE DE L'EN-TÊTE AUTHENTIFIÉ
+   ============================================================ */
+
+@media (max-width: 1050px) {
+  .public-header__identity-text {
+    display: none;
+  }
+
+  .public-header__account {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 760px) {
+  .public-header__navigation {
+    display: none;
+  }
+
+  .public-header__logout-button {
+    min-height: 39px;
+    padding-inline: 13px;
+    font-size: 0.69rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .public-header__avatar {
+    display: none;
+  }
+
+  .public-header__logout-button {
+    padding-inline: 12px;
+  }
+
+  .global-session-alert {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100% - 24px);
+  }
+}
