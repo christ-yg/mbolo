@@ -43,4 +43,9 @@ urlpatterns = [
         "api/v1/",
         include("apps.interactions.urls"),
     ),
+
+    path(
+    	"api/v1/safety/",
+    	include("apps.safety.urls"),
+    ),
 ]

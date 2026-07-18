@@ -1,7 +1,39 @@
+"""
+Service de construction du moteur de découverte Mbolo.
+
+Ce fichier contient la logique de filtrage des profils proposés
+à l'utilisateur connecté.
+
+La requête applique notamment les règles suivantes :
+
+- exclure le propre profil de l'utilisateur ;
+- exclure les profils invisibles ;
+- exclure les comptes inactifs ;
+- exclure les comptes suspendus ;
+- exclure les comptes non vérifiés ;
+- exclure les profils incomplets ;
+- respecter les préférences d'âge ;
+- respecter les préférences de genre ;
+- respecter les préférences de ville ;
+- respecter les intentions de rencontre ;
+- exclure les blocages dans les deux directions.
+
+La logique reste dans un service séparé afin de pouvoir être
+réutilisée par :
+
+- l'application web ;
+- l'application mobile ;
+- une future tâche de recommandation ;
+- des tests unitaires ;
+- un moteur de compatibilité plus avancé.
+"""
+
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.db.models import QuerySet
+
+from apps.safety.models import Block
 
 from .models import (
     Profile,
@@ -9,10 +41,10 @@ from .models import (
 )
 
 
-# Nous récupérons le modèle User réellement configuré dans Django.
+# Récupère le modèle User réellement configuré dans Django.
 #
-# Cette méthode est préférable à un import direct de accounts.User,
-# car elle respecte la valeur AUTH_USER_MODEL de settings.py.
+# Cette méthode respecte AUTH_USER_MODEL et évite d'importer
+# directement une classe utilisateur spécifique.
 User = get_user_model()
 
 
@@ -24,11 +56,12 @@ def subtract_years(
     Retire un nombre d'années à une date.
 
     Exemple :
-        18 juillet 2026 - 18 ans = 18 juillet 2008
 
-    Le cas du 29 février est traité séparément :
-    certaines années ne possèdent pas de 29 février.
-    Dans ce cas, nous utilisons le 28 février.
+        18 juillet 2026 - 18 ans
+        = 18 juillet 2008
+
+    Le cas du 29 février est traité séparément car certaines
+    années ne possèdent pas de 29 février.
     """
 
     try:
@@ -50,38 +83,35 @@ def calculate_birth_date_bounds(
     reference_date: date | None = None,
 ) -> tuple[date, date]:
     """
-    Calcule les limites de dates de naissance correspondant
-    à une tranche d'âge inclusive.
+    Transforme une tranche d'âge en intervalle de dates de naissance.
 
     Exemple :
 
         minimum_age = 25
         maximum_age = 40
 
-    Nous cherchons les personnes âgées de 25 à 40 ans,
-    en incluant les deux limites.
+    La base de données filtrera les dates de naissance correspondant
+    aux personnes ayant entre 25 et 40 ans inclusivement.
 
-    La valeur retournée contient :
-
-        date_de_naissance_la_plus_ancienne
-        date_de_naissance_la_plus_récente
+    Cette méthode évite de charger tous les profils en mémoire Python
+    pour calculer leur âge un par un.
     """
 
     today = reference_date or date.today()
 
-    # Une personne ayant exactement minimum_age ans aujourd'hui
-    # peut être née jusqu'à cette date incluse.
+    # Date de naissance la plus récente autorisée.
+    #
+    # Une personne née après cette date serait trop jeune.
     latest_allowed_birth_date = subtract_years(
         today,
         minimum_age,
     )
 
-    # Pour inclure toutes les personnes ayant maximum_age ans,
-    # nous calculons d'abord la date correspondant à
-    # maximum_age + 1 ans, puis nous ajoutons un jour.
+    # Date de naissance la plus ancienne autorisée.
     #
-    # Ainsi, les personnes qui n'ont pas encore atteint
-    # maximum_age + 1 ans restent incluses.
+    # Nous retirons maximum_age + 1 années, puis ajoutons un jour,
+    # afin d'inclure toutes les personnes ayant exactement l'âge
+    # maximum demandé.
     earliest_allowed_birth_date = (
         subtract_years(
             today,
@@ -101,15 +131,9 @@ def get_or_create_search_preferences(
     user: User,
 ) -> SearchPreferences:
     """
-    Récupère les préférences privées de l'utilisateur.
+    Retourne les préférences privées de l'utilisateur.
 
-    Si elles n'existent pas encore, Django crée automatiquement
-    les valeurs par défaut :
-
-        minimum_age = 18
-        maximum_age = 45
-        distance = 50 km
-        profils vérifiés uniquement = True
+    Si elles n'existent pas, les préférences par défaut sont créées.
     """
 
     preferences, _created = (
@@ -121,18 +145,63 @@ def get_or_create_search_preferences(
     return preferences
 
 
+def get_blocked_user_ids(
+    *,
+    user: User,
+) -> set:
+    """
+    Retourne les identifiants des utilisateurs bloqués dans les deux sens.
+
+    Deux situations sont prises en compte :
+
+    1. l'utilisateur connecté a bloqué une personne ;
+    2. une autre personne a bloqué l'utilisateur connecté.
+
+    Exemple :
+
+        Christ bloque Marie
+        → Marie est exclue de la découverte de Christ.
+
+        Marie bloque Christ
+        → Marie est également exclue de la découverte de Christ.
+
+    Nous utilisons un set Python pour supprimer automatiquement
+    les éventuels doublons.
+    """
+
+    # Utilisateurs bloqués directement par l'utilisateur courant.
+    users_blocked_by_current_user = Block.objects.filter(
+        blocker=user,
+    ).values_list(
+        "blocked_user_id",
+        flat=True,
+    )
+
+    # Utilisateurs ayant bloqué l'utilisateur courant.
+    users_who_blocked_current_user = Block.objects.filter(
+        blocked_user=user,
+    ).values_list(
+        "blocker_id",
+        flat=True,
+    )
+
+    return {
+        *users_blocked_by_current_user,
+        *users_who_blocked_current_user,
+    }
+
+
 def build_discovery_queryset(
     *,
     user: User,
 ) -> QuerySet[Profile]:
     """
-    Construit la requête du moteur de découverte.
+    Construit le QuerySet sécurisé du moteur de découverte.
 
-    Cette fonction ne retourne pas immédiatement une liste Python.
-    Elle retourne un QuerySet Django.
+    Un QuerySet est une représentation paresseuse d'une requête SQL.
 
-    Un QuerySet représente une requête SQL qui sera réellement
-    exécutée lorsque les résultats seront utilisés ou sérialisés.
+    La requête n'est généralement exécutée que lorsque les résultats
+    sont réellement parcourus, paginés ou sérialisés.
     """
 
     preferences = get_or_create_search_preferences(
@@ -147,50 +216,59 @@ def build_discovery_queryset(
         maximum_age=preferences.maximum_age,
     )
 
+    # Récupération des comptes qui doivent être totalement exclus
+    # en raison d'un blocage dans l'un des deux sens.
+    blocked_user_ids = get_blocked_user_ids(
+        user=user,
+    )
+
     queryset = (
         Profile.objects
 
-        # select_related("user") demande à Django de récupérer
-        # le profil et son utilisateur dans une seule requête SQL.
+        # Charge Profile et User dans une seule requête SQL.
         #
-        # Sans cela, accéder à profile.user pour chaque résultat
-        # pourrait provoquer le problème N+1 :
-        #
-        # 1 requête pour les profils
-        # + 1 requête supplémentaire par utilisateur.
+        # Cela évite le problème N+1 lorsque le sérialiseur accède
+        # à profile.user pour chaque résultat.
         .select_related("user")
 
-        # L'utilisateur ne doit jamais apparaître
-        # dans ses propres résultats de découverte.
+        # Un utilisateur ne doit jamais apparaître
+        # dans sa propre découverte.
         .exclude(
             user=user,
         )
 
-        # Un profil doit avoir volontairement activé sa visibilité.
+        # Exclusion bidirectionnelle des utilisateurs bloqués.
+        #
+        # Si le set est vide, cette exclusion reste parfaitement valide.
+        .exclude(
+            user_id__in=blocked_user_ids,
+        )
+
+        # Le propriétaire du profil doit avoir volontairement
+        # rendu son profil découvrable.
         .filter(
             is_discoverable=True,
         )
 
-        # Le compte associé doit être actif.
+        # Le compte doit être actif.
         .filter(
             user__is_active=True,
         )
 
-        # Les comptes suspendus ne doivent jamais apparaître.
+        # Le compte ne doit pas être suspendu.
         .filter(
             user__is_suspended=False,
         )
 
-        # Sur Mbolo, la vérification de l'e-mail est obligatoire
-        # avant toute apparition dans la découverte.
+        # L'adresse e-mail doit être vérifiée.
         .filter(
             user__is_email_verified=True,
         )
 
-        # Un profil incomplet ne doit pas apparaître.
+        # Exclusion des profils incomplets.
         #
-        # Les chaînes vides correspondent aux valeurs par défaut
-        # de ces champs dans notre modèle Profile.
+        # Nos champs facultatifs utilisent une chaîne vide
+        # comme valeur initiale.
         .exclude(
             display_name="",
         )
@@ -208,9 +286,6 @@ def build_discovery_queryset(
         )
 
         # Filtrage de l'âge directement dans PostgreSQL.
-        #
-        # Cela évite de charger tous les profils en mémoire Python
-        # uniquement pour calculer leur âge un par un.
         .filter(
             birth_date__range=(
                 earliest_birth_date,
@@ -220,36 +295,32 @@ def build_discovery_queryset(
     )
 
     # Une liste vide signifie :
-    # "Je n'applique aucun filtre sur le genre."
+    # aucun filtre spécifique sur les genres.
     if preferences.preferred_genders:
         queryset = queryset.filter(
-            gender__in=(
-                preferences.preferred_genders
-            )
+            gender__in=preferences.preferred_genders,
         )
 
     # Une liste vide signifie :
-    # "Toutes les villes sont acceptées."
+    # toutes les villes sont acceptées.
     if preferences.preferred_cities:
         queryset = queryset.filter(
-            city__in=(
-                preferences.preferred_cities
-            )
+            city__in=preferences.preferred_cities,
         )
 
     # Une liste vide signifie :
-    # "Toutes les intentions sont acceptées."
+    # toutes les intentions de rencontre sont acceptées.
     if preferences.preferred_dating_intents:
         queryset = queryset.filter(
             dating_intent__in=(
                 preferences.preferred_dating_intents
-            )
+            ),
         )
 
-    # Nous utilisons un ordre stable.
+    # Ordre stable des résultats.
     #
-    # L'UUID permet de départager deux profils créés
-    # exactement au même moment.
+    # L'UUID départage les profils qui auraient exactement
+    # la même date de création.
     return queryset.order_by(
         "-created_at",
         "id",

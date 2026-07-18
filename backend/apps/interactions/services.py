@@ -1,24 +1,20 @@
 """
 Services métier du module des interactions.
 
-Ce fichier contient la logique sensible qui ne doit pas être
-placée directement dans les vues HTTP.
+Ce fichier centralise la logique sensible des likes, des passes
+et des matchs.
 
-Séparer la logique métier des vues présente plusieurs avantages :
+Les principales protections utilisées sont :
 
-- réutilisation future par l'application mobile ;
-- tests unitaires plus simples ;
-- transactions centralisées ;
-- réduction du risque de duplication de code ;
-- meilleure lisibilité ;
-- meilleure traçabilité des règles de sécurité.
-
-Les opérations critiques utilisent :
-
-- transaction.atomic() ;
-- select_for_update() ;
-- contraintes d'unicité PostgreSQL ;
-- validation multicouche ;
+- authentification vérifiée par les vues ;
+- validation métier ;
+- contrôle des comptes suspendus ;
+- contrôle de la vérification d'e-mail ;
+- contrôle des blocages bidirectionnels ;
+- transactions atomiques ;
+- verrouillage avec select_for_update() ;
+- contraintes PostgreSQL ;
+- ordre canonique des matchs ;
 - messages génériques contre l'énumération.
 """
 
@@ -29,6 +25,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from apps.profiles.models import Profile
+from apps.safety.services import users_are_blocked
 
 from .models import (
     Interaction,
@@ -42,21 +39,16 @@ class InteractionResult:
     """
     Résultat immuable d'une opération d'interaction.
 
-    frozen=True empêche de modifier accidentellement les données
-    après la création de l'objet.
-
-    Attributs :
-
     interaction
-        Interaction LIKE ou PASS enregistrée.
+        Ligne LIKE ou PASS enregistrée.
 
     interaction_created
         True si une nouvelle ligne a été créée.
-        False si une interaction existante a été modifiée.
+        False si une ligne existante a été modifiée.
 
     match
-        Match existant ou nouvellement créé.
-        None lorsqu'aucun match n'existe.
+        Match créé ou retrouvé.
+        None lorsqu'il n'existe aucun match.
 
     match_created
         True uniquement lorsqu'un nouveau match vient d'être créé.
@@ -74,16 +66,12 @@ def canonical_profile_pair(
     second_profile: Profile,
 ) -> tuple[Profile, Profile]:
     """
-    Retourne deux profils dans un ordre canonique et stable.
+    Place deux profils dans un ordre stable.
 
-    Sans ordre canonique, les paires suivantes pourraient être
-    considérées comme différentes :
+    Cet ordre empêche la création de deux matchs équivalents :
 
         A / B
         B / A
-
-    Avec l'ordre canonique, le profil ayant le plus petit UUID
-    est toujours stocké dans profile_one.
     """
 
     if first_profile.id == second_profile.id:
@@ -102,19 +90,16 @@ def validate_actor(
     actor,
 ) -> Profile:
     """
-    Vérifie que l'utilisateur connecté est autorisé à interagir.
+    Vérifie que l'utilisateur connecté peut effectuer une interaction.
 
-    Conditions obligatoires :
+    Conditions :
 
     - compte actif ;
     - compte non suspendu ;
     - adresse e-mail vérifiée ;
     - profil existant ;
     - profil complet ;
-    - profil visible dans la découverte.
-
-    Un utilisateur qui refuse d'être visible ne doit pas pouvoir
-    interagir anonymement avec les autres profils.
+    - profil découvrable.
     """
 
     if not actor.is_active:
@@ -133,8 +118,6 @@ def validate_actor(
         )
 
     try:
-        # select_for_update() verrouille le profil jusqu'à la fin
-        # de la transaction courante.
         actor_profile = (
             Profile.objects
             .select_for_update()
@@ -169,15 +152,15 @@ def validate_target_profile(
     """
     Vérifie que le profil ciblé peut recevoir une interaction.
 
-    Nous utilisons volontairement un message générique lorsque :
+    Un message générique est utilisé lorsque le profil :
 
-    - le profil n'existe pas ;
-    - le profil est privé ;
-    - le compte est suspendu ;
-    - le compte est désactivé ;
-    - l'e-mail n'est pas vérifié.
+    - n'existe pas ;
+    - est privé ;
+    - appartient à un compte inactif ;
+    - appartient à un compte suspendu ;
+    - appartient à un compte non vérifié.
 
-    Cette uniformité réduit le risque d'énumération des profils.
+    Cela réduit les possibilités d'énumération des comptes.
     """
 
     try:
@@ -209,6 +192,21 @@ def validate_target_profile(
             "Le profil demandé n'est pas disponible."
         )
 
+    # Contrôle de blocage bidirectionnel.
+    #
+    # Il suffit que l'un des deux utilisateurs ait bloqué l'autre
+    # pour interdire totalement les interactions.
+    if users_are_blocked(
+        first_user=actor,
+        second_user=target_profile.user,
+    ):
+        # Message volontairement générique.
+        #
+        # Nous ne révélons pas qui a bloqué qui.
+        raise ValidationError(
+            "Le profil demandé n'est pas disponible."
+        )
+
     return target_profile
 
 
@@ -218,17 +216,15 @@ def find_reciprocal_like(
     target_profile: Profile,
 ) -> Interaction | None:
     """
-    Recherche un like dans le sens inverse.
+    Recherche le like inverse.
 
-    Situation actuelle :
+    Exemple :
 
-        utilisateur A → LIKE → profil B
+        A LIKE B
 
-    Situation réciproque recherchée :
+    Nous recherchons :
 
-        utilisateur B → LIKE → profil A
-
-    Si cette seconde interaction existe, un match peut être créé.
+        B LIKE A
     """
 
     return (
@@ -250,9 +246,6 @@ def get_existing_match(
 ) -> Match | None:
     """
     Recherche un match entre deux profils.
-
-    L'ordre canonique est appliqué avant la requête afin de
-    rechercher systématiquement la même paire.
     """
 
     profile_one, profile_two = canonical_profile_pair(
@@ -279,14 +272,20 @@ def create_or_get_match(
     """
     Crée ou récupère un match unique.
 
-    Protections utilisées :
+    Avant la création, nous vérifions encore l'absence de blocage.
 
-    1. ordre canonique des profils ;
-    2. contrainte UniqueConstraint PostgreSQL ;
-    3. transaction imbriquée autour de l'INSERT ;
-    4. récupération du match si une requête concurrente
-       l'a créé quelques millisecondes auparavant.
+    Cette vérification supplémentaire protège contre une situation
+    de concurrence dans laquelle un blocage aurait été créé pendant
+    le traitement de l'interaction.
     """
+
+    if users_are_blocked(
+        first_user=actor_profile.user,
+        second_user=target_profile.user,
+    ):
+        raise ValidationError(
+            "Le profil demandé n'est pas disponible."
+        )
 
     profile_one, profile_two = canonical_profile_pair(
         first_profile=actor_profile,
@@ -317,11 +316,10 @@ def create_or_get_match(
         return existing_match, False
 
     try:
-        # Transaction imbriquée / savepoint.
+        # Transaction imbriquée créant un savepoint.
         #
-        # Si PostgreSQL déclenche IntegrityError, seule cette petite
-        # transaction est annulée. La transaction principale reste
-        # utilisable.
+        # Une collision d'unicité n'endommagera pas la transaction
+        # principale.
         with transaction.atomic():
             match = Match.objects.create(
                 profile_one=profile_one,
@@ -332,8 +330,8 @@ def create_or_get_match(
         return match, True
 
     except IntegrityError:
-        # Une autre requête concurrente a probablement créé
-        # exactement la même paire.
+        # Une requête concurrente a probablement créé
+        # la même paire avant nous.
         match = (
             Match.objects
             .select_for_update()
@@ -362,19 +360,8 @@ def deactivate_existing_match(
     target_profile: Profile,
 ) -> Match | None:
     """
-    Désactive un match lorsqu'un participant retire son like.
-
-    Exemple :
-
-        A LIKE B
-        B LIKE A
-        => match actif
-
-        A remplace ensuite LIKE par PASS
-        => match désactivé
-
-    Nous conservons la ligne en base pour la traçabilité,
-    mais elle ne sera plus visible dans l'endpoint des matchs actifs.
+    Désactive un match lorsqu'un participant remplace son like
+    par un pass.
     """
 
     match = get_existing_match(
@@ -405,10 +392,8 @@ def create_interaction_safely(
     decision: str,
 ) -> tuple[Interaction, bool]:
     """
-    Crée une interaction en résistant aux requêtes concurrentes.
-
-    Une transaction imbriquée protège la transaction principale
-    lorsqu'une contrainte d'unicité est déclenchée.
+    Crée une interaction en protégeant la transaction principale
+    contre les collisions d'unicité.
     """
 
     try:
@@ -422,8 +407,6 @@ def create_interaction_safely(
         return interaction, True
 
     except IntegrityError:
-        # Une autre transaction a créé la même interaction.
-        # Nous récupérons la ligne protégée par verrou.
         interaction = (
             Interaction.objects
             .select_for_update()
@@ -453,23 +436,17 @@ def record_interaction(
     decision: str,
 ) -> InteractionResult:
     """
-    Enregistre un LIKE ou un PASS dans une transaction atomique.
+    Enregistre un LIKE ou un PASS de manière atomique.
 
-    Une transaction atomique garantit le principe :
+    La transaction garantit le principe tout ou rien.
 
-        tout ou rien
-
-    Si une erreur non gérée survient :
+    En cas d'erreur :
 
     - aucune interaction partielle n'est conservée ;
-    - aucun match incomplet n'est créé ;
+    - aucun match partiel n'est créé ;
     - PostgreSQL effectue un rollback.
     """
 
-    # Défense supplémentaire pour les appels directs au service.
-    #
-    # L'API contrôle déjà ce champ avec ChoiceField, mais le service
-    # pourrait plus tard être appelé par Celery ou une commande Django.
     valid_decisions = {
         InteractionDecision.LIKE,
         InteractionDecision.PASS,
@@ -514,8 +491,7 @@ def record_interaction(
     else:
         interaction = existing_interaction
 
-        # Nous évitons une écriture SQL inutile si la décision
-        # demandée est déjà enregistrée.
+        # Évite une écriture inutile si la décision n'a pas changé.
         if interaction.decision != decision:
             interaction.decision = decision
 
@@ -544,9 +520,7 @@ def record_interaction(
             )
 
     else:
-        # Un PASS retire l'intérêt positif.
-        #
-        # S'il existait déjà un match, il devient inactif.
+        # PASS signifie retrait de l'intérêt positif.
         deactivate_existing_match(
             actor_profile=actor_profile,
             target_profile=target_profile,

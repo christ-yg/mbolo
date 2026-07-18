@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.core.apps.CoreConfig",
     "apps.profiles.apps.ProfilesConfig",
     "apps.interactions.apps.InteractionsConfig",
+    "apps.safety.apps.SafetyConfig",
 ]
 
 MIDDLEWARE = [
