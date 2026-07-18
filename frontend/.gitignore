@@ -1,0 +1,62 @@
+# ============================================================
+# DÉPENDANCES NODE.JS
+# ============================================================
+
+# Les dépendances peuvent être restaurées avec npm install.
+node_modules/
+
+
+# ============================================================
+# COMPILATION VITE
+# ============================================================
+
+# Version de production générée par npm run build.
+dist/
+dist-ssr/
+
+# Fichiers locaux générés par certains outils.
+*.local
+
+
+# ============================================================
+# VARIABLES D'ENVIRONNEMENT
+# ============================================================
+
+# Les fichiers réels d'environnement peuvent contenir des
+# paramètres propres à une machine ou à un environnement.
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Le modèle documenté doit rester versionnable.
+!.env.example
+
+
+# ============================================================
+# JOURNAUX
+# ============================================================
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# ============================================================
+# ÉDITEURS ET SYSTÈMES
+# ============================================================
+
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
