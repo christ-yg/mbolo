@@ -15,7 +15,15 @@ from .models import (
 
 class ProfileSerializer(serializers.ModelSerializer):
     """
-    Sérialiseur du profil de l'utilisateur connecté.
+    Sérialiseur privé du profil de l'utilisateur connecté.
+
+    Il est utilisé sur :
+
+        GET   /api/v1/profiles/me/
+        PATCH /api/v1/profiles/me/
+
+    Il ne doit pas être utilisé directement pour afficher
+    les profils des autres utilisateurs.
     """
 
     age = serializers.IntegerField(
@@ -56,6 +64,18 @@ class ProfileSerializer(serializers.ModelSerializer):
         self,
         value: str,
     ) -> str:
+        """
+        Normalise le nom public.
+
+        Exemple :
+
+            "   Christ     YG   "
+
+        devient :
+
+            "Christ YG"
+        """
+
         normalized_value = " ".join(
             value.split()
         )
@@ -75,12 +95,26 @@ class ProfileSerializer(serializers.ModelSerializer):
         self,
         value: str,
     ) -> str:
+        """
+        Supprime les espaces inutiles placés
+        avant et après la biographie.
+        """
+
         return value.strip()
 
     def validate_birth_date(
         self,
         value: date,
     ) -> date:
+        """
+        Exécute les validateurs du champ birth_date.
+
+        Ces validateurs contrôlent notamment :
+
+        - l'interdiction des dates futures ;
+        - l'âge minimum de 18 ans.
+        """
+
         field = Profile._meta.get_field(
             "birth_date"
         )
@@ -100,6 +134,16 @@ class ProfileSerializer(serializers.ModelSerializer):
         self,
         attrs: dict[str, Any],
     ) -> dict[str, Any]:
+        """
+        Vérifie l'état final du profil lors d'un PATCH.
+
+        Lors d'un PATCH, certains champs ne sont pas envoyés.
+        Nous combinons donc :
+
+        - les nouvelles valeurs ;
+        - les anciennes valeurs du profil.
+        """
+
         instance = self.instance
 
         if instance is None:
@@ -167,11 +211,6 @@ class SearchPreferencesSerializer(
 ):
     """
     Sérialiseur privé des préférences de découverte.
-
-    Le client ne peut jamais remplacer :
-    - l'identifiant ;
-    - le propriétaire ;
-    - les dates techniques.
     """
 
     preferred_genders = serializers.ListField(
@@ -225,7 +264,11 @@ class SearchPreferencesSerializer(
         value: list[str],
     ) -> list[str]:
         """
-        Refuse les doublons tout en conservant l'ordre.
+        Refuse les valeurs dupliquées.
+
+        Exemple refusé :
+
+            ["libreville", "libreville"]
         """
 
         if len(value) != len(set(value)):
@@ -264,10 +307,8 @@ class SearchPreferencesSerializer(
         attrs: dict[str, Any],
     ) -> dict[str, Any]:
         """
-        Vérifie la cohérence de la tranche d'âge finale.
-
-        Cette logique fonctionne également lors d'un PATCH
-        ne contenant qu'un seul des deux âges.
+        Vérifie que l'âge maximum reste supérieur
+        ou égal à l'âge minimum.
         """
 
         instance = self.instance
@@ -305,3 +346,61 @@ class SearchPreferencesSerializer(
             )
 
         return attrs
+
+
+class DiscoveryProfileSerializer(
+    serializers.ModelSerializer
+):
+    """
+    Sérialiseur public et limité des profils de découverte.
+
+    Principe de minimisation des données :
+
+    nous n'exposons que les informations nécessaires
+    pour permettre à un utilisateur d'évaluer un profil.
+
+    Données volontairement absentes :
+
+    - adresse e-mail ;
+    - numéro de téléphone ;
+    - date de naissance exacte ;
+    - identifiant du compte User ;
+    - préférences privées ;
+    - informations administratives.
+    """
+
+    age = serializers.IntegerField(
+        read_only=True,
+    )
+
+    is_verified = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Profile
+
+        fields = (
+            "id",
+            "display_name",
+            "age",
+            "gender",
+            "city",
+            "biography",
+            "dating_intent",
+            "is_verified",
+        )
+
+        read_only_fields = fields
+
+    def get_is_verified(
+        self,
+        profile: Profile,
+    ) -> bool:
+        """
+        Indique que le compte a vérifié son adresse e-mail.
+
+        Nous ne renvoyons jamais l'adresse elle-même.
+        """
+
+        return bool(
+            profile.user.is_email_verified
+        )

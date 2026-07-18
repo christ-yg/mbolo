@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     CurrentProfileView,
     CurrentSearchPreferencesView,
+    DiscoveryProfileListView,
 )
 
 
@@ -18,5 +19,10 @@ urlpatterns = [
         "preferences/me/",
         CurrentSearchPreferencesView.as_view(),
         name="current-search-preferences",
+    ),
+    path(
+        "discovery/",
+        DiscoveryProfileListView.as_view(),
+        name="discovery",
     ),
 ]

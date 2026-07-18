@@ -1,14 +1,20 @@
 from django.db import transaction
-from rest_framework.generics import RetrieveUpdateAPIView
+from rest_framework.generics import (
+    ListAPIView,
+    RetrieveUpdateAPIView,
+)
 from rest_framework.permissions import IsAuthenticated
 
 from apps.core.security_logging import log_security_event
 
+from .discovery import build_discovery_queryset
 from .models import (
     Profile,
     SearchPreferences,
 )
+from .pagination import DiscoveryPagination
 from .serializers import (
+    DiscoveryProfileSerializer,
     ProfileSerializer,
     SearchPreferencesSerializer,
 )
@@ -16,9 +22,14 @@ from .serializers import (
 
 class CurrentProfileView(RetrieveUpdateAPIView):
     """
-    Consulte ou modifie uniquement le profil connecté.
+    Consulte ou modifie uniquement le profil
+    de l'utilisateur connecté.
 
-    L'absence d'UUID dans l'URL réduit le risque d'IDOR.
+    L'URL ne contient aucun UUID modifiable :
+
+        /api/v1/profiles/me/
+
+    Cette architecture réduit fortement le risque d'IDOR.
     """
 
     serializer_class = ProfileSerializer
@@ -29,6 +40,16 @@ class CurrentProfileView(RetrieveUpdateAPIView):
 
     @transaction.atomic
     def get_object(self) -> Profile:
+        """
+        Récupère ou crée automatiquement le profil personnel.
+
+        select_for_update() verrouille temporairement la ligne
+        pendant la transaction lorsqu'elle existe.
+
+        Cela évite certaines conditions de concurrence lorsque
+        deux requêtes tentent de modifier le même profil.
+        """
+
         profile, _created = (
             Profile.objects.select_for_update()
             .get_or_create(
@@ -42,6 +63,10 @@ class CurrentProfileView(RetrieveUpdateAPIView):
         self,
         serializer: ProfileSerializer,
     ) -> None:
+        """
+        Sauvegarde et journalise la modification du profil.
+        """
+
         profile = serializer.save()
 
         log_security_event(
@@ -60,11 +85,8 @@ class CurrentSearchPreferencesView(
     RetrieveUpdateAPIView
 ):
     """
-    Consulte ou modifie uniquement les préférences
-    de recherche de l'utilisateur connecté.
-
-    Ces préférences restent privées et ne sont jamais
-    exposées sur le profil public.
+    Consulte ou modifie uniquement les préférences privées
+    de l'utilisateur connecté.
     """
 
     serializer_class = SearchPreferencesSerializer
@@ -78,7 +100,7 @@ class CurrentSearchPreferencesView(
         self,
     ) -> SearchPreferences:
         """
-        Crée automatiquement les préférences par défaut
+        Crée automatiquement des préférences par défaut
         lors du premier accès.
         """
 
@@ -96,8 +118,10 @@ class CurrentSearchPreferencesView(
         serializer: SearchPreferencesSerializer,
     ) -> None:
         """
-        Sauvegarde et journalise la modification
-        sans enregistrer les valeurs privées.
+        Sauvegarde les préférences et journalise l'action.
+
+        Les valeurs privées ne sont pas inscrites
+        directement dans les journaux.
         """
 
         preferences = serializer.save()
@@ -112,3 +136,70 @@ class CurrentSearchPreferencesView(
         )
 
         serializer.instance = preferences
+
+
+class DiscoveryProfileListView(ListAPIView):
+    """
+    Retourne les profils compatibles avec les préférences
+    de l'utilisateur connecté.
+
+    Cette première version applique des filtres stricts.
+
+    Une version future ajoutera notamment :
+
+    - la compatibilité réciproque ;
+    - le score de matching ;
+    - les intérêts communs ;
+    - la proximité géographique réelle ;
+    - la détection des profils déjà vus ;
+    - les blocages et signalements ;
+    - le mélange contrôlé des résultats.
+    """
+
+    serializer_class = DiscoveryProfileSerializer
+
+    permission_classes = (
+        IsAuthenticated,
+    )
+
+    pagination_class = DiscoveryPagination
+
+    def get_queryset(self):
+        """
+        Construit dynamiquement le QuerySet pour l'utilisateur courant.
+
+        Il est important de ne pas définir un QuerySet global fixe,
+        car les préférences diffèrent selon chaque utilisateur.
+        """
+
+        return build_discovery_queryset(
+            user=self.request.user,
+        )
+
+    def list(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        """
+        Journalise l'accès au moteur de découverte.
+
+        Nous n'enregistrons pas la liste des profils retournés,
+        afin d'éviter une journalisation excessive de données.
+        """
+
+        log_security_event(
+            request=request,
+            event="profile.discovery",
+            outcome="success",
+            reason="discovery_requested",
+            user=request.user,
+            email=request.user.email,
+        )
+
+        return super().list(
+            request,
+            *args,
+            **kwargs,
+        )
