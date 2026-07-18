@@ -1,8 +1,17 @@
 /**
  * Service d'authentification du frontend Mbolo.
  *
- * Ce fichier constitue l'interface unique entre les composants React
- * et les endpoints Django d'authentification.
+ * Toutes les pages React doivent utiliser ce service au lieu
+ * d'appeler directement Axios.
+ *
+ * Cette séparation apporte plusieurs avantages :
+ *
+ * - centralisation des URLs ;
+ * - centralisation de la protection CSRF ;
+ * - typage des requêtes et réponses ;
+ * - code React plus lisible ;
+ * - maintenance plus facile ;
+ * - réduction des erreurs de sécurité.
  */
 
 import type { ApiSuccessResponse } from "../types/api";
@@ -12,6 +21,8 @@ import type {
   LoginResponseData,
   RegisterPayload,
   RegisterResponseData,
+  VerifyEmailPayload,
+  VerifyEmailResponseData,
 } from "../types/auth";
 
 import {
@@ -21,12 +32,8 @@ import {
 import { httpClient } from "./httpClient";
 
 /**
- * Transforme la représentation brute retournée par Django
- * en objet frontend stable.
- *
- * Le backend actuel retourne des noms camelCase dans ses réponses.
- * Cette fonction centralise néanmoins la transformation afin de
- * faciliter une évolution future.
+ * Convertit une représentation utilisateur retournée par Django
+ * en structure stable utilisée par React.
  */
 function mapAuthenticatedUser(
   data: LoginResponseData | RegisterResponseData,
@@ -39,13 +46,14 @@ function mapAuthenticatedUser(
 }
 
 /**
- * Crée un nouveau compte utilisateur.
+ * Crée un nouveau compte.
  *
  * Étapes :
  *
- * 1. récupération d'un jeton CSRF ;
- * 2. envoi du formulaire d'inscription ;
- * 3. transformation de la réponse.
+ * 1. récupération du jeton CSRF ;
+ * 2. envoi des informations à Django ;
+ * 3. transformation de la réponse ;
+ * 4. retour des données minimales du compte.
  */
 export async function registerUser(
   payload: RegisterPayload,
@@ -68,15 +76,41 @@ export async function registerUser(
 }
 
 /**
+ * Confirme l'adresse e-mail à partir d'un jeton signé.
+ *
+ * Le jeton est envoyé dans le corps JSON et non conservé
+ * dans localStorage ou sessionStorage.
+ */
+export async function verifyEmailAddress(
+  payload: VerifyEmailPayload,
+): Promise<VerifyEmailResponseData> {
+  const csrfToken = await ensureCsrfToken();
+
+  const response = await httpClient.post<
+    ApiSuccessResponse<VerifyEmailResponseData>
+  >(
+    "/v1/auth/email-verification/confirm/",
+    payload,
+    {
+      headers: {
+        "X-CSRFToken": csrfToken,
+      },
+    },
+  );
+
+  return response.data.data;
+}
+
+/**
  * Ouvre une session Django.
  *
- * Le serveur doit :
+ * Le backend :
  *
- * - vérifier les identifiants ;
- * - vérifier l'état du compte ;
- * - créer la session ;
- * - faire tourner l'identifiant de session ;
- * - retourner les données minimales de l'utilisateur.
+ * - vérifie les identifiants ;
+ * - vérifie l'état du compte ;
+ * - crée une session ;
+ * - renouvelle l'identifiant de session ;
+ * - retourne les informations minimales du compte.
  */
 export async function loginUser(
   payload: LoginPayload,
@@ -96,10 +130,10 @@ export async function loginUser(
   );
 
   /**
-   * La session a changé après la connexion.
+   * Django peut renouveler le contexte de session après la connexion.
    *
-   * Nous renouvelons donc notre copie CSRF en mémoire avant
-   * la prochaine opération sensible.
+   * Nous supprimons donc la copie CSRF conservée en mémoire.
+   * Un nouveau jeton sera demandé avant la prochaine opération sensible.
    */
   clearInMemoryCsrfToken();
 
@@ -128,7 +162,7 @@ export async function logoutUser(): Promise<void> {
 /**
  * Récupère l'utilisateur associé à la session courante.
  *
- * Une réponse 401 ou 403 signifie normalement qu'aucune session
+ * Une réponse 401 ou 403 signifie généralement qu'aucune session
  * authentifiée n'est disponible.
  */
 export async function getCurrentUser(): Promise<AuthenticatedUser> {

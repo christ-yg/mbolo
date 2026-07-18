@@ -1,15 +1,25 @@
 /**
- * Composant racine de Mbolo.
+ * Composant racine du frontend Mbolo.
  *
- * RouterProvider connecte l'application au routeur React.
+ * L'ordre des fournisseurs est important :
+ *
+ * AuthProvider
+ *     ↓
+ * RouterProvider
+ *
+ * Toutes les pages du routeur peuvent ainsi accéder
+ * au contexte global d'authentification.
  */
 
 import { RouterProvider } from "react-router-dom";
 
+import { AuthProvider } from "./context/AuthContext";
 import { appRouter } from "./routes/AppRouter";
 
-function App() {
-  return <RouterProvider router={appRouter} />;
+export default function App() {
+  return (
+    <AuthProvider>
+      <RouterProvider router={appRouter} />
+    </AuthProvider>
+  );
 }
-
-export default App;

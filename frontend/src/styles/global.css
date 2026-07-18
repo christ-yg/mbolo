@@ -1579,3 +1579,198 @@ svg {
     border-radius: 24px;
   }
 }
+
+/* ============================================================
+   COMPLÉMENTS DES FORMULAIRES D'AUTHENTIFICATION
+   ============================================================ */
+
+.form-field__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.form-field__forgot-link {
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.form-field__forgot-link:hover {
+  text-decoration: underline;
+}
+
+.form-alert--success {
+  border: 1px solid rgb(35 132 89 / 16%);
+  color: #176640;
+  background: #ecfaf3;
+}
+
+.form-alert--success > span {
+  color: white;
+  background: #258459;
+}
+
+
+/* ============================================================
+   VÉRIFICATION DE L'ADRESSE E-MAIL
+   ============================================================ */
+
+.email-verification-page {
+  display: grid;
+  min-height: calc(100vh - 84px);
+  place-items: center;
+  padding: 60px 20px;
+  background:
+    radial-gradient(
+      circle at top left,
+      rgb(226 154 186 / 28%),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      rgb(190 171 225 / 20%),
+      transparent 30%
+    ),
+    #fff9fc;
+}
+
+.email-verification-card {
+  width: min(100%, 650px);
+  padding: clamp(34px, 7vw, 70px);
+  border: 1px solid var(--color-border);
+  border-radius: 34px;
+  background: rgb(255 255 255 / 93%);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+  backdrop-filter: blur(20px);
+}
+
+.email-verification-card__icon {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 27px;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 1.8rem;
+  font-weight: 900;
+}
+
+.email-verification-card__icon--loading {
+  color: var(--color-primary);
+  background: var(--color-surface-soft);
+}
+
+.email-verification-card__icon--success {
+  color: white;
+  background: #258459;
+  box-shadow: 0 16px 40px rgb(37 132 89 / 24%);
+}
+
+.email-verification-card__icon--error {
+  color: white;
+  background: #ae2540;
+  box-shadow: 0 16px 40px rgb(174 37 64 / 22%);
+}
+
+.email-verification-card h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+
+.email-verification-card__message {
+  max-width: 490px;
+  margin: 23px auto 34px;
+  color: var(--color-text-muted);
+  line-height: 1.75;
+}
+
+.email-verification-card__actions {
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+}
+
+.email-verification-card__text-link {
+  color: var(--color-primary);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.email-verification-card__note {
+  margin: 28px 0 0;
+  color: #95828e;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 520px) {
+  .form-field__label-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .email-verification-page {
+    padding-inline: 14px;
+  }
+
+  .email-verification-card {
+    padding: 36px 22px;
+    border-radius: 25px;
+  }
+}
+
+/* ============================================================
+   CHARGEMENT DE LA SESSION AUTHENTIFIÉE
+   ============================================================ */
+
+.auth-loading-page {
+  display: grid;
+  min-height: calc(100vh - 84px);
+  place-items: center;
+  padding: 40px 20px;
+  background: #fff9fc;
+}
+
+.auth-loading-card {
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  padding: 35px 45px;
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  background: white;
+  box-shadow: var(--shadow-card);
+}
+
+.auth-loading-card p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.auth-loading-card__spinner {
+  width: 38px;
+  height: 38px;
+  border: 4px solid rgb(163 47 97 / 15%);
+  border-top-color: var(--color-primary);
+  border-radius: 999px;
+  animation: auth-session-spin 750ms linear infinite;
+}
+
+@keyframes auth-session-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-loading-card__spinner {
+    animation-duration: 1.8s;
+  }
+}

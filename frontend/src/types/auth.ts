@@ -1,40 +1,73 @@
 /**
- * Types liés à l'authentification Mbolo.
+ * Types TypeScript liés à l'authentification Mbolo.
+ *
+ * Ce fichier centralise les structures échangées entre :
+ *
+ * - les pages React ;
+ * - les services API ;
+ * - le backend Django.
+ *
+ * Le typage évite l'utilisation incontrôlée de `any` et permet
+ * à TypeScript de détecter plusieurs erreurs avant l'exécution.
  */
 
 /**
- * Utilisateur minimal retourné par l'API.
+ * Représentation minimale d'un utilisateur authentifié.
  *
- * Les champs sensibles comme :
+ * Nous n'exposons jamais ici :
  *
- * - password ;
- * - password_hash ;
- * - permissions internes ;
- * - données administratives ;
- *
- * ne doivent jamais être exposés.
+ * - le mot de passe ;
+ * - le hash du mot de passe ;
+ * - les permissions administratives internes ;
+ * - les secrets du compte ;
+ * - les données sensibles non nécessaires.
  */
 export interface AuthenticatedUser {
+  /**
+   * Identifiant UUID du compte.
+   */
   id: string;
+
+  /**
+   * Adresse e-mail normalisée.
+   */
   email: string;
+
+  /**
+   * Indique si l'adresse e-mail a été confirmée.
+   */
   isEmailVerified: boolean;
 }
 
 /**
- * Données nécessaires à l'inscription.
+ * Données envoyées à l'endpoint d'inscription.
  */
 export interface RegisterPayload {
   email: string;
   password: string;
+
+  /**
+   * Ce nom correspond exactement au champ attendu par Django.
+   */
   password_confirmation: string;
 }
 
 /**
- * Données nécessaires à la connexion.
+ * Données envoyées à l'endpoint de connexion.
  */
 export interface LoginPayload {
   email: string;
   password: string;
+}
+
+/**
+ * Données envoyées à l'endpoint de confirmation d'e-mail.
+ */
+export interface VerifyEmailPayload {
+  /**
+   * Jeton signé reçu dans le lien de vérification.
+   */
+  token: string;
 }
 
 /**
@@ -45,7 +78,7 @@ export interface CsrfTokenResponse {
 }
 
 /**
- * Réponse métier d'inscription.
+ * Structure utilisateur retournée après l'inscription.
  */
 export interface RegisterResponseData {
   id: string;
@@ -54,13 +87,18 @@ export interface RegisterResponseData {
 }
 
 /**
- * Réponse métier de connexion.
- *
- * Elle pourra être ajustée si le backend retourne une structure
- * légèrement différente.
+ * Structure utilisateur retournée après la connexion.
  */
 export interface LoginResponseData {
   id: string;
+  email: string;
+  isEmailVerified: boolean;
+}
+
+/**
+ * Structure retournée après la confirmation de l'e-mail.
+ */
+export interface VerifyEmailResponseData {
   email: string;
   isEmailVerified: boolean;
 }
