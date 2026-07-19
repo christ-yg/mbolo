@@ -1989,3 +1989,579 @@ svg {
     width: calc(100% - 24px);
   }
 }
+
+/* ============================================================
+   PAGE DE DÉCOUVERTE
+   ============================================================ */
+
+.discovery-page {
+  min-height: calc(100vh - 84px);
+  padding: 58px 24px 90px;
+  background:
+    radial-gradient(
+      circle at 10% 8%,
+      rgb(226 154 186 / 22%),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 92% 85%,
+      rgb(190 171 225 / 17%),
+      transparent 30%
+    ),
+    #fff9fc;
+}
+
+.discovery-page__heading {
+  display: flex;
+  width: min(100%, 1180px);
+  margin: 0 auto 42px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+}
+
+.discovery-page__heading > div:first-child {
+  max-width: 720px;
+}
+
+.discovery-page__heading h1 {
+  max-width: 760px;
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.8rem, 6vw, 5.2rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+
+.discovery-page__heading > p,
+.discovery-page__heading > div:first-child > p:last-child {
+  max-width: 690px;
+  margin: 23px 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.75;
+}
+
+.discovery-page__summary {
+  display: grid;
+  max-width: 180px;
+  flex: 0 0 180px;
+  gap: 5px;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 22px;
+  background: rgb(255 255 255 / 78%);
+  text-align: right;
+  backdrop-filter: blur(14px);
+}
+
+.discovery-page__summary span {
+  color: var(--color-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.discovery-page__summary p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.discovery-page__workspace {
+  display: grid;
+  width: min(100%, 1180px);
+  margin: 0 auto;
+  align-items: start;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+  gap: clamp(30px, 5vw, 70px);
+}
+
+/* ============================================================
+   CARTE INFORMATIVE LATÉRALE
+   ============================================================ */
+
+.discovery-information-card {
+  position: sticky;
+  top: 110px;
+  padding: 31px;
+  border: 1px solid var(--color-border);
+  border-radius: 28px;
+  background: rgb(255 255 255 / 78%);
+  box-shadow: 0 22px 55px rgb(80 30 50 / 8%);
+  backdrop-filter: blur(18px);
+}
+
+.discovery-information-card h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+
+.discovery-information-card ul {
+  display: grid;
+  gap: 17px;
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.discovery-information-card li {
+  position: relative;
+  padding-left: 22px;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.discovery-information-card li::before {
+  position: absolute;
+  top: 0.45em;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  content: "";
+}
+
+.discovery-information-card__session {
+  display: flex;
+  margin-top: 30px;
+  align-items: flex-start;
+  gap: 12px;
+  padding-top: 22px;
+  border-top: 1px solid var(--color-border);
+}
+
+.discovery-information-card__session > span {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background: #258459;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.discovery-information-card__session p {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.discovery-information-card__session small {
+  max-width: 210px;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 0.66rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   CARTE DU PROFIL
+   ============================================================ */
+
+.discovery-profile-card {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 34px;
+  background: white;
+  box-shadow:
+    0 32px 80px rgb(70 26 50 / 14%);
+}
+
+.discovery-profile-card__visual {
+  position: relative;
+  display: flex;
+  min-height: 430px;
+  overflow: hidden;
+  align-items: flex-end;
+  padding: 34px;
+  color: white;
+  background:
+    radial-gradient(
+      circle at 50% 32%,
+      rgb(255 255 255 / 20%),
+      transparent 24%
+    ),
+    linear-gradient(
+      145deg,
+      #8c2553 0%,
+      #59213f 48%,
+      #27131f 100%
+    );
+}
+
+.discovery-profile-card__visual::before {
+  position: absolute;
+  inset: -30%;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 50%;
+  content: "";
+  transform: rotate(-18deg);
+}
+
+.discovery-profile-card__visual::after {
+  position: absolute;
+  right: -80px;
+  bottom: -150px;
+  width: 360px;
+  height: 360px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 50%;
+  content: "";
+}
+
+.discovery-profile-card__position {
+  position: absolute;
+  z-index: 2;
+  top: 25px;
+  left: 25px;
+  padding: 8px 12px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(25 10 18 / 26%);
+  font-size: 0.7rem;
+  font-weight: 800;
+  backdrop-filter: blur(12px);
+}
+
+.discovery-profile-card__verified {
+  position: absolute;
+  z-index: 2;
+  top: 25px;
+  right: 25px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(25 10 18 / 26%);
+  font-size: 0.68rem;
+  font-weight: 800;
+  backdrop-filter: blur(12px);
+}
+
+.discovery-profile-card__verified span {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  color: #246a48;
+  background: white;
+  font-size: 0.6rem;
+}
+
+.discovery-profile-card__initials {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: 210px;
+  height: 210px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 50%;
+  color: rgb(255 255 255 / 88%);
+  background:
+    radial-gradient(
+      circle at 35% 30%,
+      rgb(255 255 255 / 18%),
+      rgb(255 255 255 / 4%)
+    );
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 5.3rem;
+  font-style: italic;
+  letter-spacing: -0.08em;
+  transform: translate(-50%, -55%);
+  backdrop-filter: blur(8px);
+}
+
+.discovery-profile-card__visual-copy {
+  position: relative;
+  z-index: 2;
+}
+
+.discovery-profile-card__visual-copy p {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.discovery-profile-card__visual-copy h2 {
+  display: flex;
+  margin: 0;
+  align-items: baseline;
+  gap: 12px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.8rem, 6vw, 4.5rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+}
+
+.discovery-profile-card__visual-copy h2 span {
+  font-family: inherit;
+  font-size: 1.5rem;
+  font-style: italic;
+  opacity: 0.82;
+}
+
+.discovery-profile-card__content {
+  padding: clamp(27px, 5vw, 42px);
+}
+
+.discovery-profile-card__metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.discovery-profile-card__metadata span {
+  padding: 8px 13px;
+  border: 1px solid rgb(163 47 97 / 14%);
+  border-radius: 999px;
+  color: var(--color-primary);
+  background: var(--color-surface-soft);
+  font-size: 0.69rem;
+  font-weight: 800;
+}
+
+.discovery-profile-card__biography {
+  margin-top: 31px;
+}
+
+.discovery-profile-card__biography > p:last-child {
+  margin: 13px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.8;
+}
+
+.discovery-profile-card__security-note {
+  display: flex;
+  margin-top: 30px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  color: #5f4c58;
+  background: #faf4f7;
+}
+
+.discovery-profile-card__security-note > span {
+  color: var(--color-primary);
+  font-weight: 900;
+}
+
+.discovery-profile-card__security-note p {
+  margin: 0;
+  font-size: 0.73rem;
+  line-height: 1.55;
+}
+
+.discovery-profile-card__actions {
+  display: grid;
+  margin-top: 31px;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 13px;
+}
+
+.discovery-action-button {
+  display: inline-flex;
+  min-height: 56px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-weight: 850;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.discovery-action-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.discovery-action-button--pass {
+  border: 1px solid rgb(55 30 47 / 15%);
+  color: var(--color-text);
+  background: white;
+}
+
+.discovery-action-button--pass:hover:not(:disabled) {
+  border-color: rgb(55 30 47 / 30%);
+  background: #faf7f9;
+  transform: translateY(-2px);
+}
+
+.discovery-action-button--pass span {
+  font-size: 1.3rem;
+  font-weight: 400;
+}
+
+.discovery-action-button--like {
+  border: 0;
+  color: white;
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-primary),
+      var(--color-primary-dark)
+    );
+  box-shadow:
+    0 17px 38px rgb(163 47 97 / 24%);
+}
+
+.discovery-action-button--like:hover:not(:disabled) {
+  box-shadow:
+    0 22px 46px rgb(163 47 97 / 32%);
+  transform: translateY(-2px);
+}
+
+/* ============================================================
+   ÉTATS CHARGEMENT, ERREUR ET LISTE VIDE
+   ============================================================ */
+
+.discovery-state-card {
+  display: grid;
+  width: min(100%, 620px);
+  margin: 60px auto 0;
+  justify-items: center;
+  gap: 14px;
+  padding: 55px 35px;
+  border: 1px solid var(--color-border);
+  border-radius: 30px;
+  background: white;
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.discovery-state-card__symbol {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--color-primary);
+  background: var(--color-surface-soft);
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.discovery-state-card--error
+  .discovery-state-card__symbol {
+  color: white;
+  background: #ae2540;
+}
+
+.discovery-state-card h2 {
+  margin: 8px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-weight: 500;
+}
+
+.discovery-state-card p {
+  max-width: 450px;
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+}
+
+.discovery-state-card button {
+  min-height: 46px;
+  margin-top: 12px;
+  padding: 0 22px;
+  cursor: pointer;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  background: var(--color-primary);
+  font-family: inherit;
+  font-weight: 800;
+}
+
+/* ============================================================
+   RESPONSIVE DE LA DÉCOUVERTE
+   ============================================================ */
+
+@media (max-width: 920px) {
+  .discovery-page__workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .discovery-information-card {
+    position: static;
+  }
+}
+
+@media (max-width: 700px) {
+  .discovery-page {
+    padding: 42px 15px 70px;
+  }
+
+  .discovery-page__heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .discovery-page__summary {
+    max-width: none;
+    width: 100%;
+    flex-basis: auto;
+    text-align: left;
+  }
+
+  .discovery-profile-card__visual {
+    min-height: 380px;
+    padding: 26px;
+  }
+
+  .discovery-profile-card__initials {
+    width: 175px;
+    height: 175px;
+    font-size: 4.3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .discovery-profile-card {
+    border-radius: 25px;
+  }
+
+  .discovery-profile-card__visual {
+    min-height: 340px;
+  }
+
+  .discovery-profile-card__verified {
+    max-width: 130px;
+  }
+
+  .discovery-profile-card__actions {
+    grid-template-columns: 1fr;
+  }
+}
