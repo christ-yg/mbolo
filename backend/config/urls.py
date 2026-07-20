@@ -44,6 +44,10 @@ urlpatterns = [
         "api/v1/",
         include("apps.interactions.urls"),
     ),
+    path(
+        "api/v1/",
+        include("apps.messaging.urls"),
+    ),
 
     path(
     	"api/v1/safety/",
