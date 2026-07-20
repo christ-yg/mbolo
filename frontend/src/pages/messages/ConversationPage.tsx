@@ -1,15 +1,26 @@
 /**
- * Écran d'une conversation privée.
+ * Écran d'une conversation privée Mbolo.
  *
  * Route :
  *
  *     /messages/:conversationId
+ *
+ * Responsabilités :
+ *
+ * - vérifier l'identifiant de la conversation ;
+ * - récupérer les informations publiques de l'autre profil ;
+ * - charger l'historique des messages ;
+ * - actualiser périodiquement la conversation ;
+ * - envoyer un nouveau message ;
+ * - faire défiler l'interface vers le dernier message.
  */
 
 import {
   type FormEvent,
+  type KeyboardEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -20,43 +31,92 @@ import {
 
 import { normalizeApiError } from "../../api/apiError";
 import {
+  DEFAULT_CONVERSATIONS_PAGE_SIZE,
   DEFAULT_MESSAGES_PAGE_SIZE,
   getConversationMessages,
+  getConversations,
   sendConversationMessage,
 } from "../../api/messagingService";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
 
 import type {
+  ConversationItem,
   MessageItem,
-  MessagesPaginatedResponse,
 } from "../../types/messaging";
 
+import "../../styles/conversation.css";
 
 const MAX_MESSAGE_LENGTH = 2000;
-
+const REFRESH_INTERVAL_MILLISECONDS = 5000;
 
 type ConversationStatus =
   | "loading"
   | "success"
   | "error";
 
+function sortMessagesByDate(
+  messages: MessageItem[],
+): MessageItem[] {
+  return [...messages].sort((firstMessage, secondMessage) => {
+    return (
+      new Date(firstMessage.created_at).getTime() -
+      new Date(secondMessage.created_at).getTime()
+    );
+  });
+}
+
+function getProfileInitial(
+  displayName: string,
+): string {
+  const normalizedName = displayName.trim();
+
+  if (normalizedName.length === 0) {
+    return "M";
+  }
+
+  return normalizedName.charAt(0).toUpperCase();
+}
+
+function getProfileMetadata(
+  conversation: ConversationItem | null,
+): string {
+  if (conversation === null) {
+    return "";
+  }
+
+  const metadata: string[] = [];
+
+  if (conversation.other_profile.age) {
+    metadata.push(`${conversation.other_profile.age} ans`);
+  }
+
+  if (conversation.other_profile.city) {
+    metadata.push(conversation.other_profile.city);
+  }
+
+  return metadata.join(" · ");
+}
 
 export function ConversationPage() {
-  const { conversationId } =
-    useParams<{ conversationId: string }>();
+  const {
+    conversationId,
+  } = useParams<{
+    conversationId: string;
+  }>();
 
   const [status, setStatus] =
     useState<ConversationStatus>("loading");
 
-  const [messagesData, setMessagesData] =
-    useState<MessagesPaginatedResponse | null>(
-      null,
-    );
+  const [conversation, setConversation] =
+    useState<ConversationItem | null>(null);
+
+  const [messages, setMessages] =
+    useState<MessageItem[]>([]);
 
   const [messageBody, setMessageBody] =
     useState("");
 
-  const [errorMessage, setErrorMessage] =
+  const [pageError, setPageError] =
     useState("");
 
   const [sendError, setSendError] =
@@ -65,22 +125,84 @@ export function ConversationPage() {
   const [isSending, setIsSending] =
     useState(false);
 
-  const bottomRef =
+  const [isRefreshing, setIsRefreshing] =
+    useState(false);
+
+  const messagesEndReference =
     useRef<HTMLDivElement | null>(null);
 
+  const previousMessageCountReference =
+    useRef(0);
 
-  const loadMessages = useCallback(
-    async (): Promise<void> => {
+  const isInitialLoadReference =
+    useRef(true);
+
+  const profileMetadata = useMemo(
+    () => getProfileMetadata(conversation),
+    [conversation],
+  );
+
+  const scrollToLatestMessage = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      messagesEndReference.current?.scrollIntoView({
+        behavior,
+        block: "end",
+      });
+    },
+    [],
+  );
+
+  /**
+   * Recherche la conversation dans la liste sécurisée du compte.
+   *
+   * Le backend ne possède pas encore d'endpoint GET dédié à une
+   * conversation précise. Nous utilisons donc la liste des
+   * conversations accessibles au compte connecté.
+   */
+  const loadConversationMetadata =
+    useCallback(async (): Promise<ConversationItem | null> => {
       if (!conversationId) {
-        setErrorMessage(
-          "L’identifiant de conversation est absent.",
+        return null;
+      }
+
+      const result = await getConversations({
+        page: 1,
+        pageSize: DEFAULT_CONVERSATIONS_PAGE_SIZE,
+      });
+
+      return (
+        result.results.find(
+          (candidateConversation) =>
+            candidateConversation.id === conversationId,
+        ) ?? null
+      );
+    }, [conversationId]);
+
+  /**
+   * Charge les messages.
+   *
+   * silent = true :
+   * - utilisé par l'actualisation automatique ;
+   * - n'efface pas l'écran ;
+   * - ne montre pas le grand état de chargement.
+   */
+  const loadMessages = useCallback(
+    async ({
+      silent = false,
+    }: {
+      silent?: boolean;
+    } = {}): Promise<void> => {
+      if (!conversationId) {
+        setPageError(
+          "L'identifiant de la conversation est absent.",
         );
         setStatus("error");
         return;
       }
 
-      setStatus("loading");
-      setErrorMessage("");
+      if (silent) {
+        setIsRefreshing(true);
+      }
 
       try {
         const result =
@@ -88,57 +210,200 @@ export function ConversationPage() {
             conversationId,
             {
               page: 1,
-              pageSize:
-                DEFAULT_MESSAGES_PAGE_SIZE,
+              pageSize: DEFAULT_MESSAGES_PAGE_SIZE,
             },
           );
 
-        setMessagesData(result);
-        setStatus("success");
+        setMessages(
+          sortMessagesByDate(result.results),
+        );
+
+        if (!silent) {
+          setPageError("");
+        }
       } catch (error: unknown) {
         const normalizedError =
           normalizeApiError(error);
 
-        setErrorMessage(normalizedError.message);
-        setStatus("error");
+        if (!silent) {
+          setPageError(normalizedError.message);
+          setStatus("error");
+        }
+      } finally {
+        if (silent) {
+          setIsRefreshing(false);
+        }
       }
     },
     [conversationId],
   );
 
-
+  /**
+   * Chargement initial de l'écran.
+   */
   useEffect(() => {
-    void loadMessages();
-  }, [loadMessages]);
+    let isComponentMounted = true;
 
+    async function initializeConversation(): Promise<void> {
+      if (!conversationId) {
+        if (isComponentMounted) {
+          setPageError(
+            "Cette conversation ne peut pas être ouverte.",
+          );
+          setStatus("error");
+        }
 
-  useEffect(() => {
-    if (status === "success") {
-      bottomRef.current?.scrollIntoView({
-        behavior: "smooth",
-      });
+        return;
+      }
+
+      setStatus("loading");
+      setPageError("");
+
+      try {
+        const [
+          loadedConversation,
+          loadedMessages,
+        ] = await Promise.all([
+          loadConversationMetadata(),
+          getConversationMessages(
+            conversationId,
+            {
+              page: 1,
+              pageSize: DEFAULT_MESSAGES_PAGE_SIZE,
+            },
+          ),
+        ]);
+
+        if (!isComponentMounted) {
+          return;
+        }
+
+        if (loadedConversation === null) {
+          setPageError(
+            "Cette conversation est introuvable ou n'est plus accessible.",
+          );
+          setStatus("error");
+          return;
+        }
+
+        setConversation(loadedConversation);
+        setMessages(
+          sortMessagesByDate(
+            loadedMessages.results,
+          ),
+        );
+        setStatus("success");
+      } catch (error: unknown) {
+        if (!isComponentMounted) {
+          return;
+        }
+
+        const normalizedError =
+          normalizeApiError(error);
+
+        setPageError(normalizedError.message);
+        setStatus("error");
+      }
     }
+
+    void initializeConversation();
+
+    return () => {
+      isComponentMounted = false;
+    };
   }, [
-    status,
-    messagesData?.results.length,
+    conversationId,
+    loadConversationMetadata,
   ]);
 
+  /**
+   * Actualisation automatique.
+   *
+   * Toutes les cinq secondes, le frontend redemande les messages
+   * au backend. Cette solution convient au développement actuel.
+   *
+   * Plus tard, nous pourrons la remplacer par WebSocket/Django
+   * Channels pour recevoir les messages en temps réel.
+   */
+  useEffect(() => {
+    if (
+      status !== "success" ||
+      !conversationId
+    ) {
+      return undefined;
+    }
+
+    const intervalIdentifier =
+      window.setInterval(() => {
+        void loadMessages({
+          silent: true,
+        });
+      }, REFRESH_INTERVAL_MILLISECONDS);
+
+    return () => {
+      window.clearInterval(
+        intervalIdentifier,
+      );
+    };
+  }, [
+    conversationId,
+    loadMessages,
+    status,
+  ]);
+
+  /**
+   * Descend automatiquement vers le message le plus récent.
+   */
+  useEffect(() => {
+    if (status !== "success") {
+      return;
+    }
+
+    const messageCountChanged =
+      previousMessageCountReference.current !==
+      messages.length;
+
+    if (!messageCountChanged) {
+      return;
+    }
+
+    previousMessageCountReference.current =
+      messages.length;
+
+    const behavior: ScrollBehavior =
+      isInitialLoadReference.current
+        ? "auto"
+        : "smooth";
+
+    isInitialLoadReference.current = false;
+
+    window.setTimeout(() => {
+      scrollToLatestMessage(behavior);
+    }, 30);
+  }, [
+    messages.length,
+    scrollToLatestMessage,
+    status,
+  ]);
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
   ): Promise<void> {
     event.preventDefault();
 
-    if (!conversationId || isSending) {
+    if (
+      !conversationId ||
+      isSending
+    ) {
       return;
     }
 
     const normalizedBody =
       messageBody.trim();
 
-    if (!normalizedBody) {
+    if (normalizedBody.length === 0) {
       setSendError(
-        "Écris un message avant de l’envoyer.",
+        "Écris un message avant de l'envoyer.",
       );
       return;
     }
@@ -165,27 +430,29 @@ export function ConversationPage() {
           },
         );
 
-      setMessagesData((currentData) => {
-        if (!currentData) {
-          return {
-            count: 1,
-            next: null,
-            previous: null,
-            results: [createdMessage],
-          };
+      setMessages((currentMessages) => {
+        const messageAlreadyExists =
+          currentMessages.some(
+            (message) =>
+              message.id ===
+              createdMessage.id,
+          );
+
+        if (messageAlreadyExists) {
+          return currentMessages;
         }
 
-        return {
-          ...currentData,
-          count: currentData.count + 1,
-          results: [
-            ...currentData.results,
-            createdMessage,
-          ],
-        };
+        return sortMessagesByDate([
+          ...currentMessages,
+          createdMessage,
+        ]);
       });
 
       setMessageBody("");
+
+      window.setTimeout(() => {
+        scrollToLatestMessage("smooth");
+      }, 30);
     } catch (error: unknown) {
       const normalizedError =
         normalizeApiError(error);
@@ -196,187 +463,268 @@ export function ConversationPage() {
     }
   }
 
+  function handleTextareaKeyDown(
+    event: KeyboardEvent<HTMLTextAreaElement>,
+  ): void {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
+
+      if (
+        !isSending &&
+        messageBody.trim().length > 0
+      ) {
+        event.currentTarget.form?.requestSubmit();
+      }
+    }
+  }
 
   if (status === "loading") {
     return (
       <main className="conversation-page">
         <section
-          className="messaging-state-card"
+          className="conversation-state-card"
           role="status"
+          aria-live="polite"
         >
           <div
-            className="auth-loading-card__spinner"
+            className="conversation-loading-spinner"
             aria-hidden="true"
           />
 
-          <h2>Chargement des messages</h2>
+          <h1>Ouverture de la conversation</h1>
+
+          <p>
+            Mbolo vérifie l’accès à cette discussion privée.
+          </p>
         </section>
       </main>
     );
   }
 
-
-  if (status === "error") {
+  if (
+    status === "error" ||
+    conversation === null
+  ) {
     return (
       <main className="conversation-page">
-        <Link
-          className="conversation-page__back"
-          to="/messages"
-        >
-          ← Retour aux conversations
-        </Link>
-
         <section
-          className="messaging-state-card messaging-state-card--error"
+          className="conversation-state-card conversation-state-card--error"
           role="alert"
         >
-          <div
-            className="messaging-state-card__symbol"
+          <span
+            className="conversation-state-card__symbol"
             aria-hidden="true"
           >
             !
-          </div>
+          </span>
 
-          <h2>Conversation inaccessible</h2>
+          <h1>Conversation indisponible</h1>
 
-          <p>{errorMessage}</p>
+          <p>
+            {pageError ||
+              "Cette conversation ne peut pas être affichée."}
+          </p>
 
-          <button
-            type="button"
-            onClick={() => {
-              void loadMessages();
-            }}
+          <Link
+            className="conversation-state-card__link"
+            to="/messages"
           >
-            Réessayer
-          </button>
+            Retourner à mes messages
+          </Link>
         </section>
       </main>
     );
   }
 
-
-  const messages: MessageItem[] =
-    messagesData?.results ?? [];
-
-
   return (
     <main className="conversation-page">
-      <header className="conversation-page__header">
-        <Link
-          className="conversation-page__back"
-          to="/messages"
-        >
-          ← Mes messages
-        </Link>
-
-        <div>
-          <p className="section-heading__eyebrow">
-            Conversation privée
-          </p>
-
-          <h1>Discussion sécurisée</h1>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            void loadMessages();
-          }}
-        >
-          Actualiser
-        </button>
-      </header>
-
-      <section
-        className="conversation-thread"
-        aria-label="Historique de la conversation"
-        aria-live="polite"
-      >
-        {messages.length === 0 ? (
-          <div className="conversation-thread__empty">
-            <span aria-hidden="true">✉</span>
-
-            <h2>Commence la conversation</h2>
-
-            <p>
-              Écris un premier message respectueux
-              et authentique.
-            </p>
-          </div>
-        ) : (
-          messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-            />
-          ))
-        )}
-
-        <div ref={bottomRef} />
-      </section>
-
-      <form
-        className="message-composer"
-        onSubmit={(event) => {
-          void handleSubmit(event);
-        }}
-      >
-        {sendError ? (
-          <div
-            className="message-composer__error"
-            role="alert"
+      <section className="conversation-shell">
+        <header className="conversation-header">
+          <Link
+            className="conversation-header__back-link"
+            to="/messages"
           >
-            {sendError}
+            <span aria-hidden="true">←</span>
+            Mes messages
+          </Link>
+
+          <div className="conversation-contact">
+            <div
+              className="conversation-contact__avatar"
+              aria-hidden="true"
+            >
+              {getProfileInitial(
+                conversation.other_profile.display_name,
+              )}
+            </div>
+
+            <div className="conversation-contact__identity">
+              <p className="conversation-contact__eyebrow">
+                Conversation privée
+              </p>
+
+              <div className="conversation-contact__name-row">
+                <h1>
+                  {
+                    conversation.other_profile
+                      .display_name
+                  }
+                </h1>
+
+                {conversation.other_profile.is_verified ? (
+                  <span
+                    className="conversation-contact__verified"
+                    title="Profil vérifié"
+                    aria-label="Profil vérifié"
+                  >
+                    ✓
+                  </span>
+                ) : null}
+              </div>
+
+              {profileMetadata ? (
+                <p className="conversation-contact__metadata">
+                  {profileMetadata}
+                </p>
+              ) : null}
+            </div>
           </div>
-        ) : null}
-
-        <div className="message-composer__controls">
-          <label
-            className="sr-only"
-            htmlFor="message-body"
-          >
-            Votre message
-          </label>
-
-          <textarea
-            id="message-body"
-            value={messageBody}
-            maxLength={MAX_MESSAGE_LENGTH}
-            placeholder="Écris ton message…"
-            rows={3}
-            disabled={isSending}
-            onChange={(event) => {
-              setMessageBody(
-                event.target.value,
-              );
-              setSendError("");
-            }}
-          />
 
           <button
-            type="submit"
-            disabled={
-              isSending ||
-              messageBody.trim().length === 0
-            }
+            type="button"
+            className="conversation-header__refresh-button"
+            disabled={isRefreshing}
+            onClick={() => {
+              void loadMessages({
+                silent: true,
+              });
+            }}
           >
-            {isSending
-              ? "Envoi…"
-              : "Envoyer"}
+            {isRefreshing
+              ? "Actualisation…"
+              : "Actualiser"}
           </button>
-        </div>
+        </header>
 
-        <div className="message-composer__footer">
-          <span>
-            Les messages sont accessibles uniquement
-            aux deux participants du match.
-          </span>
+        <section
+          className="conversation-messages"
+          aria-label={`Conversation avec ${conversation.other_profile.display_name}`}
+          aria-live="polite"
+        >
+          {messages.length === 0 ? (
+            <div className="conversation-empty-state">
+              <span aria-hidden="true">♡</span>
 
-          <strong>
-            {messageBody.length}/{MAX_MESSAGE_LENGTH}
-          </strong>
-        </div>
-      </form>
+              <h2>Commence la conversation</h2>
+
+              <p>
+                Vous avez un match. Tu peux maintenant envoyer
+                ton premier message en toute confidentialité.
+              </p>
+            </div>
+          ) : (
+            messages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+              />
+            ))
+          )}
+
+          <div
+            ref={messagesEndReference}
+            className="conversation-messages__end"
+            aria-hidden="true"
+          />
+        </section>
+
+        <form
+          className="message-composer"
+          onSubmit={(event) => {
+            void handleSubmit(event);
+          }}
+        >
+          {sendError ? (
+            <div
+              className="message-composer__error"
+              role="alert"
+            >
+              <span aria-hidden="true">!</span>
+
+              <p>{sendError}</p>
+
+              <button
+                type="button"
+                aria-label="Fermer le message d'erreur"
+                onClick={() => {
+                  setSendError("");
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+
+          <label
+            className="message-composer__label"
+            htmlFor="message-body"
+          >
+            Ton message
+          </label>
+
+          <div className="message-composer__controls">
+            <textarea
+              id="message-body"
+              value={messageBody}
+              maxLength={MAX_MESSAGE_LENGTH}
+              placeholder={`Écris à ${conversation.other_profile.display_name}…`}
+              rows={3}
+              disabled={isSending}
+              onKeyDown={handleTextareaKeyDown}
+              onChange={(event) => {
+                setMessageBody(
+                  event.target.value,
+                );
+                setSendError("");
+              }}
+            />
+
+            <button
+              type="submit"
+              disabled={
+                isSending ||
+                messageBody.trim().length === 0
+              }
+            >
+              {isSending
+                ? "Envoi…"
+                : "Envoyer"}
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+
+          <div className="message-composer__footer">
+            <span>
+              Entrée pour envoyer · Maj + Entrée pour aller à la
+              ligne
+            </span>
+
+            <strong
+              className={
+                messageBody.length >=
+                MAX_MESSAGE_LENGTH
+                  ? "message-composer__counter message-composer__counter--limit"
+                  : "message-composer__counter"
+              }
+            >
+              {messageBody.length}/{MAX_MESSAGE_LENGTH}
+            </strong>
+          </div>
+        </form>
+      </section>
     </main>
   );
 }
