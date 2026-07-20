@@ -14,6 +14,7 @@ import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
 import { DiscoveryPage } from "../pages/discovery/DiscoveryPage";
 import { HomePage } from "../pages/home/HomePage";
+import { MatchesPage } from "../pages/matches/MatchesPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { SafetyPage } from "../pages/settings/SafetyPage";
 
@@ -56,6 +57,15 @@ export const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <DiscoveryPage />
+          </ProtectedRoute>
+        ),
+      },
+
+      {
+        path: "/matches",
+        element: (
+          <ProtectedRoute>
+            <MatchesPage />
           </ProtectedRoute>
         ),
       },
