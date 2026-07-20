@@ -1,23 +1,24 @@
 /**
  * En-tête principal de l'application Mbolo.
  *
- * L'en-tête adapte automatiquement son contenu selon
- * l'état de la session Django :
+ * Le contenu de la navigation dépend de la session Django :
  *
  * Utilisateur anonyme :
  *
- * - lien vers la connexion ;
- * - lien vers l'inscription.
+ * - Accueil ;
+ * - Sécurité ;
+ * - Se connecter ;
+ * - Créer un compte.
  *
  * Utilisateur authentifié :
  *
- * - lien vers la découverte ;
- * - lien vers la sécurité ;
- * - affichage de l'adresse e-mail ;
+ * - Accueil ;
+ * - Découvrir ;
+ * - Mes matchs ;
+ * - Messages ;
+ * - Sécurité ;
+ * - identité du compte ;
  * - bouton de déconnexion.
- *
- * La véritable session reste gérée par Django.
- * React affiche uniquement l'état fourni par AuthContext.
  */
 
 import { useState } from "react";
@@ -32,11 +33,12 @@ import { useAuth } from "../../hooks/useAuth";
 
 import { BrandLogo } from "../common/BrandLogo";
 
+
 /**
  * Retourne la classe CSS d'un lien de navigation.
  *
- * NavLink fournit automatiquement isActive selon
- * l'URL actuellement affichée.
+ * React Router transmet automatiquement `isActive`
+ * selon l'adresse actuellement affichée.
  */
 function getNavigationLinkClass({
   isActive,
@@ -48,12 +50,13 @@ function getNavigationLinkClass({
     : "public-header__nav-link";
 }
 
+
+/**
+ * En-tête global de Mbolo.
+ */
 export function PublicHeader() {
   const navigate = useNavigate();
 
-  /**
-   * État global de l'authentification.
-   */
   const {
     user,
     isAuthenticated,
@@ -61,28 +64,15 @@ export function PublicHeader() {
     logout,
   } = useAuth();
 
-  /**
-   * Empêche plusieurs clics pendant la déconnexion.
-   */
   const [isLoggingOut, setIsLoggingOut] =
     useState(false);
 
-  /**
-   * Message affiché lorsqu'une déconnexion échoue.
-   */
   const [logoutError, setLogoutError] =
     useState<string | null>(null);
 
+
   /**
-   * Ferme réellement la session Django.
-   *
-   * Étapes :
-   *
-   * 1. récupération du jeton CSRF par authService ;
-   * 2. POST vers /api/v1/auth/logout/ ;
-   * 3. destruction de la session côté Django ;
-   * 4. suppression de l'utilisateur dans AuthContext ;
-   * 5. redirection vers la page d'accueil.
+   * Ferme la session Django puis redirige vers l'accueil.
    */
   async function handleLogout(): Promise<void> {
     if (isLoggingOut) {
@@ -102,13 +92,12 @@ export function PublicHeader() {
       const normalizedError =
         normalizeApiError(error);
 
-      setLogoutError(
-        normalizedError.message,
-      );
+      setLogoutError(normalizedError.message);
     } finally {
       setIsLoggingOut(false);
     }
   }
+
 
   return (
     <>
@@ -129,12 +118,28 @@ export function PublicHeader() {
             </NavLink>
 
             {isAuthenticated ? (
-              <NavLink
-                className={getNavigationLinkClass}
-                to="/discovery"
-              >
-                Découvrir
-              </NavLink>
+              <>
+                <NavLink
+                  className={getNavigationLinkClass}
+                  to="/discovery"
+                >
+                  Découvrir
+                </NavLink>
+
+                <NavLink
+                  className={getNavigationLinkClass}
+                  to="/matches"
+                >
+                  Mes matchs
+                </NavLink>
+
+                <NavLink
+                  className={getNavigationLinkClass}
+                  to="/messages"
+                >
+                  Messages
+                </NavLink>
+              </>
             ) : null}
 
             <NavLink

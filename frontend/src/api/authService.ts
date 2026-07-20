@@ -1,20 +1,20 @@
 /**
  * Service d'authentification du frontend Mbolo.
  *
- * Toutes les pages React doivent utiliser ce service au lieu
- * d'appeler directement Axios.
+ * Toutes les communications avec Django passent par ce fichier.
  *
- * Cette séparation apporte plusieurs avantages :
+ * Responsabilités :
  *
- * - centralisation des URLs ;
- * - centralisation de la protection CSRF ;
- * - typage des requêtes et réponses ;
- * - code React plus lisible ;
- * - maintenance plus facile ;
- * - réduction des erreurs de sécurité.
+ * - créer un compte ;
+ * - confirmer une adresse e-mail ;
+ * - ouvrir une session ;
+ * - fermer une session ;
+ * - récupérer l'utilisateur actuellement connecté ;
+ * - normaliser les différentes formes de réponses du backend.
  */
 
 import type { ApiSuccessResponse } from "../types/api";
+
 import type {
   AuthenticatedUser,
   LoginPayload,
@@ -29,39 +29,145 @@ import {
   clearInMemoryCsrfToken,
   ensureCsrfToken,
 } from "./csrfService";
+
 import { httpClient } from "./httpClient";
 
+
 /**
- * Convertit une représentation utilisateur retournée par Django
- * en structure stable utilisée par React.
+ * Certaines routes Django renvoient :
+ *
+ * {
+ *   "data": {
+ *     ...
+ *   }
+ * }
+ *
+ * tandis que d'autres peuvent renvoyer directement :
+ *
+ * {
+ *   "id": "...",
+ *   "email": "..."
+ * }
+ *
+ * Ce type permet de prendre en charge les deux formes.
+ */
+type AuthenticationApiResponse<T> =
+  | ApiSuccessResponse<T>
+  | T;
+
+
+/**
+ * Vérifie qu'une valeur est un objet JavaScript exploitable.
+ */
+function isRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null
+  );
+}
+
+
+/**
+ * Extrait la propriété `data` lorsqu'elle existe.
+ *
+ * Exemple enveloppé :
+ *
+ * {
+ *   "data": {
+ *     "id": "...",
+ *     "email": "..."
+ *   }
+ * }
+ *
+ * Exemple direct :
+ *
+ * {
+ *   "id": "...",
+ *   "email": "..."
+ * }
+ */
+function unwrapResponseData<T>(
+  payload: AuthenticationApiResponse<T>,
+): T {
+  if (
+    isRecord(payload) &&
+    "data" in payload &&
+    payload.data !== undefined &&
+    payload.data !== null
+  ) {
+    return payload.data as T;
+  }
+
+  return payload as T;
+}
+
+
+/**
+ * Convertit la représentation utilisateur retournée par Django
+ * vers la structure stable utilisée par React.
+ *
+ * Le backend peut utiliser :
+ *
+ * - is_email_verified ;
+ * - isEmailVerified.
+ *
+ * Le frontend expose toujours :
+ *
+ * - isEmailVerified.
  */
 function mapAuthenticatedUser(
-  data: LoginResponseData | RegisterResponseData,
+  data:
+    | LoginResponseData
+    | RegisterResponseData
+    | AuthenticatedUser,
 ): AuthenticatedUser {
+  const record =
+    data as unknown as Record<string, unknown>;
+
+  const id =
+    typeof record.id === "string"
+      ? record.id
+      : "";
+
+  const email =
+    typeof record.email === "string"
+      ? record.email
+      : "";
+
+  const isEmailVerified =
+    typeof record.isEmailVerified === "boolean"
+      ? record.isEmailVerified
+      : typeof record.is_email_verified === "boolean"
+        ? record.is_email_verified
+        : false;
+
+  if (!id || !email) {
+    throw new Error(
+      "La réponse d’authentification reçue du serveur est incomplète.",
+    );
+  }
+
   return {
-    id: data.id,
-    email: data.email,
-    isEmailVerified: data.isEmailVerified,
+    id,
+    email,
+    isEmailVerified,
   };
 }
 
+
 /**
  * Crée un nouveau compte.
- *
- * Étapes :
- *
- * 1. récupération du jeton CSRF ;
- * 2. envoi des informations à Django ;
- * 3. transformation de la réponse ;
- * 4. retour des données minimales du compte.
  */
 export async function registerUser(
   payload: RegisterPayload,
 ): Promise<AuthenticatedUser> {
-  const csrfToken = await ensureCsrfToken();
+  const csrfToken =
+    await ensureCsrfToken();
 
   const response = await httpClient.post<
-    ApiSuccessResponse<RegisterResponseData>
+    AuthenticationApiResponse<RegisterResponseData>
   >(
     "/v1/auth/register/",
     payload,
@@ -72,22 +178,25 @@ export async function registerUser(
     },
   );
 
-  return mapAuthenticatedUser(response.data.data);
+  const responseData =
+    unwrapResponseData(response.data);
+
+  return mapAuthenticatedUser(responseData);
 }
 
+
 /**
- * Confirme l'adresse e-mail à partir d'un jeton signé.
- *
- * Le jeton est envoyé dans le corps JSON et non conservé
- * dans localStorage ou sessionStorage.
+ * Confirme une adresse e-mail à partir du jeton signé
+ * transmis dans le corps JSON.
  */
 export async function verifyEmailAddress(
   payload: VerifyEmailPayload,
 ): Promise<VerifyEmailResponseData> {
-  const csrfToken = await ensureCsrfToken();
+  const csrfToken =
+    await ensureCsrfToken();
 
   const response = await httpClient.post<
-    ApiSuccessResponse<VerifyEmailResponseData>
+    AuthenticationApiResponse<VerifyEmailResponseData>
   >(
     "/v1/auth/email-verification/confirm/",
     payload,
@@ -98,27 +207,21 @@ export async function verifyEmailAddress(
     },
   );
 
-  return response.data.data;
+  return unwrapResponseData(response.data);
 }
+
 
 /**
  * Ouvre une session Django.
- *
- * Le backend :
- *
- * - vérifie les identifiants ;
- * - vérifie l'état du compte ;
- * - crée une session ;
- * - renouvelle l'identifiant de session ;
- * - retourne les informations minimales du compte.
  */
 export async function loginUser(
   payload: LoginPayload,
 ): Promise<AuthenticatedUser> {
-  const csrfToken = await ensureCsrfToken();
+  const csrfToken =
+    await ensureCsrfToken();
 
   const response = await httpClient.post<
-    ApiSuccessResponse<LoginResponseData>
+    AuthenticationApiResponse<LoginResponseData>
   >(
     "/v1/auth/login/",
     payload,
@@ -130,21 +233,25 @@ export async function loginUser(
   );
 
   /**
-   * Django peut renouveler le contexte de session après la connexion.
+   * Django peut renouveler le contexte CSRF après la connexion.
    *
-   * Nous supprimons donc la copie CSRF conservée en mémoire.
-   * Un nouveau jeton sera demandé avant la prochaine opération sensible.
+   * Nous supprimons donc le jeton gardé en mémoire.
    */
   clearInMemoryCsrfToken();
 
-  return mapAuthenticatedUser(response.data.data);
+  const responseData =
+    unwrapResponseData(response.data);
+
+  return mapAuthenticatedUser(responseData);
 }
 
+
 /**
- * Ferme la session Django courante.
+ * Ferme la session Django actuellement active.
  */
 export async function logoutUser(): Promise<void> {
-  const csrfToken = await ensureCsrfToken();
+  const csrfToken =
+    await ensureCsrfToken();
 
   await httpClient.post(
     "/v1/auth/logout/",
@@ -159,18 +266,41 @@ export async function logoutUser(): Promise<void> {
   clearInMemoryCsrfToken();
 }
 
+
 /**
  * Récupère l'utilisateur associé à la session courante.
  *
- * Une réponse 401 ou 403 signifie généralement qu'aucune session
- * authentifiée n'est disponible.
+ * Cette fonction accepte deux formes de réponse :
+ *
+ * Réponse enveloppée :
+ *
+ * {
+ *   "data": {
+ *     "id": "...",
+ *     "email": "...",
+ *     "is_email_verified": true
+ *   }
+ * }
+ *
+ * Réponse directe :
+ *
+ * {
+ *   "id": "...",
+ *   "email": "...",
+ *   "is_email_verified": true
+ * }
  */
 export async function getCurrentUser(): Promise<AuthenticatedUser> {
   const response = await httpClient.get<
-    ApiSuccessResponse<AuthenticatedUser>
+    AuthenticationApiResponse<
+      LoginResponseData | AuthenticatedUser
+    >
   >(
     "/v1/auth/me/",
   );
 
-  return response.data.data;
+  const responseData =
+    unwrapResponseData(response.data);
+
+  return mapAuthenticatedUser(responseData);
 }
