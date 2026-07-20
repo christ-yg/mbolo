@@ -2565,3 +2565,202 @@ svg {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   ERREURS DES ACTIONS DE DÉCOUVERTE
+   ============================================================ */
+
+.discovery-action-alert {
+  display: flex;
+  width: min(100%, 780px);
+  margin: -15px auto 32px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px 17px;
+  border: 1px solid rgb(180 35 60 / 16%);
+  border-radius: 16px;
+  color: #8d1830;
+  background: #fff0f3;
+}
+
+.discovery-action-alert > span {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background: #ae2540;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.discovery-action-alert p {
+  flex: 1;
+  margin: 2px 0 0;
+  font-size: 0.79rem;
+  line-height: 1.5;
+}
+
+.discovery-action-alert button {
+  padding: 0;
+  cursor: pointer;
+  border: 0;
+  color: currentColor;
+  background: transparent;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+
+/* ============================================================
+   FENÊTRE DE NOUVEAU MATCH
+   ============================================================ */
+
+.match-modal {
+  width: min(calc(100% - 30px), 610px);
+  max-height: calc(100vh - 30px);
+  overflow: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 34px;
+  color: var(--color-text);
+  background: transparent;
+  box-shadow:
+    0 38px 110px rgb(34 10 25 / 38%);
+}
+
+.match-modal::backdrop {
+  background:
+    rgb(30 11 22 / 76%);
+  backdrop-filter: blur(12px);
+}
+
+.match-modal__content {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(35px, 7vw, 68px);
+  background:
+    radial-gradient(
+      circle at top right,
+      rgb(232 154 188 / 36%),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at bottom left,
+      rgb(190 171 225 / 22%),
+      transparent 30%
+    ),
+    #fffafd;
+  text-align: center;
+}
+
+.match-modal__close {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  background: rgb(255 255 255 / 72%);
+  font-size: 1.35rem;
+}
+
+.match-modal__symbol {
+  display: grid;
+  width: 92px;
+  height: 92px;
+  margin: 0 auto 28px;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-primary),
+      var(--color-primary-dark)
+    );
+  box-shadow:
+    0 22px 50px rgb(163 47 97 / 30%);
+  font-size: 2rem;
+}
+
+.match-modal h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.5rem, 7vw, 4.3rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.match-modal__content > p:not(.section-heading__eyebrow) {
+  max-width: 480px;
+  margin: 24px auto 0;
+  color: var(--color-text-muted);
+  line-height: 1.75;
+}
+
+.match-modal__privacy-note {
+  display: flex;
+  max-width: 470px;
+  margin: 29px auto;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px 17px;
+  border-radius: 16px;
+  color: #5f4c58;
+  background: rgb(255 255 255 / 70%);
+  text-align: left;
+}
+
+.match-modal__privacy-note > span {
+  color: var(--color-primary);
+  font-weight: 900;
+}
+
+.match-modal__privacy-note p {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.match-modal__continue {
+  display: inline-flex;
+  min-height: 54px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 25px;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-primary),
+      var(--color-primary-dark)
+    );
+  box-shadow:
+    0 17px 38px rgb(163 47 97 / 24%);
+  font-family: inherit;
+  font-weight: 850;
+}
+
+@media (max-width: 520px) {
+  .match-modal {
+    width: calc(100% - 20px);
+    border-radius: 25px;
+  }
+
+  .match-modal__content {
+    padding: 48px 22px 35px;
+  }
+}
