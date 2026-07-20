@@ -15,6 +15,8 @@ import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
 import { DiscoveryPage } from "../pages/discovery/DiscoveryPage";
 import { HomePage } from "../pages/home/HomePage";
 import { MatchesPage } from "../pages/matches/MatchesPage";
+import { MessagesPage } from "../pages/messages/MessagesPage";
+import { ConversationPage } from "../pages/messages/ConversationPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { SafetyPage } from "../pages/settings/SafetyPage";
 
@@ -66,6 +68,22 @@ export const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <MatchesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/messages",
+        element: (
+          <ProtectedRoute>
+            <MessagesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/messages/:conversationId",
+        element: (
+          <ProtectedRoute>
+            <ConversationPage />
           </ProtectedRoute>
         ),
       },
