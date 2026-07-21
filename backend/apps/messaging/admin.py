@@ -1,3 +1,7 @@
+"""
+Administration Django de la messagerie privée Mbolo.
+"""
+
 from django.contrib import admin
 
 from .models import Conversation, Message
@@ -5,10 +9,6 @@ from .models import Conversation, Message
 
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
-    """
-    Administration des conversations.
-    """
-
     list_display = (
         "id",
         "match",
@@ -45,15 +45,13 @@ class ConversationAdmin(admin.ModelAdmin):
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    """
-    Administration des messages.
-    """
-
     list_display = (
         "id",
         "conversation",
         "sender",
+        "is_read",
         "created_at",
+        "read_at",
     )
 
     readonly_fields = (
@@ -70,6 +68,7 @@ class MessageAdmin(admin.ModelAdmin):
 
     list_filter = (
         "created_at",
+        "read_at",
     )
 
     ordering = (

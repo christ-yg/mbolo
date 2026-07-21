@@ -1,3 +1,13 @@
+"""
+Modèles de la messagerie privée Mbolo.
+
+Une conversation est liée à un match actif.
+Un message appartient à une conversation et possède un expéditeur.
+
+Le champ read_at permet de déterminer si le destinataire
+a déjà consulté le message.
+"""
+
 import uuid
 
 from django.conf import settings
@@ -42,24 +52,27 @@ class Conversation(models.Model):
         db_table = "messaging_conversation"
         ordering = ("-updated_at",)
 
-    def __str__(self) -> str:
-        """
-        Représentation administrative sans données personnelles.
-        """
+        indexes = [
+            models.Index(
+                fields=("-updated_at",),
+                name="conversation_updated_idx",
+            ),
+        ]
 
+    def __str__(self) -> str:
         return f"Conversation<{self.id}>"
 
     @property
     def is_active(self) -> bool:
         """
-        La conversation est active uniquement si son match est actif.
+        Une conversation est active uniquement si son match est actif.
         """
 
         return self.match.is_active
 
     def includes_user(self, user) -> bool:
         """
-        Vérifie si le compte utilisateur appartient au match.
+        Vérifie si le compte appartient au match.
         """
 
         if not getattr(user, "is_authenticated", False):
@@ -84,9 +97,26 @@ class Conversation(models.Model):
 
         return self.match.other_profile_for(user.profile)
 
+    def unread_count_for_user(self, user) -> int:
+        """
+        Compte les messages reçus et non lus par le compte.
+
+        Les propres messages de l'utilisateur ne sont jamais comptés.
+        """
+
+        if not self.includes_user(user):
+            return 0
+
+        return (
+            self.messages
+            .exclude(sender=user)
+            .filter(read_at__isnull=True)
+            .count()
+        )
+
     def clean(self) -> None:
         """
-        Vérifie que la conversation dépend d'un match valide.
+        Vérifie que la conversation possède bien un match.
         """
 
         super().clean()
@@ -102,7 +132,7 @@ class Conversation(models.Model):
 
     def save(self, *args, **kwargs) -> None:
         """
-        Valide systématiquement la conversation avant sauvegarde.
+        Valide la conversation avant chaque sauvegarde.
         """
 
         self.full_clean()
@@ -119,8 +149,12 @@ class Message(models.Model):
 
     L'expéditeur est toujours un compte User Django.
 
-    Le frontend ne peut pas choisir ou modifier l'identité
-    de l'expéditeur.
+    Le frontend ne peut jamais choisir l'identité de l'expéditeur.
+
+    Lecture :
+
+    - read_at = None : message non lu ;
+    - read_at contient une date : message lu.
     """
 
     MAX_BODY_LENGTH = 2000
@@ -151,6 +185,11 @@ class Message(models.Model):
         auto_now_add=True,
     )
 
+    read_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         db_table = "messaging_message"
         ordering = ("created_at",)
@@ -170,18 +209,39 @@ class Message(models.Model):
                 ),
                 name="msg_sender_created_idx",
             ),
+            models.Index(
+                fields=(
+                    "conversation",
+                    "read_at",
+                ),
+                name="msg_conv_read_idx",
+            ),
         ]
 
     def __str__(self) -> str:
+        return f"Message<{self.id}>"
+
+    @property
+    def is_read(self) -> bool:
         """
-        Représentation administrative sans contenu du message.
+        Indique si le destinataire a lu le message.
         """
 
-        return f"Message<{self.id}>"
+        return self.read_at is not None
+
+    def is_mine_for(self, user) -> bool:
+        """
+        Indique si le message appartient au compte transmis.
+        """
+
+        if not getattr(user, "is_authenticated", False):
+            return False
+
+        return self.sender_id == user.id
 
     def clean(self) -> None:
         """
-        Applique les règles de sécurité et de validation.
+        Applique les règles de validation et de sécurité.
         """
 
         super().clean()
@@ -239,7 +299,7 @@ class Message(models.Model):
 
     def save(self, *args, **kwargs) -> None:
         """
-        Valide systématiquement le message avant sauvegarde.
+        Valide le message avant chaque sauvegarde.
         """
 
         self.full_clean()

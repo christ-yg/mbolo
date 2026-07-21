@@ -1,3 +1,7 @@
+"""
+Tests de sécurité de la messagerie privée Mbolo.
+"""
+
 from datetime import date
 
 from django.contrib.auth import get_user_model
@@ -10,6 +14,8 @@ from apps.profiles.models import Profile
 from .models import Conversation, Message
 from .services import (
     get_or_create_conversation,
+    get_total_unread_count,
+    mark_conversation_as_read,
     send_message,
 )
 
@@ -19,7 +25,7 @@ User = get_user_model()
 
 class MessagingServiceTests(TestCase):
     """
-    Tests principaux de sécurité de la messagerie.
+    Tests principaux de sécurité et de lecture.
     """
 
     def create_user_with_profile(
@@ -157,6 +163,8 @@ class MessagingServiceTests(TestCase):
             message.body,
             "Bonjour.",
         )
+        self.assertIsNone(message.read_at)
+        self.assertFalse(message.is_read)
 
     def test_outsider_cannot_send_message(self):
         conversation = Conversation.objects.create(
@@ -213,4 +221,125 @@ class MessagingServiceTests(TestCase):
                 actor=self.user_one,
                 conversation_id=conversation.id,
                 body="Message après désactivation.",
+            )
+
+    def test_received_message_is_counted_as_unread(self):
+        conversation = Conversation.objects.create(
+            match=self.match,
+        )
+
+        send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Message pour utilisateur deux.",
+        )
+
+        self.assertEqual(
+            conversation.unread_count_for_user(
+                self.user_one
+            ),
+            0,
+        )
+
+        self.assertEqual(
+            conversation.unread_count_for_user(
+                self.user_two
+            ),
+            1,
+        )
+
+        self.assertEqual(
+            get_total_unread_count(
+                actor=self.user_two
+            ),
+            1,
+        )
+
+    def test_mark_conversation_as_read_marks_received_messages(self):
+        conversation = Conversation.objects.create(
+            match=self.match,
+        )
+
+        received_message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Message reçu.",
+        )
+
+        own_message = send_message(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            body="Ma réponse.",
+        )
+
+        result = mark_conversation_as_read(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+        )
+
+        received_message.refresh_from_db()
+        own_message.refresh_from_db()
+
+        self.assertEqual(result.marked_count, 1)
+        self.assertIsNotNone(
+            received_message.read_at
+        )
+
+        self.assertIsNone(
+            own_message.read_at
+        )
+
+        self.assertEqual(
+            conversation.unread_count_for_user(
+                self.user_two
+            ),
+            0,
+        )
+
+    def test_mark_conversation_as_read_is_idempotent(self):
+        conversation = Conversation.objects.create(
+            match=self.match,
+        )
+
+        send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Message reçu.",
+        )
+
+        first_result = mark_conversation_as_read(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+        )
+
+        second_result = mark_conversation_as_read(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+        )
+
+        self.assertEqual(
+            first_result.marked_count,
+            1,
+        )
+
+        self.assertEqual(
+            second_result.marked_count,
+            0,
+        )
+
+    def test_outsider_cannot_mark_conversation_as_read(self):
+        conversation = Conversation.objects.create(
+            match=self.match,
+        )
+
+        send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Message privé.",
+        )
+
+        with self.assertRaises(ValidationError):
+            mark_conversation_as_read(
+                actor=self.outsider,
+                conversation_id=conversation.id,
             )

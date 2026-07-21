@@ -1,3 +1,7 @@
+"""
+Serializers de la messagerie privée Mbolo.
+"""
+
 from rest_framework import serializers
 
 from apps.profiles.serializers import (
@@ -11,9 +15,7 @@ class ConversationCreateSerializer(
     serializers.Serializer
 ):
     """
-    Données acceptées pour créer ou récupérer une conversation.
-
-    Le client envoie uniquement l'identifiant du match.
+    Données acceptées pour ouvrir une conversation.
     """
 
     match_id = serializers.UUIDField(
@@ -46,6 +48,9 @@ class MessageSerializer(
     """
 
     is_mine = serializers.SerializerMethodField()
+    is_read = serializers.BooleanField(
+        read_only=True,
+    )
 
     class Meta:
         model = Message
@@ -54,6 +59,8 @@ class MessageSerializer(
             "id",
             "body",
             "created_at",
+            "read_at",
+            "is_read",
             "is_mine",
         )
 
@@ -63,12 +70,6 @@ class MessageSerializer(
         self,
         message: Message,
     ) -> bool:
-        """
-        Indique si le message appartient au compte connecté.
-
-        Aucun identifiant User n'est transmis au frontend.
-        """
-
         request = self.context["request"]
 
         return message.sender_id == request.user.id
@@ -79,21 +80,6 @@ class ConversationSerializer(
 ):
     """
     Représentation sécurisée d'une conversation.
-
-    Informations exposées :
-
-    - identifiant de conversation ;
-    - identifiant du match ;
-    - profil public de l'autre participant ;
-    - dernier message ;
-    - dates de création et de mise à jour.
-
-    Informations non exposées :
-
-    - identifiants User ;
-    - adresses e-mail ;
-    - numéros de téléphone ;
-    - profils internes des deux participants.
     """
 
     match_id = serializers.UUIDField(
@@ -109,6 +95,10 @@ class ConversationSerializer(
         serializers.SerializerMethodField()
     )
 
+    unread_count = (
+        serializers.SerializerMethodField()
+    )
+
     class Meta:
         model = Conversation
 
@@ -117,6 +107,7 @@ class ConversationSerializer(
             "match_id",
             "other_profile",
             "last_message",
+            "unread_count",
             "created_at",
             "updated_at",
         )
@@ -127,10 +118,6 @@ class ConversationSerializer(
         self,
         conversation: Conversation,
     ) -> dict:
-        """
-        Retourne uniquement le profil public de l'autre personne.
-        """
-
         request = self.context["request"]
 
         profile = (
@@ -148,10 +135,6 @@ class ConversationSerializer(
         self,
         conversation: Conversation,
     ) -> dict | None:
-        """
-        Retourne le dernier message de la conversation.
-        """
-
         message = (
             conversation.messages
             .order_by("-created_at")
@@ -165,3 +148,45 @@ class ConversationSerializer(
             message,
             context=self.context,
         ).data
+
+    def get_unread_count(
+        self,
+        conversation: Conversation,
+    ) -> int:
+        request = self.context["request"]
+
+        return conversation.unread_count_for_user(
+            request.user
+        )
+
+
+class MarkConversationReadSerializer(
+    serializers.Serializer
+):
+    """
+    Réponse retournée après le marquage comme lu.
+    """
+
+    conversation_id = serializers.UUIDField(
+        read_only=True,
+    )
+
+    marked_count = serializers.IntegerField(
+        read_only=True,
+    )
+
+    read_at = serializers.DateTimeField(
+        read_only=True,
+    )
+
+
+class UnreadCountSerializer(
+    serializers.Serializer
+):
+    """
+    Nombre total de messages non lus.
+    """
+
+    unread_count = serializers.IntegerField(
+        read_only=True,
+    )

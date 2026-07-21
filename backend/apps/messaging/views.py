@@ -1,3 +1,7 @@
+"""
+Vues API de la messagerie privée Mbolo.
+"""
+
 from django.core.exceptions import (
     ValidationError as DjangoValidationError,
 )
@@ -20,12 +24,16 @@ from .pagination import (
 from .serializers import (
     ConversationCreateSerializer,
     ConversationSerializer,
+    MarkConversationReadSerializer,
     MessageCreateSerializer,
     MessageSerializer,
+    UnreadCountSerializer,
 )
 from .services import (
     get_conversation_for_actor,
     get_or_create_conversation,
+    get_total_unread_count,
+    mark_conversation_as_read,
     send_message,
 )
 
@@ -52,10 +60,6 @@ def validation_error_response(
 
 class ConversationListCreateView(APIView):
     """
-    Liste et création des conversations.
-
-    Endpoints :
-
     GET  /api/v1/conversations/
     POST /api/v1/conversations/
     """
@@ -172,10 +176,6 @@ class ConversationMessageListCreateView(
     APIView
 ):
     """
-    Liste et création des messages d'une conversation.
-
-    Endpoints :
-
     GET  /api/v1/conversations/<uuid>/messages/
     POST /api/v1/conversations/<uuid>/messages/
     """
@@ -285,4 +285,84 @@ class ConversationMessageListCreateView(
         return Response(
             output_serializer.data,
             status=status.HTTP_201_CREATED,
+        )
+
+
+class ConversationMarkReadView(APIView):
+    """
+    POST /api/v1/conversations/<uuid>/read/
+
+    Marque comme lus tous les messages reçus.
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+    )
+
+    def post(
+        self,
+        request: Request,
+        conversation_id,
+    ) -> Response:
+        try:
+            result = mark_conversation_as_read(
+                actor=request.user,
+                conversation_id=conversation_id,
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+
+        log_security_event(
+            request=request,
+            event="conversation.read",
+            outcome="success",
+            reason=f"marked:{result.marked_count}",
+            user=request.user,
+            email=request.user.email,
+        )
+
+        serializer = MarkConversationReadSerializer(
+            {
+                "conversation_id": (
+                    result.conversation.id
+                ),
+                "marked_count": result.marked_count,
+                "read_at": result.read_at,
+            }
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class UnreadMessageCountView(APIView):
+    """
+    GET /api/v1/messages/unread-count/
+
+    Retourne le nombre total de messages reçus et non lus.
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+    )
+
+    def get(self, request: Request) -> Response:
+        try:
+            unread_count = get_total_unread_count(
+                actor=request.user,
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+
+        serializer = UnreadCountSerializer(
+            {
+                "unread_count": unread_count,
+            }
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
         )
