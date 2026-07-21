@@ -6,7 +6,7 @@ from datetime import date
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from apps.interactions.models import Match
 from apps.profiles.models import Profile
@@ -17,6 +17,10 @@ from .services import (
     get_total_unread_count,
     mark_conversation_as_read,
     send_message,
+)
+from .typing import (
+    get_other_typing_status,
+    set_typing_status,
 )
 
 
@@ -342,4 +346,54 @@ class MessagingServiceTests(TestCase):
             mark_conversation_as_read(
                 actor=self.outsider,
                 conversation_id=conversation.id,
+            )
+
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "mbolo-typing-tests",
+        }
+    }
+)
+class TypingIndicatorTests(MessagingServiceTests):
+    """Tests de sécurité et d'expiration logique de la saisie."""
+
+    def test_participant_can_publish_typing_status(self):
+        conversation = Conversation.objects.create(match=self.match)
+        result = set_typing_status(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            is_typing=True,
+        )
+        self.assertTrue(result["is_typing"])
+        other = get_other_typing_status(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+        )
+        self.assertTrue(other["other_is_typing"])
+
+    def test_participant_can_stop_typing(self):
+        conversation = Conversation.objects.create(match=self.match)
+        set_typing_status(
+            actor=self.user_one, conversation_id=conversation.id, is_typing=True
+        )
+        set_typing_status(
+            actor=self.user_one, conversation_id=conversation.id, is_typing=False
+        )
+        other = get_other_typing_status(
+            actor=self.user_two, conversation_id=conversation.id
+        )
+        self.assertFalse(other["other_is_typing"])
+
+    def test_outsider_cannot_publish_or_read_typing_status(self):
+        conversation = Conversation.objects.create(match=self.match)
+        with self.assertRaises(ValidationError):
+            set_typing_status(
+                actor=self.outsider, conversation_id=conversation.id, is_typing=True
+            )
+        with self.assertRaises(ValidationError):
+            get_other_typing_status(
+                actor=self.outsider, conversation_id=conversation.id
             )

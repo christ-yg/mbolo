@@ -206,3 +206,24 @@ class UnreadCountSerializer(
     unread_count = serializers.IntegerField(
         read_only=True,
     )
+
+
+class TypingStatusInputSerializer(serializers.Serializer):
+    """État de saisie transmis par le participant connecté."""
+
+    is_typing = serializers.BooleanField(required=True)
+
+
+class TypingStatusSerializer(serializers.Serializer):
+    """Réponse après mise à jour de l'état de saisie."""
+
+    conversation_id = serializers.UUIDField(read_only=True)
+    is_typing = serializers.BooleanField(read_only=True)
+    expires_in_seconds = serializers.IntegerField(read_only=True)
+
+
+class OtherTypingStatusSerializer(serializers.Serializer):
+    """État public de saisie de l'autre participant."""
+
+    conversation_id = serializers.UUIDField(read_only=True)
+    other_is_typing = serializers.BooleanField(read_only=True)

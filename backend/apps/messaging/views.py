@@ -28,6 +28,9 @@ from .serializers import (
     MessageCreateSerializer,
     MessageSerializer,
     UnreadCountSerializer,
+    OtherTypingStatusSerializer,
+    TypingStatusInputSerializer,
+    TypingStatusSerializer,
 )
 from .services import (
     get_conversation_for_actor,
@@ -35,6 +38,10 @@ from .services import (
     get_total_unread_count,
     mark_conversation_as_read,
     send_message,
+)
+from .typing import (
+    get_other_typing_status,
+    set_typing_status,
 )
 
 
@@ -366,3 +373,40 @@ class UnreadMessageCountView(APIView):
             serializer.data,
             status=status.HTTP_200_OK,
         )
+
+
+class ConversationTypingView(APIView):
+    """
+    GET  /api/v1/conversations/<uuid>/typing/
+    POST /api/v1/conversations/<uuid>/typing/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request: Request, conversation_id) -> Response:
+        try:
+            result = get_other_typing_status(
+                actor=request.user,
+                conversation_id=conversation_id,
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+
+        serializer = OtherTypingStatusSerializer(result)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request: Request, conversation_id) -> Response:
+        input_serializer = TypingStatusInputSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+
+        try:
+            result = set_typing_status(
+                actor=request.user,
+                conversation_id=conversation_id,
+                is_typing=input_serializer.validated_data["is_typing"],
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+
+        serializer = TypingStatusSerializer(result)
+        return Response(serializer.data, status=status.HTTP_200_OK)

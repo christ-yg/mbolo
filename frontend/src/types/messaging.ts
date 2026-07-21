@@ -234,3 +234,22 @@ export interface UnreadMessageCountResponse {
    */
   unread_count: number;
 }
+
+
+/** État envoyé par le participant pendant la saisie. */
+export interface TypingStatusPayload {
+  is_typing: boolean;
+}
+
+/** Réponse après mise à jour de l'état de saisie. */
+export interface TypingStatusResponse {
+  conversation_id: string;
+  is_typing: boolean;
+  expires_in_seconds: number;
+}
+
+/** État de saisie public de l'autre participant. */
+export interface OtherTypingStatusResponse {
+  conversation_id: string;
+  other_is_typing: boolean;
+}

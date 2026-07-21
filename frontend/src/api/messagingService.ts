@@ -25,6 +25,9 @@ import type {
   OpenConversationPayload,
   SendMessagePayload,
   UnreadMessageCountResponse,
+  OtherTypingStatusResponse,
+  TypingStatusPayload,
+  TypingStatusResponse,
 } from "../types/messaging";
 
 /**
@@ -253,5 +256,34 @@ Promise<UnreadMessageCountResponse> {
       "/v1/messages/unread-count/",
     );
 
+  return response.data;
+}
+
+
+/**
+ * Publie ou arrête l'état de saisie du compte connecté.
+ */
+export async function setConversationTypingStatus(
+  conversationId: string,
+  payload: TypingStatusPayload,
+): Promise<TypingStatusResponse> {
+  const encodedConversationId = encodeURIComponent(conversationId);
+  const response = await httpClient.post<TypingStatusResponse>(
+    `/v1/conversations/${encodedConversationId}/typing/`,
+    payload,
+  );
+  return response.data;
+}
+
+/**
+ * Récupère l'état de saisie de l'autre participant.
+ */
+export async function getConversationTypingStatus(
+  conversationId: string,
+): Promise<OtherTypingStatusResponse> {
+  const encodedConversationId = encodeURIComponent(conversationId);
+  const response = await httpClient.get<OtherTypingStatusResponse>(
+    `/v1/conversations/${encodedConversationId}/typing/`,
+  );
   return response.data;
 }

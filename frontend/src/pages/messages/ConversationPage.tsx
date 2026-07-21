@@ -34,9 +34,11 @@ import {
   DEFAULT_CONVERSATIONS_PAGE_SIZE,
   DEFAULT_MESSAGES_PAGE_SIZE,
   getConversationMessages,
+  getConversationTypingStatus,
   getConversations,
   markConversationAsRead,
   sendConversationMessage,
+  setConversationTypingStatus,
 } from "../../api/messagingService";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
 
@@ -49,6 +51,8 @@ import "../../styles/conversation.css";
 
 const MAX_MESSAGE_LENGTH = 2000;
 const REFRESH_INTERVAL_MILLISECONDS = 5000;
+const TYPING_POLL_INTERVAL_MILLISECONDS = 2000;
+const TYPING_DEBOUNCE_MILLISECONDS = 350;
 
 type ConversationStatus =
   | "loading"
@@ -155,6 +159,9 @@ export function ConversationPage() {
   const [isRefreshing, setIsRefreshing] =
     useState(false);
 
+  const [otherIsTyping, setOtherIsTyping] =
+    useState(false);
+
   const messagesEndReference =
     useRef<HTMLDivElement | null>(null);
 
@@ -163,6 +170,12 @@ export function ConversationPage() {
 
   const isInitialLoadReference =
     useRef(true);
+
+  const typingDebounceReference =
+    useRef<number | null>(null);
+
+  const typingWasPublishedReference =
+    useRef(false);
 
   const profileMetadata = useMemo(
     () => getProfileMetadata(conversation),
@@ -461,6 +474,78 @@ export function ConversationPage() {
   ]);
 
   /**
+   * Interroge régulièrement le backend pour savoir si
+   * l'autre participant est en train d'écrire.
+   */
+  useEffect(() => {
+    if (status !== "success" || !conversationId) {
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    const refreshTypingStatus = async (): Promise<void> => {
+      try {
+        const result = await getConversationTypingStatus(conversationId);
+        if (isMounted) {
+          setOtherIsTyping(result.other_is_typing);
+        }
+      } catch {
+        if (isMounted) {
+          setOtherIsTyping(false);
+        }
+      }
+    };
+
+    void refreshTypingStatus();
+    const intervalIdentifier = window.setInterval(
+      () => { void refreshTypingStatus(); },
+      TYPING_POLL_INTERVAL_MILLISECONDS,
+    );
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalIdentifier);
+    };
+  }, [conversationId, status]);
+
+  const publishTypingStatus = useCallback((isTyping: boolean): void => {
+    if (!conversationId) {
+      return;
+    }
+
+    if (typingDebounceReference.current !== null) {
+      window.clearTimeout(typingDebounceReference.current);
+    }
+
+    typingDebounceReference.current = window.setTimeout(() => {
+      if (!isTyping && !typingWasPublishedReference.current) {
+        return;
+      }
+
+      typingWasPublishedReference.current = isTyping;
+      void setConversationTypingStatus(conversationId, {
+        is_typing: isTyping,
+      }).catch(() => {
+        typingWasPublishedReference.current = false;
+      });
+    }, isTyping ? TYPING_DEBOUNCE_MILLISECONDS : 0);
+  }, [conversationId]);
+
+  useEffect(() => {
+    return () => {
+      if (typingDebounceReference.current !== null) {
+        window.clearTimeout(typingDebounceReference.current);
+      }
+      if (typingWasPublishedReference.current && conversationId) {
+        void setConversationTypingStatus(conversationId, {
+          is_typing: false,
+        });
+      }
+    };
+  }, [conversationId]);
+
+  /**
    * Descend automatiquement vers le message le plus récent.
    */
   useEffect(() => {
@@ -557,6 +642,7 @@ export function ConversationPage() {
         ]);
       });
 
+      publishTypingStatus(false);
       setMessageBody("");
 
       window.setTimeout(() => {
@@ -757,6 +843,18 @@ export function ConversationPage() {
             ))
           )}
 
+
+          {otherIsTyping ? (
+            <div
+              className="conversation-typing-indicator"
+              role="status"
+              aria-live="polite"
+            >
+              <span aria-hidden="true"><i /><i /><i /></span>
+              {conversation.other_profile.display_name} écrit…
+            </div>
+          ) : null}
+
           <div
             ref={messagesEndReference}
             className="conversation-messages__end"
@@ -808,9 +906,9 @@ export function ConversationPage() {
               disabled={isSending}
               onKeyDown={handleTextareaKeyDown}
               onChange={(event) => {
-                setMessageBody(
-                  event.target.value,
-                );
+                const nextValue = event.target.value;
+                setMessageBody(nextValue);
+                publishTypingStatus(nextValue.trim().length > 0);
                 setSendError("");
               }}
             />

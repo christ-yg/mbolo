@@ -9,6 +9,7 @@ from .views import (
     ConversationMarkReadView,
     ConversationMessageListCreateView,
     UnreadMessageCountView,
+    ConversationTypingView,
 )
 
 
@@ -38,6 +39,15 @@ urlpatterns = [
         ),
         ConversationMarkReadView.as_view(),
         name="conversation-mark-read",
+    ),
+    path(
+        (
+            "conversations/"
+            "<uuid:conversation_id>/"
+            "typing/"
+        ),
+        ConversationTypingView.as_view(),
+        name="conversation-typing",
     ),
     path(
         "messages/unread-count/",
