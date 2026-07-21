@@ -1,16 +1,33 @@
 """
-ASGI config for config project.
+Configuration ASGI de Mbolo.
 
-It exposes the ASGI callable as a module-level variable named ``application``.
+Cette application accepte à la fois :
 
-For more information on this file, see
-https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
+- les requêtes HTTP classiques de Django/DRF ;
+- les connexions WebSocket authentifiées de la messagerie.
 """
 
 import os
 
+from channels.auth import AuthMiddlewareStack
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.security.websocket import AllowedHostsOriginValidator
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
-application = get_asgi_application()
+# Initialiser Django avant d'importer le routing métier.
+django_asgi_application = get_asgi_application()
+
+from apps.messaging.routing import websocket_urlpatterns  # noqa: E402
+
+application = ProtocolTypeRouter(
+    {
+        "http": django_asgi_application,
+        "websocket": AllowedHostsOriginValidator(
+            AuthMiddlewareStack(
+                URLRouter(websocket_urlpatterns)
+            )
+        ),
+    }
+)

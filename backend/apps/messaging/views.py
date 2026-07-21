@@ -17,6 +17,7 @@ from apps.core.security_logging import (
 )
 
 from .models import Conversation, Message
+from .realtime import broadcast_conversation_event
 from .pagination import (
     ConversationPagination,
     MessagePagination,
@@ -289,6 +290,15 @@ class ConversationMessageListCreateView(
             },
         )
 
+        broadcast_conversation_event(
+            conversation_id=message.conversation_id,
+            event={
+                "event": "message.created",
+                "sender_id": str(request.user.id),
+                "message": output_serializer.data,
+            },
+        )
+
         return Response(
             output_serializer.data,
             status=status.HTTP_201_CREATED,
@@ -336,6 +346,16 @@ class ConversationMarkReadView(APIView):
                 "marked_count": result.marked_count,
                 "read_at": result.read_at,
             }
+        )
+
+        broadcast_conversation_event(
+            conversation_id=result.conversation.id,
+            event={
+                "event": "conversation.read",
+                "reader_id": str(request.user.id),
+                "marked_count": result.marked_count,
+                "read_at": result.read_at.isoformat(),
+            },
         )
 
         return Response(
@@ -409,4 +429,14 @@ class ConversationTypingView(APIView):
             return validation_error_response(exc)
 
         serializer = TypingStatusSerializer(result)
+
+        broadcast_conversation_event(
+            conversation_id=result["conversation_id"],
+            event={
+                "event": "typing.updated",
+                "actor_id": str(request.user.id),
+                "is_typing": result["is_typing"],
+            },
+        )
+
         return Response(serializer.data, status=status.HTTP_200_OK)

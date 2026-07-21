@@ -41,6 +41,7 @@ import {
   setConversationTypingStatus,
 } from "../../api/messagingService";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
+import { useConversationRealtime } from "../../hooks/useConversationRealtime";
 
 import type {
   ConversationItem,
@@ -177,6 +178,34 @@ export function ConversationPage() {
   const typingWasPublishedReference =
     useRef(false);
 
+  const realtime = useConversationRealtime(
+    conversationId,
+    {
+      onMessageCreated: (incomingMessage) => {
+        setMessages((currentMessages) => {
+          if (currentMessages.some((message) => message.id === incomingMessage.id)) {
+            return currentMessages;
+          }
+          return sortMessagesByDate([...currentMessages, incomingMessage]);
+        });
+
+        if (!incomingMessage.is_mine && !incomingMessage.is_read) {
+          window.dispatchEvent(new CustomEvent("mbolo:unread-count-changed"));
+        }
+      },
+      onOtherTypingChanged: setOtherIsTyping,
+      onMessagesRead: (readAt) => {
+        setMessages((currentMessages) =>
+          currentMessages.map((message) =>
+            message.is_mine && !message.is_read
+              ? { ...message, is_read: true, read_at: readAt }
+              : message,
+          ),
+        );
+      },
+    },
+  );
+
   const profileMetadata = useMemo(
     () => getProfileMetadata(conversation),
     [conversation],
@@ -216,7 +245,7 @@ export function ConversationPage() {
             candidateConversation.id === conversationId,
         ) ?? null
       );
-    }, [conversationId]);
+    }, [conversationId, realtime]);
 
   const markReceivedMessagesAsRead =
     useCallback(
@@ -250,6 +279,8 @@ export function ConversationPage() {
             ),
           );
 
+          realtime.publishRead();
+
           return loadedMessages.map((message) => {
             if (
               message.is_mine ||
@@ -274,7 +305,7 @@ export function ConversationPage() {
           return loadedMessages;
         }
       },
-      [conversationId],
+      [conversationId, realtime],
     );
 
   /**
@@ -450,7 +481,8 @@ export function ConversationPage() {
   useEffect(() => {
     if (
       status !== "success" ||
-      !conversationId
+      !conversationId ||
+      realtime.isConnected
     ) {
       return undefined;
     }
@@ -471,6 +503,7 @@ export function ConversationPage() {
     conversationId,
     loadMessages,
     status,
+    realtime.isConnected,
   ]);
 
   /**
@@ -478,7 +511,11 @@ export function ConversationPage() {
    * l'autre participant est en train d'écrire.
    */
   useEffect(() => {
-    if (status !== "success" || !conversationId) {
+    if (
+      status !== "success" ||
+      !conversationId ||
+      realtime.isConnected
+    ) {
       return undefined;
     }
 
@@ -507,10 +544,15 @@ export function ConversationPage() {
       isMounted = false;
       window.clearInterval(intervalIdentifier);
     };
-  }, [conversationId, status]);
+  }, [conversationId, status, realtime.isConnected]);
 
   const publishTypingStatus = useCallback((isTyping: boolean): void => {
     if (!conversationId) {
+      return;
+    }
+
+    if (realtime.publishTyping(isTyping)) {
+      typingWasPublishedReference.current = isTyping;
       return;
     }
 

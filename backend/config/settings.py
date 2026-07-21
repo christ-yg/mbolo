@@ -46,8 +46,10 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "daphne",
     "django.contrib.staticfiles",
 
+    "channels",
     "rest_framework",
 
     "apps.accounts.apps.AccountsConfig",
@@ -87,6 +89,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
 
 
 # Database
@@ -323,3 +326,31 @@ PROFILE_PHOTO_OUTPUT_MAX_HEIGHT = 1600
 
 # Qualité WebP du fichier final.
 PROFILE_PHOTO_WEBP_QUALITY = 88
+
+
+# ==========================================================
+# DJANGO CHANNELS / WEBSOCKET
+# ==========================================================
+#
+# Redis DB 1 reste réservé au cache Django.
+# Redis DB 2 est réservé au Channel Layer afin de séparer
+# les clés de cache des messages internes de Channels.
+#
+REDIS_CHANNEL_URL = (
+    f"redis://:{env('REDIS_PASSWORD')}"
+    f"@127.0.0.1:"
+    f"{env.int('REDIS_EXPOSED_PORT', default=6379)}"
+    "/2"
+)
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [REDIS_CHANNEL_URL],
+            "capacity": 1000,
+            "expiry": 60,
+            "group_expiry": 86400,
+        },
+    },
+}
