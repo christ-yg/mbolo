@@ -304,3 +304,20 @@ export async function getCurrentUser(): Promise<AuthenticatedUser> {
 
   return mapAuthenticatedUser(responseData);
 }
+
+/**
+ * Signale au backend que le compte authentifié est actif.
+ */
+export async function sendActivityHeartbeat(): Promise<void> {
+  const csrfToken = await ensureCsrfToken();
+
+  await httpClient.post(
+    "/v1/auth/activity/",
+    {},
+    {
+      headers: {
+        "X-CSRFToken": csrfToken,
+      },
+    },
+  );
+}

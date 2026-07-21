@@ -32,6 +32,7 @@ import {
   getCurrentUser,
   loginUser,
   logoutUser,
+  sendActivityHeartbeat,
 } from "../api/authService";
 
 import type {
@@ -184,6 +185,42 @@ export function AuthProvider({
       isComponentMounted = false;
     };
   }, [refreshCurrentUser]);
+
+  /**
+   * Battement de présence.
+   *
+   * Une requête est envoyée au chargement, au retour sur l’onglet
+   * et toutes les 60 secondes pendant une session active.
+   */
+  useEffect(() => {
+    if (user === null) {
+      return undefined;
+    }
+
+    const sendHeartbeat = (): void => {
+      if (document.visibilityState === "visible") {
+        void sendActivityHeartbeat().catch(() => {
+          // La présence ne doit jamais bloquer l’application.
+        });
+      }
+    };
+
+    sendHeartbeat();
+
+    const intervalIdentifier = window.setInterval(
+      sendHeartbeat,
+      60_000,
+    );
+
+    window.addEventListener("focus", sendHeartbeat);
+    document.addEventListener("visibilitychange", sendHeartbeat);
+
+    return () => {
+      window.clearInterval(intervalIdentifier);
+      window.removeEventListener("focus", sendHeartbeat);
+      document.removeEventListener("visibilitychange", sendHeartbeat);
+    };
+  }, [user]);
 
   /**
    * Connexion centralisée.

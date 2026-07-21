@@ -98,6 +98,32 @@ function getProfileMetadata(
   return metadata.join(" · ");
 }
 
+
+function formatPresenceLabel(
+  isOnline: boolean,
+  lastSeenAt: string | null,
+): string {
+  if (isOnline) {
+    return "En ligne";
+  }
+
+  if (!lastSeenAt) {
+    return "Hors ligne";
+  }
+
+  const date = new Date(lastSeenAt);
+  if (Number.isNaN(date.getTime())) {
+    return "Hors ligne";
+  }
+
+  return `Dernière connexion ${new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date)}`;
+}
+
 export function ConversationPage() {
   const {
     conversationId,
@@ -673,6 +699,20 @@ export function ConversationPage() {
                   {profileMetadata}
                 </p>
               ) : null}
+
+              <p
+                className={
+                  conversation.other_presence.is_online
+                    ? "conversation-contact__presence conversation-contact__presence--online"
+                    : "conversation-contact__presence"
+                }
+              >
+                <span aria-hidden="true" />
+                {formatPresenceLabel(
+                  conversation.other_presence.is_online,
+                  conversation.other_presence.last_seen_at,
+                )}
+              </p>
             </div>
           </div>
 

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    ActivityHeartbeatView,
     CurrentUserView,
     EmailVerificationConfirmView,
     EmailVerificationRequestView,
@@ -27,6 +28,11 @@ urlpatterns = [
         "logout/",
         LogoutView.as_view(),
         name="logout",
+    ),
+    path(
+        "activity/",
+        ActivityHeartbeatView.as_view(),
+        name="activity-heartbeat",
     ),
     path(
         "me/",

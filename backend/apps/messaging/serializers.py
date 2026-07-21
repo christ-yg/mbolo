@@ -4,6 +4,7 @@ Serializers de la messagerie privée Mbolo.
 
 from rest_framework import serializers
 
+from apps.accounts.presence import get_user_presence
 from apps.profiles.serializers import (
     DiscoveryProfileSerializer,
 )
@@ -99,6 +100,10 @@ class ConversationSerializer(
         serializers.SerializerMethodField()
     )
 
+    other_presence = (
+        serializers.SerializerMethodField()
+    )
+
     class Meta:
         model = Conversation
 
@@ -108,6 +113,7 @@ class ConversationSerializer(
             "other_profile",
             "last_message",
             "unread_count",
+            "other_presence",
             "created_at",
             "updated_at",
         )
@@ -158,6 +164,16 @@ class ConversationSerializer(
         return conversation.unread_count_for_user(
             request.user
         )
+
+    def get_other_presence(
+        self,
+        conversation: Conversation,
+    ) -> dict[str, object]:
+        request = self.context["request"]
+        profile = conversation.other_profile_for_user(
+            request.user
+        )
+        return get_user_presence(profile.user)
 
 
 class MarkConversationReadSerializer(

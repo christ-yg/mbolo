@@ -33,6 +33,25 @@ type ConversationsStatus =
   | "error";
 
 
+
+function formatLastSeen(lastSeenAt: string | null): string {
+  if (!lastSeenAt) {
+    return "Hors ligne";
+  }
+
+  const date = new Date(lastSeenAt);
+  if (Number.isNaN(date.getTime())) {
+    return "Hors ligne";
+  }
+
+  return `Vu ${new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date)}`;
+}
+
 export function MessagesPage() {
   const [status, setStatus] =
     useState<ConversationsStatus>("loading");
@@ -261,6 +280,21 @@ export function MessagesPage() {
             <ConversationCard
               conversation={conversation}
             />
+
+            <span
+              className={
+                conversation.other_presence.is_online
+                  ? "conversation-presence conversation-presence--online"
+                  : "conversation-presence"
+              }
+            >
+              <span aria-hidden="true" />
+              {conversation.other_presence.is_online
+                ? "En ligne"
+                : formatLastSeen(
+                    conversation.other_presence.last_seen_at,
+                  )}
+            </span>
 
             {conversation.unread_count > 0 ? (
               <span

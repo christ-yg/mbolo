@@ -16,6 +16,10 @@ from .email_verification import (
     send_email_verification_message,
 )
 from .models import User
+from .presence import (
+    mark_user_offline,
+    touch_user_presence,
+)
 from .serializers import (
     CurrentUserSerializer,
     EmailVerificationConfirmSerializer,
@@ -129,6 +133,7 @@ class LoginView(APIView):
         user = serializer.validated_data["user"]
 
         login(request, user)
+        touch_user_presence(user)
 
         log_security_event(
             request=request,
@@ -197,6 +202,7 @@ class LogoutView(APIView):
             ),
         )
 
+        mark_user_offline(current_user)
         logout(request)
 
         return Response(
@@ -336,9 +342,30 @@ class EmailVerificationConfirmView(APIView):
         )
 
 
+class ActivityHeartbeatView(APIView):
+    """Actualise la présence du compte authentifié."""
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(
+        self,
+        request: Request,
+    ) -> Response:
+        presence = touch_user_presence(request.user)
+
+        return Response(
+            {
+                "is_online": presence["is_online"],
+                "last_seen_at": presence["last_seen_at"],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class CurrentUserView(RetrieveAPIView):
     serializer_class = CurrentUserSerializer
     permission_classes = (IsAuthenticated,)
 
     def get_object(self) -> User:
+        touch_user_presence(self.request.user)
         return self.request.user

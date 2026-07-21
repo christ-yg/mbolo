@@ -3712,3 +3712,56 @@ svg {
     right: 16px;
   }
 }
+
+
+/* ==========================================================
+   Présence utilisateur
+   ========================================================== */
+.conversation-presence {
+  position: absolute;
+  right: 72px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #806b73;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.conversation-presence > span,
+.conversation-contact__presence > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #aaa0a4;
+  box-shadow: 0 0 0 3px rgba(170, 160, 164, 0.15);
+}
+
+.conversation-presence--online,
+.conversation-contact__presence--online {
+  color: #18794e;
+}
+
+.conversation-presence--online > span,
+.conversation-contact__presence--online > span {
+  background: #22a06b;
+  box-shadow: 0 0 0 3px rgba(34, 160, 107, 0.16);
+}
+
+.conversation-contact__presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  color: #806b73;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .conversation-presence {
+    position: static;
+    margin: 8px 20px 0;
+  }
+}

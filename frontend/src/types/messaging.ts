@@ -49,6 +49,15 @@ export interface MessageItem {
 /**
  * Conversation privée associée à un match actif.
  */
+
+/**
+ * Présence publique minimale d'un autre participant.
+ */
+export interface UserPresence {
+  is_online: boolean;
+  last_seen_at: string | null;
+}
+
 export interface ConversationItem {
   /**
    * Identifiant UUID public de la conversation.
@@ -77,6 +86,11 @@ export interface ConversationItem {
    * dans cette conversation.
    */
   unread_count: number;
+
+  /**
+   * Présence calculée de l’autre participant.
+   */
+  other_presence: UserPresence;
 
   /**
    * Date de création de la conversation.
