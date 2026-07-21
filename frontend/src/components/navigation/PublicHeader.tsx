@@ -21,7 +21,11 @@
  * - bouton de déconnexion.
  */
 
-import { useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import {
   Link,
   NavLink,
@@ -29,6 +33,7 @@ import {
 } from "react-router-dom";
 
 import { normalizeApiError } from "../../api/apiError";
+import { getUnreadMessageCount } from "../../api/messagingService";
 import { useAuth } from "../../hooks/useAuth";
 
 import { BrandLogo } from "../common/BrandLogo";
@@ -69,6 +74,91 @@ export function PublicHeader() {
 
   const [logoutError, setLogoutError] =
     useState<string | null>(null);
+
+  const [unreadMessageCount, setUnreadMessageCount] =
+    useState(0);
+
+  const loadUnreadMessageCount =
+    useCallback(async (): Promise<void> => {
+      if (!isAuthenticated) {
+        setUnreadMessageCount(0);
+        return;
+      }
+
+      try {
+        const result = await getUnreadMessageCount();
+
+        setUnreadMessageCount(
+          Math.max(0, result.unread_count),
+        );
+      } catch {
+        /**
+         * Le compteur ne doit jamais bloquer la navigation.
+         *
+         * Une panne momentanée du compteur reste donc silencieuse.
+         */
+      }
+    }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (
+      isInitializing ||
+      !isAuthenticated
+    ) {
+      setUnreadMessageCount(0);
+      return undefined;
+    }
+
+    void loadUnreadMessageCount();
+
+    const intervalIdentifier =
+      window.setInterval(() => {
+        void loadUnreadMessageCount();
+      }, 15000);
+
+    function handleCounterRefresh(): void {
+      void loadUnreadMessageCount();
+    }
+
+    function handleVisibilityChange(): void {
+      if (document.visibilityState === "visible") {
+        void loadUnreadMessageCount();
+      }
+    }
+
+    window.addEventListener(
+      "focus",
+      handleCounterRefresh,
+    );
+    window.addEventListener(
+      "mbolo:unread-count-changed",
+      handleCounterRefresh,
+    );
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
+    return () => {
+      window.clearInterval(intervalIdentifier);
+      window.removeEventListener(
+        "focus",
+        handleCounterRefresh,
+      );
+      window.removeEventListener(
+        "mbolo:unread-count-changed",
+        handleCounterRefresh,
+      );
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+    };
+  }, [
+    isAuthenticated,
+    isInitializing,
+    loadUnreadMessageCount,
+  ]);
 
 
   /**
@@ -137,7 +227,18 @@ export function PublicHeader() {
                   className={getNavigationLinkClass}
                   to="/messages"
                 >
-                  Messages
+                  <span>Messages</span>
+
+                  {unreadMessageCount > 0 ? (
+                    <span
+                      className="public-header__unread-badge"
+                      aria-label={`${unreadMessageCount} message${unreadMessageCount > 1 ? "s" : ""} non lu${unreadMessageCount > 1 ? "s" : ""}`}
+                    >
+                      {unreadMessageCount > 99
+                        ? "99+"
+                        : unreadMessageCount}
+                    </span>
+                  ) : null}
                 </NavLink>
               </>
             ) : null}

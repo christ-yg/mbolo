@@ -77,13 +77,32 @@ export function MessageBubble({
         {message.body}
       </p>
 
-      <time
-        className="message-bubble__time"
-        dateTime={message.created_at}
-        title={formattedDateTime}
-      >
-        {formattedTime}
-      </time>
+      <footer className="message-bubble__footer">
+        <time
+          className="message-bubble__time"
+          dateTime={message.created_at}
+          title={formattedDateTime}
+        >
+          {formattedTime}
+        </time>
+
+        {message.is_mine ? (
+          <span
+            className={
+              message.is_read
+                ? "message-bubble__read-status message-bubble__read-status--read"
+                : "message-bubble__read-status"
+            }
+            aria-label={
+              message.is_read
+                ? "Message lu"
+                : "Message envoyé"
+            }
+          >
+            {message.is_read ? "Lu" : "Envoyé"}
+          </span>
+        ) : null}
+      </footer>
     </article>
   );
 }

@@ -90,6 +90,13 @@ export function MessagesPage() {
   const conversations: ConversationItem[] =
     data?.results ?? [];
 
+  const unreadMessageCount =
+    conversations.reduce(
+      (total, conversation) =>
+        total + conversation.unread_count,
+      0,
+    );
+
 
   if (status === "loading") {
     return (
@@ -228,6 +235,13 @@ export function MessagesPage() {
               ? "conversations"
               : "conversation"}
           </p>
+
+          {unreadMessageCount > 0 ? (
+            <small>
+              {unreadMessageCount} non lu
+              {unreadMessageCount > 1 ? "s" : ""}
+            </small>
+          ) : null}
         </div>
       </section>
 
@@ -236,10 +250,29 @@ export function MessagesPage() {
         aria-label="Liste des conversations"
       >
         {conversations.map((conversation) => (
-          <ConversationCard
+          <div
             key={conversation.id}
-            conversation={conversation}
-          />
+            className={
+              conversation.unread_count > 0
+                ? "conversation-list-item conversation-list-item--unread"
+                : "conversation-list-item"
+            }
+          >
+            <ConversationCard
+              conversation={conversation}
+            />
+
+            {conversation.unread_count > 0 ? (
+              <span
+                className="conversation-list-item__unread-badge"
+                aria-label={`${conversation.unread_count} message${conversation.unread_count > 1 ? "s" : ""} non lu${conversation.unread_count > 1 ? "s" : ""}`}
+              >
+                {conversation.unread_count > 99
+                  ? "99+"
+                  : conversation.unread_count}
+              </span>
+            ) : null}
+          </div>
         ))}
       </section>
 

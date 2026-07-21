@@ -35,6 +35,7 @@ import {
   DEFAULT_MESSAGES_PAGE_SIZE,
   getConversationMessages,
   getConversations,
+  markConversationAsRead,
   sendConversationMessage,
 } from "../../api/messagingService";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
@@ -178,6 +179,65 @@ export function ConversationPage() {
       );
     }, [conversationId]);
 
+  const markReceivedMessagesAsRead =
+    useCallback(
+      async (
+        loadedMessages: MessageItem[],
+      ): Promise<MessageItem[]> => {
+        if (!conversationId) {
+          return loadedMessages;
+        }
+
+        const hasUnreadReceivedMessage =
+          loadedMessages.some(
+            (message) =>
+              !message.is_mine &&
+              !message.is_read,
+          );
+
+        if (!hasUnreadReceivedMessage) {
+          return loadedMessages;
+        }
+
+        try {
+          const result =
+            await markConversationAsRead(
+              conversationId,
+            );
+
+          window.dispatchEvent(
+            new CustomEvent(
+              "mbolo:unread-count-changed",
+            ),
+          );
+
+          return loadedMessages.map((message) => {
+            if (
+              message.is_mine ||
+              message.is_read
+            ) {
+              return message;
+            }
+
+            return {
+              ...message,
+              is_read: true,
+              read_at:
+                message.read_at ??
+                result.read_at,
+            };
+          });
+        } catch {
+          /**
+           * Un échec du marquage comme lu ne doit pas
+           * empêcher l'affichage de la conversation.
+           */
+          return loadedMessages;
+        }
+      },
+      [conversationId],
+    );
+
   /**
    * Charge les messages.
    *
@@ -214,9 +274,15 @@ export function ConversationPage() {
             },
           );
 
-        setMessages(
-          sortMessagesByDate(result.results),
-        );
+        const sortedMessages =
+          sortMessagesByDate(result.results);
+
+        const readableMessages =
+          await markReceivedMessagesAsRead(
+            sortedMessages,
+          );
+
+        setMessages(readableMessages);
 
         if (!silent) {
           setPageError("");
@@ -235,7 +301,10 @@ export function ConversationPage() {
         }
       }
     },
-    [conversationId],
+    [
+      conversationId,
+      markReceivedMessagesAsRead,
+    ],
   );
 
   /**
@@ -286,12 +355,25 @@ export function ConversationPage() {
           return;
         }
 
-        setConversation(loadedConversation);
-        setMessages(
+        const sortedMessages =
           sortMessagesByDate(
             loadedMessages.results,
-          ),
-        );
+          );
+
+        const readableMessages =
+          await markReceivedMessagesAsRead(
+            sortedMessages,
+          );
+
+        if (!isComponentMounted) {
+          return;
+        }
+
+        setConversation({
+          ...loadedConversation,
+          unread_count: 0,
+        });
+        setMessages(readableMessages);
         setStatus("success");
       } catch (error: unknown) {
         if (!isComponentMounted) {
@@ -314,6 +396,7 @@ export function ConversationPage() {
   }, [
     conversationId,
     loadConversationMetadata,
+    markReceivedMessagesAsRead,
   ]);
 
   /**
