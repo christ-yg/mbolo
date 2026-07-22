@@ -14,6 +14,9 @@ import { useNavigate } from "react-router-dom";
 
 import { normalizeApiError } from "../../api/apiError";
 import {
+  deactivateMatch,
+} from "../../api/interactionService";
+import {
   DEFAULT_MATCHES_PAGE_SIZE,
   getMatches,
 } from "../../api/matchService";
@@ -51,6 +54,12 @@ export function MatchesPage() {
 
   const [errorMessage, setErrorMessage] =
     useState("");
+
+  const [matchToRemove, setMatchToRemove] =
+    useState<MatchItem | null>(null);
+
+  const [isRemovingMatch, setIsRemovingMatch] =
+    useState(false);
 
   /**
    * Charge une page de matchs depuis Django.
@@ -107,6 +116,33 @@ export function MatchesPage() {
 
   const matches: MatchItem[] =
     matchesData?.results ?? [];
+
+  async function handleUnmatch(): Promise<void> {
+    if (
+      matchToRemove === null ||
+      isRemovingMatch
+    ) {
+      return;
+    }
+
+    setIsRemovingMatch(true);
+    setErrorMessage("");
+
+    try {
+      await deactivateMatch(matchToRemove.id);
+
+      setMatchToRemove(null);
+
+      await loadMatches(1);
+    } catch (error: unknown) {
+      const normalizedError =
+        normalizeApiError(error);
+
+      setErrorMessage(normalizedError.message);
+    } finally {
+      setIsRemovingMatch(false);
+    }
+  }
 
   if (status === "loading") {
     return (
@@ -281,17 +317,29 @@ export function MatchesPage() {
           >
             <MatchCard match={match} />
 
-            <button
-              type="button"
-              className="profile-detail-link-button"
-              onClick={() => {
-                navigate(
-                  `/profiles/${match.other_profile.id}`,
-                );
-              }}
-            >
-              Voir le profil complet
-            </button>
+            <div className="match-card-with-detail__actions">
+              <button
+                type="button"
+                className="profile-detail-link-button"
+                onClick={() => {
+                  navigate(
+                    `/profiles/${match.other_profile.id}`,
+                  );
+                }}
+              >
+                Voir le profil complet
+              </button>
+
+              <button
+                type="button"
+                className="match-card-with-detail__unmatch"
+                onClick={() => {
+                  setMatchToRemove(match);
+                }}
+              >
+                Supprimer le match
+              </button>
+            </div>
           </div>
         ))}
       </section>
@@ -326,6 +374,55 @@ export function MatchesPage() {
             Page suivante →
           </button>
         </nav>
+      ) : null}
+      {matchToRemove ? (
+        <div className="unmatch-dialog-backdrop">
+          <section
+            className="unmatch-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="unmatch-title"
+          >
+            <p className="section-heading__eyebrow">
+              Confirmation
+            </p>
+
+            <h2 id="unmatch-title">
+              Supprimer le match avec{" "}
+              {matchToRemove.other_profile.display_name} ?
+            </h2>
+
+            <p>
+              La conversation sera fermée. Les messages seront
+              conservés de manière sécurisée mais ne seront plus
+              accessibles depuis l’application.
+            </p>
+
+            <div className="unmatch-dialog__actions">
+              <button
+                type="button"
+                disabled={isRemovingMatch}
+                onClick={() => {
+                  setMatchToRemove(null);
+                }}
+              >
+                Annuler
+              </button>
+
+              <button
+                type="button"
+                disabled={isRemovingMatch}
+                onClick={() => {
+                  void handleUnmatch();
+                }}
+              >
+                {isRemovingMatch
+                  ? "Suppression…"
+                  : "Supprimer le match"}
+              </button>
+            </div>
+          </section>
+        </div>
       ) : null}
     </main>
   );

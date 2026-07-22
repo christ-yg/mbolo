@@ -26,10 +26,14 @@ import {
 } from "react";
 import {
   Link,
+  useNavigate,
   useParams,
 } from "react-router-dom";
 
 import { normalizeApiError } from "../../api/apiError";
+import {
+  deactivateMatch,
+} from "../../api/interactionService";
 import {
   DEFAULT_CONVERSATIONS_PAGE_SIZE,
   DEFAULT_MESSAGES_PAGE_SIZE,
@@ -42,6 +46,7 @@ import {
 } from "../../api/messagingService";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
 import { useConversationRealtime } from "../../hooks/useConversationRealtime";
+import { useAccountRealtime } from "../../hooks/useAccountRealtime";
 
 import type {
   ConversationItem,
@@ -130,6 +135,12 @@ function formatPresenceLabel(
 }
 
 export function ConversationPage() {
+  const navigate = useNavigate();
+
+  const {
+    lastEvent: accountLastEvent,
+    revision: accountRevision,
+  } = useAccountRealtime();
   const {
     conversationId,
   } = useParams<{
@@ -158,6 +169,12 @@ export function ConversationPage() {
     useState(false);
 
   const [isRefreshing, setIsRefreshing] =
+    useState(false);
+
+  const [isUnmatchDialogOpen, setIsUnmatchDialogOpen] =
+    useState(false);
+
+  const [isUnmatching, setIsUnmatching] =
     useState(false);
 
   const [otherIsTyping, setOtherIsTyping] =
@@ -209,6 +226,23 @@ export function ConversationPage() {
       },
     },
   );
+
+  useEffect(() => {
+    if (
+      accountLastEvent?.event === "match.deactivated" &&
+      conversationId &&
+      accountLastEvent.conversation_id === conversationId
+    ) {
+      navigate("/matches", {
+        replace: true,
+      });
+    }
+  }, [
+    accountLastEvent,
+    accountRevision,
+    conversationId,
+    navigate,
+  ]);
 
   const profileMetadata = useMemo(
     () => getProfileMetadata(conversation),
@@ -704,6 +738,35 @@ export function ConversationPage() {
     }
   }
 
+  async function handleUnmatch(): Promise<void> {
+    if (
+      conversation === null ||
+      isUnmatching
+    ) {
+      return;
+    }
+
+    setIsUnmatching(true);
+    setPageError("");
+
+    try {
+      await deactivateMatch(conversation.match_id);
+
+      setIsUnmatchDialogOpen(false);
+
+      navigate("/matches", {
+        replace: true,
+      });
+    } catch (error: unknown) {
+      const normalizedError =
+        normalizeApiError(error);
+
+      setPageError(normalizedError.message);
+    } finally {
+      setIsUnmatching(false);
+    }
+  }
+
   function handleTextareaKeyDown(
     event: KeyboardEvent<HTMLTextAreaElement>,
   ): void {
@@ -992,6 +1055,54 @@ export function ConversationPage() {
           </div>
         </form>
       </section>
+      {isUnmatchDialogOpen ? (
+        <div className="unmatch-dialog-backdrop">
+          <section
+            className="unmatch-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="conversation-unmatch-title"
+          >
+            <p className="section-heading__eyebrow">
+              Confirmation
+            </p>
+
+            <h2 id="conversation-unmatch-title">
+              Fermer cette relation ?
+            </h2>
+
+            <p>
+              Le match sera supprimé et cette conversation deviendra
+              inaccessible. Les messages resteront conservés pour
+              assurer la traçabilité et la sécurité.
+            </p>
+
+            <div className="unmatch-dialog__actions">
+              <button
+                type="button"
+                disabled={isUnmatching}
+                onClick={() => {
+                  setIsUnmatchDialogOpen(false);
+                }}
+              >
+                Annuler
+              </button>
+
+              <button
+                type="button"
+                disabled={isUnmatching}
+                onClick={() => {
+                  void handleUnmatch();
+                }}
+              >
+                {isUnmatching
+                  ? "Suppression…"
+                  : "Supprimer le match"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

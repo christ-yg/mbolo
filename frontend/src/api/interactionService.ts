@@ -19,6 +19,7 @@ import type {
   ReceivedLikeActionResult,
   ReceivedLikesPaginatedResponse,
   RespondToReceivedLikePayload,
+  UnmatchResponse,
 } from "../types/interactions";
 
 import { ensureCsrfToken } from "./csrfService";
@@ -83,6 +84,29 @@ export async function respondToReceivedLike(
     await httpClient.post<ReceivedLikeActionResult>(
       `/v1/likes-received/${encodeURIComponent(interactionId)}/respond/`,
       payload,
+      {
+        headers: {
+          "X-CSRFToken": csrfToken,
+        },
+      },
+    );
+
+  return response.data;
+}
+
+
+
+/**
+ * Désactive un match sans supprimer physiquement son historique.
+ */
+export async function deactivateMatch(
+  matchId: string,
+): Promise<UnmatchResponse> {
+  const csrfToken = await ensureCsrfToken();
+
+  const response =
+    await httpClient.delete<UnmatchResponse>(
+      `/v1/matches/${encodeURIComponent(matchId)}/`,
       {
         headers: {
           "X-CSRFToken": csrfToken,

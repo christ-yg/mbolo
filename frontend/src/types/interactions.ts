@@ -111,3 +111,12 @@ export interface ReceivedLikeActionResult {
     }>;
   } | null;
 }
+
+
+
+export interface UnmatchResponse {
+  match_id: string;
+  conversation_id: string | null;
+  deactivated: boolean;
+  message: string;
+}

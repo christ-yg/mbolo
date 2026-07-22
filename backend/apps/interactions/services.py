@@ -23,6 +23,7 @@ from uuid import UUID
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from apps.profiles.models import Profile
 from apps.safety.services import users_are_blocked
@@ -651,4 +652,139 @@ def respond_to_received_like(
             received_interaction.actor.profile.id
         ),
         decision=decision,
+    )
+
+
+
+@dataclass(frozen=True)
+class UnmatchResult:
+    """
+    Résultat de la désactivation d'un match.
+
+    Le match et la conversation restent en base afin de préserver
+    l'historique, mais ne sont plus accessibles aux participants.
+    """
+
+    match: Match
+    conversation_id: UUID | None
+    other_profile: Profile
+    deactivated: bool
+
+
+@transaction.atomic
+def deactivate_match(
+    *,
+    actor,
+    match_id: UUID,
+) -> UnmatchResult:
+    """
+    Désactive un match appartenant au compte connecté.
+
+    Règles :
+
+    - seul un participant peut effectuer l'action ;
+    - le match n'est jamais supprimé physiquement ;
+    - la conversation et les messages restent conservés ;
+    - la propre interaction de l'acteur vers l'autre profil est
+      supprimée afin que ce profil puisse réapparaître plus tard
+      dans Découvrir ;
+    - l'ancien match ne se réactive pas automatiquement.
+    """
+
+    actor_profile = validate_actor(actor=actor)
+
+    try:
+        match = (
+            Match.objects
+            .select_for_update()
+            .select_related(
+                "profile_one",
+                "profile_one__user",
+                "profile_two",
+                "profile_two__user",
+            )
+            .get(
+                id=match_id,
+                is_active=True,
+            )
+        )
+    except Match.DoesNotExist as exc:
+        raise ValidationError(
+            "Ce match actif est introuvable."
+        ) from exc
+
+    if not match.includes_profile(actor_profile):
+        raise ValidationError(
+            "Ce match actif est introuvable."
+        )
+
+    other_profile = match.other_profile_for(actor_profile)
+
+    conversation_id: UUID | None = None
+
+    try:
+        conversation_id = match.conversation.id
+    except Exception:
+        conversation_id = None
+
+    match.is_active = False
+    match.updated_at = timezone.now()
+    match.save(
+        update_fields=(
+            "is_active",
+            "updated_at",
+        )
+    )
+
+    Interaction.objects.filter(
+        actor=actor,
+        target_profile=other_profile,
+    ).delete()
+
+    def publish_deactivation() -> None:
+        from apps.accounts.realtime import (
+            broadcast_account_event,
+        )
+
+        payload = {
+            "event": "match.deactivated",
+            "match_id": str(match.id),
+            "conversation_id": (
+                str(conversation_id)
+                if conversation_id is not None
+                else None
+            ),
+        }
+
+        broadcast_account_event(
+            user_id=actor.id,
+            event=payload,
+        )
+
+        broadcast_account_event(
+            user_id=other_profile.user_id,
+            event=payload,
+        )
+
+        if conversation_id is not None:
+            from apps.messaging.realtime import (
+                broadcast_conversation_event,
+            )
+
+            broadcast_conversation_event(
+                conversation_id=conversation_id,
+                event={
+                    "event": "match.deactivated",
+                    "match_id": str(match.id),
+                    "conversation_id": str(conversation_id),
+                },
+            )
+
+    transaction.on_commit(publish_deactivation)
+
+    return UnmatchResult(
+        match=match,
+        conversation_id=conversation_id,
+        other_profile=other_profile,
+        deactivated=True,
     )

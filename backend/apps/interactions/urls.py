@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     InteractionCreateView,
+    MatchDeactivateView,
     MatchListView,
     ReceivedLikeListView,
     ReceivedLikeRespondView,
@@ -20,6 +21,11 @@ urlpatterns = [
         "matches/",
         MatchListView.as_view(),
         name="match-list",
+    ),
+    path(
+        "matches/<uuid:match_id>/",
+        MatchDeactivateView.as_view(),
+        name="match-deactivate",
     ),
     path(
         "likes-received/",

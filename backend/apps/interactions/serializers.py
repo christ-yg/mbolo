@@ -230,3 +230,21 @@ class ReceivedLikeActionResultSerializer(serializers.Serializer):
         read_only=True,
         allow_null=True,
     )
+
+
+
+class UnmatchResponseSerializer(serializers.Serializer):
+    """
+    Réponse publique après suppression logique d'un match.
+
+    Les messages ne sont pas supprimés : seule l'accessibilité
+    de la relation est désactivée.
+    """
+
+    match_id = serializers.UUIDField(read_only=True)
+    conversation_id = serializers.UUIDField(
+        read_only=True,
+        allow_null=True,
+    )
+    deactivated = serializers.BooleanField(read_only=True)
+    message = serializers.CharField(read_only=True)

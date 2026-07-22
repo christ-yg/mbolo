@@ -21,11 +21,13 @@ from .serializers import (
     InteractionCreateSerializer,
     InteractionResponseSerializer,
     MatchSerializer,
+    UnmatchResponseSerializer,
     ReceivedLikeActionResultSerializer,
     ReceivedLikeResponseSerializer,
     ReceivedLikeSerializer,
 )
 from .services import (
+    deactivate_match,
     get_pending_received_likes,
     record_interaction,
     respond_to_received_like,
@@ -458,5 +460,73 @@ class ReceivedLikeRespondView(APIView):
 
         return Response(
             response_serializer.data,
+            status=status.HTTP_200_OK,
+        )
+
+
+
+class MatchDeactivateView(APIView):
+    """
+    Supprime logiquement un match.
+
+    Endpoint :
+
+        DELETE /api/v1/matches/<uuid:match_id>/
+
+    L'historique de conversation reste conservé en base mais devient
+    inaccessible dès que le match est inactif.
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+    )
+
+    def delete(
+        self,
+        request: Request,
+        match_id,
+    ) -> Response:
+        try:
+            result = deactivate_match(
+                actor=request.user,
+                match_id=match_id,
+            )
+        except DjangoValidationError as exc:
+            detail = (
+                exc.message_dict
+                if hasattr(exc, "message_dict")
+                else {"detail": exc.messages}
+            )
+
+            return Response(
+                detail,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        log_security_event(
+            request=request,
+            event="match.deactivate",
+            outcome="success",
+            reason="user_requested_unmatch",
+            user=request.user,
+            email=request.user.email,
+        )
+
+        serializer = UnmatchResponseSerializer(
+            {
+                "match_id": result.match.id,
+                "conversation_id": (
+                    result.conversation_id
+                ),
+                "deactivated": result.deactivated,
+                "message": (
+                    "Le match a été supprimé. "
+                    "La conversation est maintenant fermée."
+                ),
+            }
+        )
+
+        return Response(
+            serializer.data,
             status=status.HTTP_200_OK,
         )
