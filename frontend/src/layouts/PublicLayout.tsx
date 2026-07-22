@@ -1,19 +1,26 @@
 /**
- * Structure commune des pages publiques.
+ * Structure commune des pages Mbolo.
  *
  * Outlet représente la page correspondant à la route courante.
  */
 
 import { Outlet } from "react-router-dom";
 
+import { RealtimeNotificationToast } from
+  "../components/notifications/RealtimeNotificationToast";
 import { PublicHeader } from "../components/navigation/PublicHeader";
+import { NotificationProvider } from "../context/NotificationContext";
 
 export function PublicLayout() {
   return (
-    <div className="public-layout">
-      <PublicHeader />
+    <NotificationProvider>
+      <div className="public-layout">
+        <PublicHeader />
 
-      <Outlet />
-    </div>
+        <RealtimeNotificationToast />
+
+        <Outlet />
+      </div>
+    </NotificationProvider>
   );
 }

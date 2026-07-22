@@ -3811,3 +3811,161 @@ svg {
   0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
   30% { opacity: 1; transform: translateY(-3px); }
 }
+
+/* ==========================================================
+   NOTIFICATION TEMPS RÉEL GLOBALE
+   ========================================================== */
+.realtime-notification {
+  position: fixed;
+  top: 96px;
+  right: 28px;
+  z-index: 1200;
+  display: flex;
+  width: min(430px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid rgba(103, 27, 61, 0.14);
+  border-radius: 24px;
+  background: rgba(255, 252, 253, 0.98);
+  box-shadow: 0 24px 70px rgba(83, 24, 49, 0.2);
+  backdrop-filter: blur(18px);
+  animation: mbolo-notification-enter 240ms ease-out both;
+}
+
+.realtime-notification__content {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  padding: 16px 48px 16px 16px;
+  border: 0;
+  background: transparent;
+  color: #321b25;
+  text-align: left;
+  cursor: pointer;
+}
+
+.realtime-notification__content:hover {
+  background: rgba(174, 38, 95, 0.045);
+}
+
+.realtime-notification__content:focus-visible,
+.realtime-notification__close:focus-visible {
+  outline: 3px solid rgba(174, 38, 95, 0.28);
+  outline-offset: -3px;
+}
+
+.realtime-notification__avatar {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #a7245d, #5d1738);
+  color: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.45rem;
+  box-shadow: 0 10px 24px rgba(108, 24, 59, 0.2);
+}
+
+.realtime-notification__text {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.realtime-notification__text strong {
+  overflow: hidden;
+  color: #451b2e;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.realtime-notification__text > span {
+  color: #725762;
+  font-size: 0.86rem;
+}
+
+.realtime-notification__text small {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 5px;
+  color: #9a2b5b;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.realtime-notification__arrow {
+  color: #a7245d;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.realtime-notification__close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #80616e;
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.realtime-notification__close:hover {
+  background: rgba(94, 25, 54, 0.08);
+  color: #5c1737;
+}
+
+@keyframes mbolo-notification-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, -8px, 0) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (max-width: 720px) {
+  .realtime-notification {
+    top: 82px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+    border-radius: 20px;
+  }
+
+  .realtime-notification__content {
+    grid-template-columns: 46px minmax(0, 1fr);
+    padding: 14px 44px 14px 14px;
+  }
+
+  .realtime-notification__avatar {
+    width: 46px;
+    height: 46px;
+    font-size: 1.2rem;
+  }
+
+  .realtime-notification__arrow {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .realtime-notification {
+    animation: none;
+  }
+}
