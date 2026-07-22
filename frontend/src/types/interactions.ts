@@ -61,3 +61,53 @@ export interface MatchCelebrationData {
   profileId: string;
   displayName: string;
 }
+
+
+
+/**
+ * Like reçu volontairement masqué pour le compte gratuit.
+ */
+export interface ReceivedLikeItem {
+  interaction_id: string;
+  city: string;
+  age_range: string;
+  dating_intent: string;
+  has_photo: boolean;
+  received_at: string;
+  is_identity_revealed: false;
+}
+
+
+export interface ReceivedLikesPaginatedResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ReceivedLikeItem[];
+}
+
+
+export interface RespondToReceivedLikePayload {
+  decision: InteractionDecision;
+}
+
+
+export interface ReceivedLikeActionResult {
+  decision: InteractionDecision;
+  matched: boolean;
+  match_created: boolean;
+  match_id: string | null;
+  revealed_profile: {
+    id: string;
+    display_name: string;
+    age: number | null;
+    city: string;
+    biography: string;
+    dating_intent: string;
+    photos: Array<{
+      id: string;
+      image_url: string | null;
+      position: number;
+      is_primary: boolean;
+    }>;
+  } | null;
+}

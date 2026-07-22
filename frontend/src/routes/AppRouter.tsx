@@ -14,6 +14,7 @@ import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
 import { DiscoveryPage } from "../pages/discovery/DiscoveryPage";
 import { HomePage } from "../pages/home/HomePage";
+import { ReceivedLikesPage } from "../pages/likes/ReceivedLikesPage";
 import { MatchesPage } from "../pages/matches/MatchesPage";
 import { MessagesPage } from "../pages/messages/MessagesPage";
 import { ConversationPage } from "../pages/messages/ConversationPage";
@@ -69,6 +70,14 @@ export const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <MatchesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/likes-received",
+        element: (
+          <ProtectedRoute>
+            <ReceivedLikesPage />
           </ProtectedRoute>
         ),
       },

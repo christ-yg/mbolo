@@ -546,3 +546,109 @@ def record_interaction(
         match_created=match_created,
         decision_changed=decision_changed,
     )
+
+
+
+def get_pending_received_likes(*, actor):
+    """
+    Retourne les likes reçus auxquels le compte n’a pas encore répondu.
+
+    La requête ne révèle aucun profil par elle-même. La sérialisation
+    masquée est appliquée dans la vue.
+
+    Un like disparaît de cette liste dès que l’utilisateur courant
+    a enregistré un LIKE ou un PASS envers son auteur.
+    """
+
+    from django.db.models import Exists, OuterRef
+
+    actor_profile = validate_actor(
+        actor=actor,
+    )
+
+    response_exists = Interaction.objects.filter(
+        actor=actor,
+        target_profile=OuterRef("actor__profile"),
+    )
+
+    return (
+        Interaction.objects
+        .select_related(
+            "actor",
+            "actor__profile",
+        )
+        .prefetch_related(
+            "actor__profile__photos",
+        )
+        .filter(
+            target_profile=actor_profile,
+            decision=InteractionDecision.LIKE,
+            actor__is_active=True,
+            actor__is_suspended=False,
+            actor__is_email_verified=True,
+            actor__profile__is_discoverable=True,
+        )
+        .annotate(
+            has_current_user_response=Exists(
+                response_exists
+            ),
+        )
+        .filter(
+            has_current_user_response=False,
+        )
+        .order_by(
+            "-updated_at",
+            "-created_at",
+        )
+    )
+
+
+@transaction.atomic
+def respond_to_received_like(
+    *,
+    actor,
+    received_interaction_id: UUID,
+    decision: str,
+) -> InteractionResult:
+    """
+    Répond à un like reçu sans exposer l’identité de son auteur.
+
+    La cible réelle est résolue exclusivement côté serveur à partir
+    de l’interaction appartenant au profil connecté.
+    """
+
+    actor_profile = validate_actor(
+        actor=actor,
+    )
+
+    try:
+        received_interaction = (
+            Interaction.objects
+            .select_for_update()
+            .select_related(
+                "actor",
+                "actor__profile",
+                "target_profile",
+            )
+            .get(
+                id=received_interaction_id,
+                target_profile=actor_profile,
+                decision=InteractionDecision.LIKE,
+                actor__is_active=True,
+                actor__is_suspended=False,
+                actor__is_email_verified=True,
+                actor__profile__is_discoverable=True,
+            )
+        )
+    except Interaction.DoesNotExist as exc:
+        raise ValidationError(
+            "Ce like reçu n’est plus disponible."
+        ) from exc
+
+    return record_interaction(
+        actor=actor,
+        target_profile_id=(
+            received_interaction.actor.profile.id
+        ),
+        decision=decision,
+    )

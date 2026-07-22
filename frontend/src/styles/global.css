@@ -4608,3 +4608,415 @@ svg {
 .realtime-notification--like {
   border-color: rgb(163 47 97 / 20%);
 }
+
+/* ============================================================
+   PAGE QUI M’A LIKÉ
+   ============================================================ */
+
+.received-likes-page {
+  min-height: calc(100vh - 84px);
+  padding: 68px 20px 110px;
+  background:
+    radial-gradient(
+      circle at 10% 8%,
+      rgb(225 147 184 / 22%),
+      transparent 29%
+    ),
+    radial-gradient(
+      circle at 92% 72%,
+      rgb(184 170 225 / 15%),
+      transparent 25%
+    ),
+    #fff9fc;
+}
+
+.received-likes-page__header {
+  display: grid;
+  width: min(100%, 1080px);
+  margin: 0 auto 26px;
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 30px;
+}
+
+.received-likes-page__header h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(3rem, 7vw, 5.4rem);
+  font-weight: 500;
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+
+.received-likes-page__header p:last-child {
+  max-width: 650px;
+  margin: 20px 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+.received-likes-page__counter {
+  display: grid;
+  min-width: 180px;
+  padding: 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 23px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: var(--shadow-soft);
+}
+
+.received-likes-page__counter strong {
+  color: var(--color-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2.2rem;
+  font-weight: 500;
+}
+
+.received-likes-page__counter span {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.received-likes-premium-note {
+  display: grid;
+  width: min(100%, 1080px);
+  margin: 0 auto 22px;
+  padding: 20px 22px;
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  border: 1px solid rgb(163 47 97 / 15%);
+  border-radius: 21px;
+  background: rgb(255 244 249 / 88%);
+}
+
+.received-likes-premium-note > span {
+  display: grid;
+  width: 43px;
+  height: 43px;
+  place-items: center;
+  border-radius: 14px;
+  color: white;
+  background: var(--color-primary);
+  font-size: 1.25rem;
+}
+
+.received-likes-premium-note strong,
+.received-likes-premium-note p {
+  display: block;
+  margin: 0;
+}
+
+.received-likes-premium-note p,
+.received-likes-premium-note small {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.received-likes-match-alert {
+  display: flex;
+  width: min(100%, 1080px);
+  margin: 0 auto 22px;
+  padding: 18px 20px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid rgb(177 121 40 / 24%);
+  border-radius: 20px;
+  background: #fff8e8;
+}
+
+.received-likes-match-alert strong,
+.received-likes-match-alert span {
+  display: block;
+}
+
+.received-likes-match-alert span {
+  margin-top: 4px;
+  color: #766044;
+  font-size: 0.82rem;
+}
+
+.received-likes-match-alert button,
+.received-likes-pagination button,
+.received-likes-state button {
+  min-height: 45px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-primary),
+      var(--color-primary-dark)
+    );
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.received-likes-page__error {
+  width: min(100%, 1080px);
+  margin: 0 auto 18px;
+  padding: 14px 17px;
+  border: 1px solid rgb(169 44 73 / 19%);
+  border-radius: 15px;
+  color: #7b203d;
+  background: #fff0f5;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.received-likes-grid {
+  display: grid;
+  width: min(100%, 1080px);
+  margin: 0 auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.received-like-card {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 27px;
+  background: rgb(255 255 255 / 91%);
+  box-shadow: var(--shadow-soft);
+}
+
+.received-like-card__visual {
+  position: relative;
+  display: grid;
+  min-height: 205px;
+  place-items: center;
+  background:
+    radial-gradient(
+      circle at 50% 38%,
+      rgb(255 255 255 / 85%),
+      transparent 22%
+    ),
+    linear-gradient(
+      145deg,
+      #f6d9e7,
+      #e7ddf4
+    );
+}
+
+.received-like-card__visual::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgb(255 255 255 / 10%) 0,
+      rgb(255 255 255 / 10%) 9px,
+      transparent 9px,
+      transparent 18px
+    );
+  backdrop-filter: blur(18px);
+}
+
+.received-like-card__visual > span {
+  z-index: 1;
+  display: grid;
+  width: 84px;
+  height: 84px;
+  place-items: center;
+  border: 2px solid rgb(255 255 255 / 72%);
+  border-radius: 999px;
+  color: rgb(119 55 84 / 72%);
+  background: rgb(255 255 255 / 42%);
+  font-size: 2rem;
+}
+
+.received-like-card__visual > small {
+  position: absolute;
+  z-index: 2;
+  right: 15px;
+  bottom: 14px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: #674555;
+  background: rgb(255 255 255 / 74%);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.received-like-card__content {
+  padding: 22px;
+}
+
+.received-like-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.received-like-card__meta > span {
+  color: var(--color-primary);
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.received-like-card h2 {
+  margin: 14px 0 20px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.55rem;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.received-like-card dl {
+  display: grid;
+  margin: 0;
+  gap: 11px;
+}
+
+.received-like-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.received-like-card dt {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.received-like-card dd {
+  margin: 0;
+  text-align: right;
+  font-size: 0.77rem;
+  font-weight: 730;
+}
+
+.received-like-card__actions {
+  display: grid;
+  margin-top: 20px;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 9px;
+}
+
+.received-like-card__actions button {
+  min-height: 44px;
+  border-radius: 999px;
+  font-weight: 770;
+  cursor: pointer;
+}
+
+.received-like-card__actions button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.received-like-card__pass {
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  background: white;
+}
+
+.received-like-card__like {
+  border: 0;
+  color: white;
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-primary),
+      var(--color-primary-dark)
+    );
+}
+
+.received-likes-state {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+  padding: 70px 24px;
+  border: 1px dashed rgb(163 47 97 / 22%);
+  border-radius: 27px;
+  background: rgb(255 255 255 / 68%);
+  text-align: center;
+}
+
+.received-likes-state > span {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 18px;
+  place-items: center;
+  border-radius: 21px;
+  color: white;
+  background: var(--color-primary);
+  font-size: 1.55rem;
+}
+
+.received-likes-state h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-weight: 500;
+}
+
+.received-likes-state p {
+  max-width: 470px;
+  margin: 12px auto 22px;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+}
+
+.received-likes-page__visible-count {
+  width: min(100%, 1080px);
+  margin: 16px auto 0;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.received-likes-pagination {
+  display: flex;
+  width: min(100%, 1080px);
+  margin: 24px auto 0;
+  justify-content: center;
+}
+
+@media (max-width: 900px) {
+  .received-likes-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .received-likes-page {
+    padding-inline: 13px;
+  }
+
+  .received-likes-page__header {
+    grid-template-columns: 1fr;
+  }
+
+  .received-likes-page__counter {
+    min-width: 0;
+  }
+
+  .received-likes-premium-note {
+    grid-template-columns: auto 1fr;
+  }
+
+  .received-likes-premium-note small {
+    grid-column: 1 / -1;
+  }
+
+  .received-likes-match-alert {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .received-likes-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -167,7 +167,6 @@ export function PublicHeader() {
       window.setInterval(() => {
         if (accountRealtimeState !== "open") {
           void loadUnreadMessageCount();
-        void loadUnreadNotificationCount();
           void loadUnreadNotificationCount();
         }
       }, 60000);
@@ -280,6 +279,14 @@ export function PublicHeader() {
                   to="/matches"
                 >
                   Mes matchs
+                </NavLink>
+
+
+                <NavLink
+                  className={getNavigationLinkClass}
+                  to="/likes-received"
+                >
+                  Qui m’a liké
                 </NavLink>
 
                 <NavLink

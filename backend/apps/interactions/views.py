@@ -16,12 +16,20 @@ from apps.notifications.services import (
 
 from .models import Match
 from .pagination import MatchPagination
+from .pagination_received_likes import ReceivedLikePagination
 from .serializers import (
     InteractionCreateSerializer,
     InteractionResponseSerializer,
     MatchSerializer,
+    ReceivedLikeActionResultSerializer,
+    ReceivedLikeResponseSerializer,
+    ReceivedLikeSerializer,
 )
-from .services import record_interaction
+from .services import (
+    get_pending_received_likes,
+    record_interaction,
+    respond_to_received_like,
+)
 
 
 def publish_interaction_notifications(*, result) -> None:
@@ -303,4 +311,152 @@ class MatchListView(ListAPIView):
             request,
             *args,
             **kwargs,
+        )
+
+
+
+class ReceivedLikeListView(ListAPIView):
+    """
+    Liste masquée des likes reçus en attente de réponse.
+
+    Endpoint :
+
+        GET /api/v1/likes-received/
+
+    L’identité de l’auteur n’est jamais exposée dans la version
+    gratuite.
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+    )
+
+    serializer_class = ReceivedLikeSerializer
+    pagination_class = ReceivedLikePagination
+
+    def get_queryset(self):
+        try:
+            return get_pending_received_likes(
+                actor=self.request.user,
+            )
+        except DjangoValidationError:
+            return Match.objects.none()
+
+    def list(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        log_security_event(
+            request=request,
+            event="received_like.list",
+            outcome="success",
+            reason="masked_likes_requested",
+            user=request.user,
+            email=request.user.email,
+        )
+
+        return super().list(
+            request,
+            *args,
+            **kwargs,
+        )
+
+
+class ReceivedLikeRespondView(APIView):
+    """
+    Accepte ou refuse un like reçu sans révéler son auteur avant match.
+
+    Endpoint :
+
+        POST /api/v1/likes-received/<uuid>/respond/
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+    )
+
+    def post(
+        self,
+        request: Request,
+        interaction_id,
+    ) -> Response:
+        serializer = ReceivedLikeResponseSerializer(
+            data=request.data,
+        )
+        serializer.is_valid(
+            raise_exception=True,
+        )
+
+        try:
+            result = respond_to_received_like(
+                actor=request.user,
+                received_interaction_id=interaction_id,
+                decision=(
+                    serializer.validated_data["decision"]
+                ),
+            )
+        except DjangoValidationError as exc:
+            detail = (
+                exc.message_dict
+                if hasattr(exc, "message_dict")
+                else {"detail": exc.messages}
+            )
+
+            return Response(
+                detail,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        publish_interaction_notifications(
+            result=result,
+        )
+
+        revealed_profile = None
+
+        if result.match is not None:
+            revealed_profile = (
+                result.interaction.target_profile
+            )
+
+        response_serializer = (
+            ReceivedLikeActionResultSerializer(
+                {
+                    "decision": (
+                        result.interaction.decision
+                    ),
+                    "matched": (
+                        result.match is not None
+                    ),
+                    "match_created": (
+                        result.match_created
+                    ),
+                    "match_id": (
+                        result.match.id
+                        if result.match is not None
+                        else None
+                    ),
+                    "revealed_profile": (
+                        revealed_profile
+                    ),
+                },
+                context={
+                    "request": request,
+                },
+            )
+        )
+
+        log_security_event(
+            request=request,
+            event="received_like.respond",
+            outcome="success",
+            reason=result.interaction.decision,
+            user=request.user,
+            email=request.user.email,
+        )
+
+        return Response(
+            response_serializer.data,
+            status=status.HTTP_200_OK,
         )

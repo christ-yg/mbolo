@@ -3,6 +3,8 @@ from django.urls import path
 from .views import (
     InteractionCreateView,
     MatchListView,
+    ReceivedLikeListView,
+    ReceivedLikeRespondView,
 )
 
 
@@ -18,5 +20,15 @@ urlpatterns = [
         "matches/",
         MatchListView.as_view(),
         name="match-list",
+    ),
+    path(
+        "likes-received/",
+        ReceivedLikeListView.as_view(),
+        name="received-like-list",
+    ),
+    path(
+        "likes-received/<uuid:interaction_id>/respond/",
+        ReceivedLikeRespondView.as_view(),
+        name="received-like-respond",
     ),
 ]

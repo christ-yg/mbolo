@@ -16,6 +16,9 @@
 import type {
   CreateInteractionPayload,
   InteractionResponse,
+  ReceivedLikeActionResult,
+  ReceivedLikesPaginatedResponse,
+  RespondToReceivedLikePayload,
 } from "../types/interactions";
 
 import { ensureCsrfToken } from "./csrfService";
@@ -38,6 +41,54 @@ export async function createInteraction(
       },
     },
   );
+
+  return response.data;
+}
+
+
+
+/**
+ * Charge les likes reçus encore en attente de réponse.
+ */
+export async function getReceivedLikes(
+  page = 1,
+  pageSize = 12,
+): Promise<ReceivedLikesPaginatedResponse> {
+  const response =
+    await httpClient.get<ReceivedLikesPaginatedResponse>(
+      "/v1/likes-received/",
+      {
+        params: {
+          page,
+          page_size: pageSize,
+        },
+      },
+    );
+
+  return response.data;
+}
+
+
+/**
+ * Répond à un like reçu à partir de l’identifiant opaque
+ * de l’interaction.
+ */
+export async function respondToReceivedLike(
+  interactionId: string,
+  payload: RespondToReceivedLikePayload,
+): Promise<ReceivedLikeActionResult> {
+  const csrfToken = await ensureCsrfToken();
+
+  const response =
+    await httpClient.post<ReceivedLikeActionResult>(
+      `/v1/likes-received/${encodeURIComponent(interactionId)}/respond/`,
+      payload,
+      {
+        headers: {
+          "X-CSRFToken": csrfToken,
+        },
+      },
+    );
 
   return response.data;
 }
