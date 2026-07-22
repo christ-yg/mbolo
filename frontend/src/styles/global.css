@@ -4584,3 +4584,27 @@ svg {
     display: none;
   }
 }
+
+/* ============================================================
+   TOASTS LIKE ET MATCH
+   ============================================================ */
+
+.realtime-notification--like
+.realtime-notification__avatar {
+  color: #8a3157;
+  background: #fff0f6;
+}
+
+.realtime-notification--match
+.realtime-notification__avatar {
+  color: #7a4b12;
+  background: #fff4d8;
+}
+
+.realtime-notification--match {
+  border-color: rgb(183 124 45 / 22%);
+}
+
+.realtime-notification--like {
+  border-color: rgb(163 47 97 / 20%);
+}

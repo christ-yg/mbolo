@@ -1,19 +1,16 @@
+
 /**
- * Contexte global des notifications Mbolo.
+ * Contexte global des notifications temps réel Mbolo.
  *
- * Ce contexte gère deux niveaux complémentaires :
+ * Il reçoit trois familles d'événements :
  *
- * 1. le toast interne affiché dans l'interface React ;
- * 2. la notification native du navigateur lorsque Mbolo est
- *    en arrière-plan.
+ * - message.notification ;
+ * - like.notification ;
+ * - match.notification.
  *
- * Les notifications natives restent volontairement
- * respectueuses de la confidentialité :
- *
- * - le texte complet du message n'est jamais affiché ;
- * - seul le nom public de l'expéditeur est utilisé ;
- * - l'utilisateur doit donner son autorisation explicite ;
- * - une préférence locale permet de les désactiver à tout moment.
+ * Le toast interne peut afficher un aperçu autorisé.
+ * La notification native reste plus discrète lorsque l'application
+ * est en arrière-plan.
  */
 
 import {
@@ -33,62 +30,45 @@ import {
 
 import { useAccountRealtime } from "../hooks/useAccountRealtime";
 
-export interface RealtimeMessageNotification {
+
+export interface RealtimeNotification {
   id: string;
-  conversationId: string;
-  messageId: string;
-  senderDisplayName: string;
-  bodyPreview: string;
+  kind: "message" | "like" | "match";
+  title: string;
+  body: string;
+  targetPath: string;
+  displayName: string;
   createdAt: string;
 }
+
 
 export type BrowserNotificationPermission =
   | NotificationPermission
   | "unsupported";
 
+
 interface NotificationContextValue {
-  notification: RealtimeMessageNotification | null;
+  notification: RealtimeNotification | null;
   dismissNotification: () => void;
-
-  /**
-   * Indique si l'API Notification existe dans ce navigateur.
-   */
   browserNotificationsSupported: boolean;
-
-  /**
-   * Autorisation actuellement accordée par le navigateur.
-   */
-  browserNotificationPermission: BrowserNotificationPermission;
-
-  /**
-   * Préférence Mbolo.
-   *
-   * Elle vaut true uniquement lorsque l'utilisateur a activé
-   * la fonctionnalité et que le navigateur a accordé l'autorisation.
-   */
+  browserNotificationPermission:
+    BrowserNotificationPermission;
   browserNotificationsEnabled: boolean;
-
-  /**
-   * Demande l'autorisation au navigateur à la suite
-   * d'une action explicite de l'utilisateur.
-   */
   enableBrowserNotifications: () => Promise<boolean>;
-
-  /**
-   * Désactive les notifications dans Mbolo.
-   *
-   * Cette action ne peut pas retirer l'autorisation enregistrée
-   * dans les paramètres du navigateur.
-   */
   disableBrowserNotifications: () => void;
 }
 
-const NotificationContext =
-  createContext<NotificationContextValue | undefined>(undefined);
 
-const MAX_SEEN_MESSAGE_IDS = 200;
+const NotificationContext =
+  createContext<NotificationContextValue | undefined>(
+    undefined,
+  );
+
+
+const MAX_SEEN_NOTIFICATION_IDS = 200;
 const BROWSER_NOTIFICATION_PREFERENCE_KEY =
   "mbolo.browserNotifications.enabled";
+
 
 function isNotificationApiSupported(): boolean {
   return (
@@ -97,7 +77,9 @@ function isNotificationApiSupported(): boolean {
   );
 }
 
-function readStoredBrowserNotificationPreference(): boolean {
+
+function readStoredBrowserNotificationPreference():
+boolean {
   if (typeof window === "undefined") {
     return false;
   }
@@ -109,13 +91,10 @@ function readStoredBrowserNotificationPreference(): boolean {
       ) === "true"
     );
   } catch {
-    /**
-     * Certains modes privés ou politiques de navigateur peuvent
-     * empêcher l'accès à localStorage.
-     */
     return false;
   }
 }
+
 
 function storeBrowserNotificationPreference(
   enabled: boolean,
@@ -132,12 +111,10 @@ function storeBrowserNotificationPreference(
       );
     }
   } catch {
-    /**
-     * La préférence reste utilisable pour la session courante
-     * même si le stockage local n'est pas disponible.
-     */
+    // La préférence reste valable pour la session courante.
   }
 }
+
 
 function readString(
   value: unknown,
@@ -150,43 +127,98 @@ function readString(
     : null;
 }
 
-function normalizeMessageNotification(
-  event: Record<string, unknown>,
-): RealtimeMessageNotification | null {
-  if (event.event !== "message.notification") {
-    return null;
-  }
 
-  const conversationId =
-    readString(event.conversation_id);
-  const messageId =
-    readString(event.message_id);
-  const senderDisplayName =
-    readString(event.sender_display_name);
-  const bodyPreview =
-    readString(event.body_preview);
-  const createdAt =
-    readString(event.created_at);
+function readEmbeddedNotification(
+  event: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const notification = event.notification;
 
   if (
-    conversationId === null ||
-    messageId === null ||
-    senderDisplayName === null ||
-    bodyPreview === null ||
-    createdAt === null
+    typeof notification !== "object" ||
+    notification === null ||
+    Array.isArray(notification)
   ) {
     return null;
   }
 
+  return notification as Record<string, unknown>;
+}
+
+
+function normalizeRealtimeNotification(
+  event: Record<string, unknown>,
+): RealtimeNotification | null {
+  const eventName = readString(event.event);
+
+  if (
+    eventName !== "message.notification" &&
+    eventName !== "like.notification" &&
+    eventName !== "match.notification"
+  ) {
+    return null;
+  }
+
+  const embedded =
+    readEmbeddedNotification(event);
+
+  const notificationId =
+    readString(embedded?.id) ??
+    readString(event.message_id);
+
+  const title =
+    readString(embedded?.title);
+
+  const body =
+    readString(embedded?.body) ??
+    readString(event.body_preview) ??
+    "";
+
+  const targetPath =
+    readString(embedded?.target_path);
+
+  const createdAt =
+    readString(embedded?.created_at) ??
+    readString(event.created_at) ??
+    new Date().toISOString();
+
+  if (
+    notificationId === null ||
+    title === null ||
+    targetPath === null ||
+    !targetPath.startsWith("/")
+  ) {
+    return null;
+  }
+
+  const kind =
+    eventName === "message.notification"
+      ? "message"
+      : eventName === "like.notification"
+        ? "like"
+        : "match";
+
+  const senderDisplayName =
+    readString(event.sender_display_name);
+
+  const otherDisplayName =
+    readString(event.other_display_name);
+
+  const displayName =
+    senderDisplayName ??
+    otherDisplayName ??
+    (kind === "like" ? "Mbolo" : "Nouveau match");
+
   return {
-    id: messageId,
-    conversationId,
-    messageId,
-    senderDisplayName,
-    bodyPreview,
+    id: notificationId,
+    kind,
+    title,
+    body,
+    targetPath,
+    displayName,
     createdAt,
   };
 }
+
 
 function getCurrentBrowserPermission():
 BrowserNotificationPermission {
@@ -196,6 +228,7 @@ BrowserNotificationPermission {
 
   return window.Notification.permission;
 }
+
 
 export function NotificationProvider({
   children,
@@ -209,7 +242,7 @@ export function NotificationProvider({
   } = useAccountRealtime();
 
   const [notification, setNotification] =
-    useState<RealtimeMessageNotification | null>(null);
+    useState<RealtimeNotification | null>(null);
 
   const [
     browserNotificationPermission,
@@ -225,10 +258,10 @@ export function NotificationProvider({
     readStoredBrowserNotificationPreference,
   );
 
-  const seenMessageIdsReference =
+  const seenIdsReference =
     useRef(new Set<string>());
 
-  const seenMessageOrderReference =
+  const seenOrderReference =
     useRef<string[]>([]);
 
   const browserNotificationsSupported =
@@ -239,14 +272,17 @@ export function NotificationProvider({
     browserNotificationPermission === "granted" &&
     browserNotificationPreference;
 
-  const dismissNotification = useCallback(() => {
-    setNotification(null);
-  }, []);
+  const dismissNotification =
+    useCallback((): void => {
+      setNotification(null);
+    }, []);
 
   const enableBrowserNotifications =
     useCallback(async (): Promise<boolean> => {
       if (!isNotificationApiSupported()) {
-        setBrowserNotificationPermission("unsupported");
+        setBrowserNotificationPermission(
+          "unsupported",
+        );
         setBrowserNotificationPreference(false);
         storeBrowserNotificationPreference(false);
         return false;
@@ -278,13 +314,6 @@ export function NotificationProvider({
       storeBrowserNotificationPreference(false);
     }, []);
 
-  /**
-   * Certains navigateurs permettent de modifier l'autorisation
-   * directement depuis leurs paramètres.
-   *
-   * Nous resynchronisons donc l'état lorsque la fenêtre reprend
-   * le focus ou lorsque la page redevient visible.
-   */
   useEffect(() => {
     function synchronizePermission(): void {
       const permission =
@@ -330,63 +359,53 @@ export function NotificationProvider({
     }
 
     const normalizedNotification =
-      normalizeMessageNotification(lastEvent);
+      normalizeRealtimeNotification(lastEvent);
 
     if (normalizedNotification === null) {
       return;
     }
 
     if (
-      seenMessageIdsReference.current.has(
-        normalizedNotification.messageId,
+      seenIdsReference.current.has(
+        normalizedNotification.id,
       )
     ) {
       return;
     }
 
-    seenMessageIdsReference.current.add(
-      normalizedNotification.messageId,
+    seenIdsReference.current.add(
+      normalizedNotification.id,
     );
 
-    seenMessageOrderReference.current.push(
-      normalizedNotification.messageId,
+    seenOrderReference.current.push(
+      normalizedNotification.id,
     );
 
     if (
-      seenMessageOrderReference.current.length >
-      MAX_SEEN_MESSAGE_IDS
+      seenOrderReference.current.length >
+      MAX_SEEN_NOTIFICATION_IDS
     ) {
-      const oldestMessageId =
-        seenMessageOrderReference.current.shift();
+      const oldestId =
+        seenOrderReference.current.shift();
 
-      if (oldestMessageId !== undefined) {
-        seenMessageIdsReference.current.delete(
-          oldestMessageId,
-        );
+      if (oldestId !== undefined) {
+        seenIdsReference.current.delete(oldestId);
       }
     }
 
-    const currentConversationPath =
-      `/messages/${encodeURIComponent(
-        normalizedNotification.conversationId,
-      )}`;
-
     /**
-     * Si l'utilisateur regarde déjà cette conversation,
-     * le message apparaît directement dans le fil.
-     *
-     * Nous n'affichons donc ni toast ni notification native.
+     * Si l'utilisateur est déjà sur la destination exacte,
+     * le contenu concerné est visible sans toast supplémentaire.
      */
-    if (location.pathname === currentConversationPath) {
+    if (
+      location.pathname ===
+      normalizedNotification.targetPath
+    ) {
       return;
     }
 
     setNotification(normalizedNotification);
 
-    /**
-     * La notification système est réservée aux situations où
-     * Mbolo n'est pas réellement au premier plan.
-     */
     const applicationIsInBackground =
       document.visibilityState !== "visible" ||
       !document.hasFocus();
@@ -402,13 +421,12 @@ export function NotificationProvider({
     try {
       const nativeNotification =
         new window.Notification(
-          "Nouveau message sur Mbolo",
+          "Nouvelle activité sur Mbolo",
           {
-            body:
-              `${normalizedNotification.senderDisplayName} ` +
-              "t’a envoyé un nouveau message.",
+            body: normalizedNotification.title,
             tag:
-              `mbolo-message-${normalizedNotification.messageId}`,
+              `mbolo-${normalizedNotification.kind}-` +
+              normalizedNotification.id,
             silent: false,
           },
         );
@@ -416,14 +434,13 @@ export function NotificationProvider({
       nativeNotification.onclick = () => {
         window.focus();
         dismissNotification();
-        navigate(currentConversationPath);
+        navigate(
+          normalizedNotification.targetPath,
+        );
         nativeNotification.close();
       };
     } catch {
-      /**
-       * Une notification native ne doit jamais empêcher
-       * le toast interne ou le reste de l'application.
-       */
+      // Le toast interne continue même si l'API native échoue.
     }
   }, [
     browserNotificationsEnabled,
@@ -441,10 +458,12 @@ export function NotificationProvider({
 
     const timeoutIdentifier =
       window.setTimeout(() => {
-        setNotification((currentNotification) =>
-          currentNotification?.id === notification.id
-            ? null
-            : currentNotification,
+        setNotification(
+          (currentNotification) =>
+            currentNotification?.id ===
+            notification.id
+              ? null
+              : currentNotification,
         );
       }, 8000);
 
@@ -481,6 +500,7 @@ export function NotificationProvider({
     </NotificationContext.Provider>
   );
 }
+
 
 export function useNotification():
 NotificationContextValue {

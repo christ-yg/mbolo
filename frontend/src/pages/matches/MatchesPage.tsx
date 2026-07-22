@@ -17,6 +17,7 @@ import {
   getMatches,
 } from "../../api/matchService";
 import { MatchCard } from "../../components/matches/MatchCard";
+import { useAccountRealtime } from "../../hooks/useAccountRealtime";
 
 import type {
   MatchItem,
@@ -30,6 +31,11 @@ type MatchesStatus =
   | "error";
 
 export function MatchesPage() {
+  const {
+    lastEvent,
+    revision,
+  } = useAccountRealtime();
+
   const [status, setStatus] =
     useState<MatchesStatus>("loading");
 
@@ -82,6 +88,20 @@ export function MatchesPage() {
   useEffect(() => {
     void loadMatches(1);
   }, [loadMatches]);
+
+  /**
+   * Recharge la première page lorsqu'un nouveau match
+   * arrive par le canal WebSocket global.
+   */
+  useEffect(() => {
+    if (lastEvent?.event === "match.notification") {
+      void loadMatches(1);
+    }
+  }, [
+    lastEvent,
+    loadMatches,
+    revision,
+  ]);
 
   const matches: MatchItem[] =
     matchesData?.results ?? [];

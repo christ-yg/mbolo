@@ -8,6 +8,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.security_logging import log_security_event
+from apps.notifications.services import (
+    broadcast_notification_created,
+    create_like_notification,
+    create_match_notification,
+)
 
 from .models import Match
 from .pagination import MatchPagination
@@ -17,6 +22,80 @@ from .serializers import (
     MatchSerializer,
 )
 from .services import record_interaction
+
+
+def publish_interaction_notifications(*, result) -> None:
+    """
+    Crée et diffuse les notifications liées à une interaction.
+
+    Règles :
+
+    - PASS : aucune notification ;
+    - LIKE non réciproque : notification anonyme pour la cible ;
+    - nouveau MATCH : notification nominative pour les deux comptes ;
+    - interaction répétée sans changement : aucune duplication.
+    """
+
+    if (
+        result.interaction.decision != "like"
+        or not result.decision_changed
+    ):
+        return
+
+    actor_user = result.interaction.actor
+    actor_profile = actor_user.profile
+    target_profile = result.interaction.target_profile
+    target_user = target_profile.user
+
+    if result.match_created and result.match is not None:
+        actor_result = create_match_notification(
+            recipient=actor_user,
+            other_display_name=target_profile.display_name,
+            match_id=result.match.id,
+        )
+
+        target_result = create_match_notification(
+            recipient=target_user,
+            other_display_name=actor_profile.display_name,
+            match_id=result.match.id,
+        )
+
+        if actor_result.created:
+            broadcast_notification_created(
+                notification=actor_result.notification,
+                event_name="match.notification",
+                extra_payload={
+                    "match_id": str(result.match.id),
+                    "other_display_name": (
+                        target_profile.display_name
+                    ),
+                },
+            )
+
+        if target_result.created:
+            broadcast_notification_created(
+                notification=target_result.notification,
+                event_name="match.notification",
+                extra_payload={
+                    "match_id": str(result.match.id),
+                    "other_display_name": (
+                        actor_profile.display_name
+                    ),
+                },
+            )
+
+        return
+
+    like_result = create_like_notification(
+        recipient=target_user,
+        interaction_id=result.interaction.id,
+    )
+
+    if like_result.created:
+        broadcast_notification_created(
+            notification=like_result.notification,
+            event_name="like.notification",
+        )
 
 
 class InteractionCreateView(APIView):
@@ -93,6 +172,10 @@ class InteractionCreateView(APIView):
             reason=result.interaction.decision,
             user=request.user,
             email=request.user.email,
+        )
+
+        publish_interaction_notifications(
+            result=result,
         )
 
         if result.match_created:

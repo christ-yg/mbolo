@@ -52,12 +52,19 @@ class InteractionResult:
 
     match_created
         True uniquement lorsqu'un nouveau match vient d'être créé.
+
+    decision_changed
+        True si une nouvelle interaction vient d'être créée
+        ou si un PASS a été transformé en LIKE, ou inversement.
+        Cette information évite d'envoyer plusieurs notifications
+        pour un simple double clic ou une requête répétée.
     """
 
     interaction: Interaction
     interaction_created: bool
     match: Match | None
     match_created: bool
+    decision_changed: bool
 
 
 def canonical_profile_pair(
@@ -488,11 +495,17 @@ def record_interaction(
                 decision=decision,
             )
         )
+
+        decision_changed = True
     else:
         interaction = existing_interaction
 
+        decision_changed = (
+            interaction.decision != decision
+        )
+
         # Évite une écriture inutile si la décision n'a pas changé.
-        if interaction.decision != decision:
+        if decision_changed:
             interaction.decision = decision
 
             interaction.save(
@@ -531,4 +544,5 @@ def record_interaction(
         interaction_created=interaction_created,
         match=match,
         match_created=match_created,
+        decision_changed=decision_changed,
     )

@@ -1,29 +1,59 @@
-/** Notification globale reçue depuis le canal WebSocket du compte. */
+
+/**
+ * Toast global pour les messages, likes et nouveaux matchs.
+ */
 
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { useNotification } from "../../context/NotificationContext";
+import {
+  useNotification,
+} from "../../context/NotificationContext";
+
 
 function getInitial(displayName: string): string {
-  return displayName.trim().charAt(0).toUpperCase() || "M";
+  return (
+    displayName.trim().charAt(0).toUpperCase() ||
+    "M"
+  );
 }
+
+
+function getKindLabel(
+  kind: "message" | "like" | "match",
+): string {
+  switch (kind) {
+    case "message":
+      return "Nouveau message";
+    case "like":
+      return "Nouveau like";
+    case "match":
+      return "Nouveau match";
+  }
+}
+
 
 export function RealtimeNotificationToast() {
   const navigate = useNavigate();
-  const { notification, dismissNotification } = useNotification();
 
-  const openConversation = useCallback(() => {
-    if (notification === null) {
-      return;
-    }
+  const {
+    notification,
+    dismissNotification,
+  } = useNotification();
 
-    const conversationPath =
-      `/messages/${encodeURIComponent(notification.conversationId)}`;
+  const openDestination =
+    useCallback((): void => {
+      if (notification === null) {
+        return;
+      }
 
-    dismissNotification();
-    navigate(conversationPath);
-  }, [dismissNotification, navigate, notification]);
+      dismissNotification();
+      navigate(notification.targetPath);
+    }, [
+      dismissNotification,
+      navigate,
+      notification,
+    ]);
 
   if (notification === null) {
     return null;
@@ -31,27 +61,36 @@ export function RealtimeNotificationToast() {
 
   return (
     <aside
-      className="realtime-notification"
+      className={
+        "realtime-notification " +
+        `realtime-notification--${notification.kind}`
+      }
       role="status"
       aria-live="polite"
-      aria-label={`Nouveau message de ${notification.senderDisplayName}`}
+      aria-label={notification.title}
     >
       <button
         type="button"
         className="realtime-notification__content"
-        onClick={openConversation}
+        onClick={openDestination}
       >
         <span
           className="realtime-notification__avatar"
           aria-hidden="true"
         >
-          {getInitial(notification.senderDisplayName)}
+          {getInitial(notification.displayName)}
         </span>
 
         <span className="realtime-notification__text">
-          <strong>{notification.senderDisplayName}</strong>
-          <span>t’a envoyé un message</span>
-          <small>{notification.bodyPreview}</small>
+          <strong>
+            {getKindLabel(notification.kind)}
+          </strong>
+
+          <span>{notification.title}</span>
+
+          {notification.body ? (
+            <small>{notification.body}</small>
+          ) : null}
         </span>
 
         <span

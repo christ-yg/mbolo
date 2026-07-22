@@ -156,6 +156,8 @@ export function NotificationsPage() {
 
     if (
       eventName === "message.notification" ||
+      eventName === "like.notification" ||
+      eventName === "match.notification" ||
       eventName === "notification.unread.changed"
     ) {
       void loadFirstPage();
