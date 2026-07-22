@@ -23,6 +23,7 @@ import { NotificationsPage } from "../pages/notifications/NotificationsPage";
 import { ProfileDetailPage } from "../pages/profiles/ProfileDetailPage";
 import { SafetyPage } from "../pages/settings/SafetyPage";
 import { BlockedUsersPage } from "../pages/settings/BlockedUsersPage";
+import { DiscoveryPreferencesPage } from "../pages/settings/DiscoveryPreferencesPage";
 
 export const appRouter = createBrowserRouter([
   {
@@ -121,6 +122,14 @@ export const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <BlockedUsersPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/discovery-preferences",
+        element: (
+          <ProtectedRoute>
+            <DiscoveryPreferencesPage />
           </ProtectedRoute>
         ),
       },

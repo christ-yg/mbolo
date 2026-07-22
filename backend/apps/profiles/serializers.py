@@ -252,6 +252,7 @@ class SearchPreferencesSerializer(
             "preferred_dating_intents",
             "maximum_distance_km",
             "only_verified_profiles",
+            "only_profiles_with_photos",
             "created_at",
             "updated_at",
         )

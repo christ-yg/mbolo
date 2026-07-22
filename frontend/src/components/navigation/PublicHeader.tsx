@@ -276,6 +276,13 @@ export function PublicHeader() {
 
                 <NavLink
                   className={getNavigationLinkClass}
+                  to="/discovery-preferences"
+                >
+                  Préférences
+                </NavLink>
+
+                <NavLink
+                  className={getNavigationLinkClass}
                   to="/matches"
                 >
                   Mes matchs

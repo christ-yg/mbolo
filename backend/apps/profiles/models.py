@@ -386,6 +386,10 @@ class SearchPreferences(models.Model):
         default=True,
     )
 
+    only_profiles_with_photos = models.BooleanField(
+        default=False,
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )

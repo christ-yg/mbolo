@@ -381,12 +381,23 @@ export function DiscoveryPage() {
           </p>
         </div>
 
-        <div className="discovery-page__summary">
-          <span>{discoveryData?.count ?? 0}</span>
+        <div className="discovery-page__heading-actions">
+          <div className="discovery-page__summary">
+            <span>{discoveryData?.count ?? 0}</span>
 
-          <p>
-            profils compatibles dans la sélection actuelle
-          </p>
+            <p>
+              profils compatibles dans la sélection actuelle
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              navigate("/discovery-preferences");
+            }}
+          >
+            Modifier mes préférences
+          </button>
         </div>
       </section>
 

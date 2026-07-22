@@ -178,9 +178,22 @@ class DiscoveryProfileListView(ListAPIView):
         car les préférences diffèrent selon chaque utilisateur.
         """
 
-        return build_discovery_queryset(
+        queryset = build_discovery_queryset(
             user=self.request.user,
         )
+
+        preferences, _created = (
+            SearchPreferences.objects.get_or_create(
+                user=self.request.user,
+            )
+        )
+
+        if preferences.only_profiles_with_photos:
+            queryset = queryset.filter(
+                photos__isnull=False,
+            ).distinct()
+
+        return queryset
 
     def list(
         self,
