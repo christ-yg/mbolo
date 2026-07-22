@@ -21,6 +21,7 @@ import { ConversationPage } from "../pages/messages/ConversationPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { NotificationsPage } from "../pages/notifications/NotificationsPage";
 import { ProfileDetailPage } from "../pages/profiles/ProfileDetailPage";
+import { ProfileEditPage } from "../pages/profile/ProfileEditPage";
 import { SafetyPage } from "../pages/settings/SafetyPage";
 import { BlockedUsersPage } from "../pages/settings/BlockedUsersPage";
 import { DiscoveryPreferencesPage } from "../pages/settings/DiscoveryPreferencesPage";
@@ -89,6 +90,14 @@ export const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ProfileDetailPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/profile/edit",
+        element: (
+          <ProtectedRoute>
+            <ProfileEditPage />
           </ProtectedRoute>
         ),
       },
