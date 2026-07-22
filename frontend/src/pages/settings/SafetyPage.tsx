@@ -10,6 +10,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { Link } from "react-router-dom";
 
 import {
   type BrowserNotificationPermission,
@@ -235,6 +236,22 @@ export function SafetyPage() {
             </p>
           ) : null}
         </div>
+      </section>
+
+      <section className="safety-account-controls">
+        <div>
+          <p className="safety-settings__eyebrow">
+            Contrôle du compte
+          </p>
+          <h2>Profils bloqués</h2>
+          <p>
+            Consulte les profils bloqués et retire un blocage
+            lorsque tu le souhaites.
+          </p>
+        </div>
+        <Link to="/blocked-users">
+          Gérer les profils bloqués
+        </Link>
       </section>
 
       <section className="safety-principles">

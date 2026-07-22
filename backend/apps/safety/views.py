@@ -90,6 +90,10 @@ class BlockListCreateView(ListAPIView):
             Block.objects
             .select_related(
                 "blocked_user",
+                "blocked_user__profile",
+            )
+            .prefetch_related(
+                "blocked_user__profile__photos",
             )
             .filter(
                 blocker=self.request.user,

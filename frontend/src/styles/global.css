@@ -5498,3 +5498,298 @@ svg {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   PAGE PROFILS BLOQUÉS
+   ============================================================ */
+
+.safety-account-controls {
+  display: flex;
+  width: min(100%, 1040px);
+  margin: 28px auto 0;
+  padding: 28px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  background: rgb(255 255 255 / 88%);
+}
+
+.safety-account-controls h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.8rem;
+  font-weight: 500;
+}
+
+.safety-account-controls p:last-child {
+  color: var(--color-text-muted);
+}
+
+.safety-account-controls a {
+  padding: 14px 20px;
+  border-radius: 999px;
+  color: white;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-primary-dark)
+  );
+  font-weight: 780;
+}
+
+.blocked-users-page {
+  min-height: calc(100vh - 84px);
+  padding: 68px 20px 110px;
+  background:
+    radial-gradient(circle at 10% 8%, rgb(225 147 184 / 20%), transparent 30%),
+    radial-gradient(circle at 92% 72%, rgb(184 170 225 / 14%), transparent 25%),
+    #fff9fc;
+}
+
+.blocked-users-page__header {
+  display: grid;
+  width: min(100%, 1040px);
+  margin: 0 auto 28px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 28px;
+}
+
+.blocked-users-page__header h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(3rem, 7vw, 5.2rem);
+  font-weight: 500;
+  letter-spacing: -0.06em;
+}
+
+.blocked-users-page__header p:last-child {
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+.blocked-users-page__counter {
+  min-width: 180px;
+  padding: 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 23px;
+  background: white;
+  box-shadow: var(--shadow-soft);
+}
+
+.blocked-users-page__counter strong,
+.blocked-users-page__counter span {
+  display: block;
+}
+
+.blocked-users-page__counter strong {
+  color: var(--color-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2.3rem;
+}
+
+.blocked-users-page__counter span {
+  color: var(--color-text-muted);
+}
+
+.blocked-users-page__error {
+  width: min(100%, 1040px);
+  margin: 0 auto 18px;
+  padding: 14px 17px;
+  border-radius: 15px;
+  color: #7b203d;
+  background: #fff0f5;
+}
+
+.blocked-users-grid {
+  display: grid;
+  width: min(100%, 1040px);
+  margin: 0 auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.blocked-user-card {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 26px;
+  background: white;
+  box-shadow: var(--shadow-soft);
+}
+
+.blocked-user-card__visual {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  background: linear-gradient(145deg, #f1d8e5, #e5def1);
+}
+
+.blocked-user-card__visual img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  filter: grayscale(0.35);
+}
+
+.blocked-user-card__visual span {
+  color: rgb(119 55 84 / 65%);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 5rem;
+}
+
+.blocked-user-card__content {
+  padding: 22px;
+}
+
+.blocked-user-card__eyebrow {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.blocked-user-card h2 {
+  margin: 10px 0 7px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.8rem;
+  font-weight: 500;
+}
+
+.blocked-user-card__content > p:not(
+  .blocked-user-card__eyebrow
+) {
+  color: var(--color-text-muted);
+}
+
+.blocked-user-card button,
+.blocked-users-state button,
+.blocked-users-pagination button {
+  min-height: 44px;
+  padding: 0 19px;
+  border: 1px solid rgb(163 47 97 / 18%);
+  border-radius: 999px;
+  color: var(--color-primary-dark);
+  background: white;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.blocked-user-card button {
+  width: 100%;
+}
+
+.blocked-users-state {
+  width: min(100%, 1040px);
+  margin: 0 auto;
+  padding: 70px 24px;
+  border: 1px dashed rgb(163 47 97 / 22%);
+  border-radius: 27px;
+  background: rgb(255 255 255 / 70%);
+  text-align: center;
+}
+
+.blocked-users-state > span {
+  display: grid;
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 18px;
+  place-items: center;
+  border-radius: 20px;
+  color: white;
+  background: #2f976b;
+}
+
+.blocked-users-pagination {
+  display: flex;
+  width: min(100%, 1040px);
+  margin: 24px auto 0;
+  justify-content: center;
+}
+
+.blocked-users-dialog-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  padding: 20px;
+  place-items: center;
+  background: rgb(34 17 27 / 58%);
+  backdrop-filter: blur(8px);
+}
+
+.blocked-users-dialog {
+  width: min(100%, 500px);
+  padding: clamp(25px, 5vw, 40px);
+  border-radius: 27px;
+  background: white;
+  box-shadow: 0 30px 90px rgb(20 8 15 / 30%);
+}
+
+.blocked-users-dialog h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2.3rem;
+  font-weight: 500;
+}
+
+.blocked-users-dialog > p:not(
+  .section-heading__eyebrow
+) {
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+.blocked-users-dialog__actions {
+  display: grid;
+  margin-top: 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.blocked-users-dialog__actions button {
+  min-height: 46px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: white;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.blocked-users-dialog__actions button:last-child {
+  color: white;
+  border: 0;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-primary-dark)
+  );
+}
+
+@media (max-width: 850px) {
+  .blocked-users-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .safety-account-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .blocked-users-page {
+    padding-inline: 13px;
+  }
+
+  .blocked-users-page__header,
+  .blocked-users-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .blocked-users-dialog__actions {
+    grid-template-columns: 1fr;
+  }
+}
