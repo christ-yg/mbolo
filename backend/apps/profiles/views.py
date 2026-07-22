@@ -1,11 +1,16 @@
 from django.db import transaction
+from django.db.models import Q
+from django.http import Http404
 from rest_framework.generics import (
     ListAPIView,
+    RetrieveAPIView,
     RetrieveUpdateAPIView,
 )
 from rest_framework.permissions import IsAuthenticated
 
 from apps.core.security_logging import log_security_event
+from apps.interactions.models import Match
+from apps.safety.services import users_are_blocked
 
 from .discovery import build_discovery_queryset
 from .models import (
@@ -15,6 +20,7 @@ from .models import (
 from .pagination import DiscoveryPagination
 from .serializers import (
     DiscoveryProfileSerializer,
+    PublicProfileDetailSerializer,
     ProfileSerializer,
     SearchPreferencesSerializer,
 )
@@ -203,3 +209,100 @@ class DiscoveryProfileListView(ListAPIView):
             *args,
             **kwargs,
         )
+
+
+
+class PublicProfileDetailView(RetrieveAPIView):
+    """
+    Retourne le détail public d'un profil lorsque l'accès est légitime.
+
+    Accès autorisé :
+    - profil actuellement visible dans la découverte ;
+    - profil lié à un match actif.
+
+    Accès refusé avec 404 :
+    - propre profil ;
+    - compte suspendu/inactif/non vérifié ;
+    - blocage dans un sens ou dans l'autre ;
+    - profil non visible sans match actif ;
+    - UUID inexistant.
+
+    Le même 404 limite l'énumération des profils.
+    """
+
+    serializer_class = PublicProfileDetailSerializer
+    permission_classes = (IsAuthenticated,)
+    lookup_url_kwarg = "profile_id"
+
+    def get_object(self) -> Profile:
+        actor = self.request.user
+        actor_profile = getattr(actor, "profile", None)
+
+        if actor_profile is None:
+            raise Http404
+
+        profile_id = self.kwargs.get(self.lookup_url_kwarg)
+
+        target = (
+            Profile.objects
+            .select_related("user")
+            .prefetch_related("photos")
+            .filter(
+                id=profile_id,
+                user__is_active=True,
+                user__is_suspended=False,
+                user__is_email_verified=True,
+            )
+            .exclude(id=actor_profile.id)
+            .first()
+        )
+
+        if target is None:
+            raise Http404
+
+        if users_are_blocked(
+            first_user=actor,
+            second_user=target.user,
+        ):
+            raise Http404
+
+        has_active_match = Match.objects.filter(
+            is_active=True,
+        ).filter(
+            Q(
+                profile_one=actor_profile,
+                profile_two=target,
+            )
+            | Q(
+                profile_one=target,
+                profile_two=actor_profile,
+            )
+        ).exists()
+
+        is_publicly_visible = bool(
+            target.is_discoverable
+            and target.is_complete
+        )
+
+        if not has_active_match and not is_publicly_visible:
+            raise Http404
+
+        log_security_event(
+            request=self.request,
+            event="profile.public_detail",
+            outcome="success",
+            reason=(
+                "active_match"
+                if has_active_match
+                else "discoverable_profile"
+            ),
+            user=actor,
+            email=actor.email,
+        )
+
+        self.check_object_permissions(
+            self.request,
+            target,
+        )
+
+        return target

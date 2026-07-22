@@ -18,6 +18,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { normalizeApiError } from "../../api/apiError";
 import {
@@ -45,6 +46,7 @@ type DiscoveryStatus =
   | "error";
 
 export function DiscoveryPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
 
   const [status, setStatus] =
@@ -455,6 +457,16 @@ export function DiscoveryPage() {
           onPass={handlePass}
           onLike={handleLike}
         />
+
+        <button
+          type="button"
+          className="profile-detail-link-button"
+          onClick={() => {
+            navigate(`/profiles/${currentProfile.id}`);
+          }}
+        >
+          Voir le profil complet
+        </button>
       </section>
 
       {matchCelebration ? (

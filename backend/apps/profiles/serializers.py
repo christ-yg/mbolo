@@ -2,7 +2,10 @@ from datetime import date
 from typing import Any
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import models
 from rest_framework import serializers
+
+from apps.photos.serializers import ProfilePhotoSerializer
 
 from .models import (
     DatingIntent,
@@ -404,3 +407,78 @@ class DiscoveryProfileSerializer(
         return bool(
             profile.user.is_email_verified
         )
+
+
+
+class PublicProfileDetailSerializer(serializers.ModelSerializer):
+    """
+    Détail public et minimisé d'un profil autorisé.
+
+    Ce sérialiseur n'expose jamais :
+    - l'adresse e-mail ;
+    - la date de naissance exacte ;
+    - l'identifiant User ;
+    - les préférences de recherche ;
+    - les données administratives.
+    """
+
+    age = serializers.IntegerField(read_only=True)
+    is_verified = serializers.SerializerMethodField()
+    photos = ProfilePhotoSerializer(many=True, read_only=True)
+    relationship = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Profile
+        fields = (
+            "id",
+            "display_name",
+            "age",
+            "gender",
+            "city",
+            "biography",
+            "dating_intent",
+            "is_verified",
+            "photos",
+            "relationship",
+        )
+        read_only_fields = fields
+
+    def get_is_verified(self, profile: Profile) -> bool:
+        return bool(profile.user.is_email_verified)
+
+    def get_relationship(self, profile: Profile) -> str:
+        """
+        Indique pourquoi l'accès est autorisé sans révéler
+        d'informations privées supplémentaires.
+        """
+
+        request = self.context.get("request")
+
+        if request is None or not request.user.is_authenticated:
+            return "public"
+
+        from apps.interactions.models import Match
+
+        current_profile_id = getattr(
+            getattr(request.user, "profile", None),
+            "id",
+            None,
+        )
+
+        if current_profile_id is None:
+            return "public"
+
+        is_match = Match.objects.filter(
+            is_active=True,
+        ).filter(
+            models.Q(
+                profile_one_id=current_profile_id,
+                profile_two_id=profile.id,
+            )
+            | models.Q(
+                profile_one_id=profile.id,
+                profile_two_id=current_profile_id,
+            )
+        ).exists()
+
+        return "match" if is_match else "discovery"

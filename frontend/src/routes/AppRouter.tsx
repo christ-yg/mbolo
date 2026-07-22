@@ -20,6 +20,7 @@ import { MessagesPage } from "../pages/messages/MessagesPage";
 import { ConversationPage } from "../pages/messages/ConversationPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { NotificationsPage } from "../pages/notifications/NotificationsPage";
+import { ProfileDetailPage } from "../pages/profiles/ProfileDetailPage";
 import { SafetyPage } from "../pages/settings/SafetyPage";
 
 export const appRouter = createBrowserRouter([
@@ -78,6 +79,14 @@ export const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ReceivedLikesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/profiles/:profileId",
+        element: (
+          <ProtectedRoute>
+            <ProfileDetailPage />
           </ProtectedRoute>
         ),
       },

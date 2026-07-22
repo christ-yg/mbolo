@@ -4,6 +4,7 @@ from .views import (
     CurrentProfileView,
     CurrentSearchPreferencesView,
     DiscoveryProfileListView,
+    PublicProfileDetailView,
 )
 
 
@@ -19,6 +20,11 @@ urlpatterns = [
         "preferences/me/",
         CurrentSearchPreferencesView.as_view(),
         name="current-search-preferences",
+    ),
+    path(
+        "public/<uuid:profile_id>/",
+        PublicProfileDetailView.as_view(),
+        name="public-profile-detail",
     ),
     path(
         "discovery/",

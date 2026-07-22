@@ -10,6 +10,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { normalizeApiError } from "../../api/apiError";
 import {
@@ -31,6 +32,7 @@ type MatchesStatus =
   | "error";
 
 export function MatchesPage() {
+  const navigate = useNavigate();
   const {
     lastEvent,
     revision,
@@ -273,10 +275,24 @@ export function MatchesPage() {
         aria-label="Liste de mes matchs"
       >
         {matches.map((match) => (
-          <MatchCard
+          <div
             key={match.id}
-            match={match}
-          />
+            className="match-card-with-detail"
+          >
+            <MatchCard match={match} />
+
+            <button
+              type="button"
+              className="profile-detail-link-button"
+              onClick={() => {
+                navigate(
+                  `/profiles/${match.other_profile.id}`,
+                );
+              }}
+            >
+              Voir le profil complet
+            </button>
+          </div>
         ))}
       </section>
 

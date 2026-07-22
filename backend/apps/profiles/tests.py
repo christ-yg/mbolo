@@ -605,3 +605,109 @@ class CurrentProfileEndpointTests(TestCase):
             response.status_code,
             status.HTTP_403_FORBIDDEN,
         )
+
+
+
+class PublicProfileDetailEndpointTests(TestCase):
+    """
+    Contrôles d'accès au détail public d'un profil.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.actor = User.objects.create_user(
+            email="detail-actor@example.com",
+            password="StrongPassword2026!",
+            is_email_verified=True,
+        )
+        self.actor_profile = Profile.objects.create(
+            user=self.actor,
+            display_name="Christ",
+            birth_date=years_ago(30),
+            gender="man",
+            city="libreville",
+            biography="Profil acteur.",
+            dating_intent="serious_relationship",
+            is_discoverable=True,
+        )
+
+        self.target = User.objects.create_user(
+            email="detail-target@example.com",
+            password="StrongPassword2026!",
+            is_email_verified=True,
+        )
+        self.target_profile = Profile.objects.create(
+            user=self.target,
+            display_name="Kevin",
+            birth_date=years_ago(28),
+            gender="woman",
+            city="moanda",
+            biography="Profil public détaillé.",
+            dating_intent="serious_relationship",
+            is_discoverable=True,
+        )
+
+        self.client.force_login(self.actor)
+
+        self.url = reverse(
+            "profiles:public-profile-detail",
+            kwargs={"profile_id": self.target_profile.id},
+        )
+
+    def test_discoverable_profile_is_accessible(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["display_name"], "Kevin")
+        self.assertNotIn("email", response.data)
+        self.assertNotIn("birth_date", response.data)
+        self.assertNotIn("user", response.data)
+
+    def test_own_profile_returns_404(self):
+        response = self.client.get(
+            reverse(
+                "profiles:public-profile-detail",
+                kwargs={"profile_id": self.actor_profile.id},
+            )
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_hidden_profile_without_match_returns_404(self):
+        self.target_profile.is_discoverable = False
+        self.target_profile.save(update_fields=["is_discoverable"])
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_hidden_profile_with_active_match_is_accessible(self):
+        from apps.interactions.models import Match
+
+        self.target_profile.is_discoverable = False
+        self.target_profile.save(update_fields=["is_discoverable"])
+
+        first, second = sorted(
+            (self.actor_profile, self.target_profile),
+            key=lambda profile: profile.id.int,
+        )
+
+        Match.objects.create(
+            profile_one=first,
+            profile_two=second,
+            is_active=True,
+        )
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["relationship"], "match")
+
+    def test_unknown_uuid_returns_404(self):
+        from uuid import uuid4
+
+        response = self.client.get(
+            reverse(
+                "profiles:public-profile-detail",
+                kwargs={"profile_id": uuid4()},
+            )
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
