@@ -12,6 +12,8 @@ from .report_views import ReportListCreateView
 from .views import (
     BlockDeleteView,
     BlockListCreateView,
+    ProfileBlockCreateView,
+    ProfileReportCreateView,
 )
 
 
@@ -40,5 +42,15 @@ urlpatterns = [
         "reports/",
         ReportListCreateView.as_view(),
         name="report-list-create",
+    ),
+    path(
+        "profiles/<uuid:profile_id>/block/",
+        ProfileBlockCreateView.as_view(),
+        name="profile-block-create",
+    ),
+    path(
+        "profiles/<uuid:profile_id>/report/",
+        ProfileReportCreateView.as_view(),
+        name="profile-report-create",
     ),
 ]

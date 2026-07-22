@@ -29,7 +29,11 @@ from django.db.models import Q
 from apps.interactions.models import Match
 from apps.profiles.models import Profile
 
-from .models import Block
+from .models import (
+    Block,
+    Report,
+    ReportStatus,
+)
 
 
 @dataclass(frozen=True)
@@ -276,3 +280,138 @@ def users_are_blocked(
             blocked_user=first_user,
         )
     ).exists()
+
+
+
+@dataclass(frozen=True)
+class ProfileReportResult:
+    """
+    Résultat d'un signalement de profil.
+
+    created vaut False lorsqu'un signalement actif identique existe
+    déjà pour le même déclarant, la même cible et le même motif.
+    """
+
+    report: Report
+    created: bool
+
+
+def resolve_safety_target_profile(
+    *,
+    actor,
+    profile_id: UUID,
+) -> Profile:
+    """
+    Résout un profil ciblé sans exposer l'UUID du compte utilisateur.
+
+    Les cibles inexistantes et le propre profil produisent un message
+    générique afin de limiter l'énumération.
+    """
+
+    try:
+        profile = (
+            Profile.objects
+            .select_for_update()
+            .select_related("user")
+            .get(
+                id=profile_id,
+                user__is_active=True,
+            )
+        )
+    except Profile.DoesNotExist as exc:
+        raise ValidationError(
+            "Ce profil n'est pas disponible."
+        ) from exc
+
+    if profile.user_id == actor.id:
+        raise ValidationError(
+            "Ce profil n'est pas disponible."
+        )
+
+    return profile
+
+
+@transaction.atomic
+def create_profile_block(
+    *,
+    blocker,
+    profile_id: UUID,
+) -> BlockResult:
+    """
+    Bloque un compte à partir de son UUID de profil public.
+    """
+
+    profile = resolve_safety_target_profile(
+        actor=blocker,
+        profile_id=profile_id,
+    )
+
+    return create_block(
+        blocker=blocker,
+        blocked_user_id=profile.user_id,
+    )
+
+
+@transaction.atomic
+def create_profile_report(
+    *,
+    reporter,
+    profile_id: UUID,
+    reason: str,
+    description: str = "",
+) -> ProfileReportResult:
+    """
+    Crée un signalement idempotent pour un motif actif identique.
+
+    Un signalement déjà en attente ou en cours d'examen n'est pas
+    dupliqué. La note existante n'est pas écrasée.
+    """
+
+    if not reporter.is_authenticated:
+        raise ValidationError(
+            "Une authentification est requise."
+        )
+
+    if not reporter.is_active or reporter.is_suspended:
+        raise ValidationError(
+            "Ce compte ne peut pas effectuer cette action."
+        )
+
+    profile = resolve_safety_target_profile(
+        actor=reporter,
+        profile_id=profile_id,
+    )
+
+    existing_report = (
+        Report.objects
+        .select_for_update()
+        .filter(
+            reporter=reporter,
+            reported_user=profile.user,
+            reason=reason,
+            status__in=(
+                ReportStatus.PENDING,
+                ReportStatus.UNDER_REVIEW,
+            ),
+        )
+        .order_by("-created_at")
+        .first()
+    )
+
+    if existing_report is not None:
+        return ProfileReportResult(
+            report=existing_report,
+            created=False,
+        )
+
+    report = Report.objects.create(
+        reporter=reporter,
+        reported_user=profile.user,
+        reason=reason,
+        description=(description or "").strip(),
+    )
+
+    return ProfileReportResult(
+        report=report,
+        created=True,
+    )

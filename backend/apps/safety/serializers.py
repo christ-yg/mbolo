@@ -14,7 +14,7 @@ from rest_framework import serializers
 from apps.profiles.models import Profile
 from apps.profiles.serializers import DiscoveryProfileSerializer
 
-from .models import Block
+from .models import Block, ReportReason
 
 
 class BlockCreateSerializer(serializers.Serializer):
@@ -103,4 +103,67 @@ class BlockCreateResponseSerializer(serializers.Serializer):
 
     message = serializers.CharField(
         read_only=True,
+    )
+
+
+
+class ProfileBlockCreateSerializer(serializers.Serializer):
+    """
+    Création d'un blocage à partir de l'UUID public d'un profil.
+
+    Le frontend ne transmet jamais l'UUID du compte utilisateur.
+    La résolution profil -> compte reste exclusivement côté serveur.
+    """
+
+    confirm = serializers.BooleanField(
+        required=True,
+    )
+
+    def validate_confirm(self, value: bool) -> bool:
+        if value is not True:
+            raise serializers.ValidationError(
+                "La confirmation du blocage est obligatoire."
+            )
+
+        return value
+
+
+class ProfileReportCreateSerializer(serializers.Serializer):
+    """
+    Signalement d'un profil depuis sa page publique.
+
+    Le motif est limité aux valeurs du modèle ReportReason.
+    La description reste facultative mais bornée.
+    """
+
+    reason = serializers.ChoiceField(
+        choices=ReportReason.choices,
+        required=True,
+    )
+
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        trim_whitespace=True,
+        max_length=2000,
+    )
+
+
+class ProfileSafetyActionResponseSerializer(serializers.Serializer):
+    """
+    Réponse commune aux actions Bloquer et Signaler.
+    """
+
+    created = serializers.BooleanField(
+        read_only=True,
+    )
+
+    message = serializers.CharField(
+        read_only=True,
+    )
+
+    deactivated_matches = serializers.IntegerField(
+        read_only=True,
+        required=False,
     )

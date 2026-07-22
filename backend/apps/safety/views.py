@@ -28,9 +28,14 @@ from .serializers import (
     BlockCreateResponseSerializer,
     BlockCreateSerializer,
     BlockSerializer,
+    ProfileBlockCreateSerializer,
+    ProfileReportCreateSerializer,
+    ProfileSafetyActionResponseSerializer,
 )
 from .services import (
     create_block,
+    create_profile_block,
+    create_profile_report,
     delete_block,
 )
 
@@ -209,4 +214,155 @@ class BlockDeleteView(APIView):
 
         return Response(
             status=status.HTTP_204_NO_CONTENT,
+        )
+
+
+
+class ProfileBlockCreateView(APIView):
+    """
+    Bloque un profil depuis sa page détaillée.
+
+    Endpoint :
+        POST /api/v1/safety/profiles/<uuid>/block/
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+    )
+
+    def post(
+        self,
+        request: Request,
+        profile_id,
+    ) -> Response:
+        input_serializer = ProfileBlockCreateSerializer(
+            data=request.data,
+        )
+        input_serializer.is_valid(
+            raise_exception=True,
+        )
+
+        try:
+            result = create_profile_block(
+                blocker=request.user,
+                profile_id=profile_id,
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+
+        log_security_event(
+            request=request,
+            event="safety.profile.block",
+            outcome="success",
+            reason=(
+                "block_created"
+                if result.created
+                else "block_already_exists"
+            ),
+            user=request.user,
+            email=request.user.email,
+        )
+
+        output_serializer = (
+            ProfileSafetyActionResponseSerializer(
+                {
+                    "created": result.created,
+                    "deactivated_matches": (
+                        result.deactivated_matches
+                    ),
+                    "message": (
+                        "Ce profil a été bloqué."
+                        if result.created
+                        else "Ce profil est déjà bloqué."
+                    ),
+                }
+            )
+        )
+
+        return Response(
+            output_serializer.data,
+            status=(
+                status.HTTP_201_CREATED
+                if result.created
+                else status.HTTP_200_OK
+            ),
+        )
+
+
+class ProfileReportCreateView(APIView):
+    """
+    Signale un profil depuis sa page détaillée.
+
+    Endpoint :
+        POST /api/v1/safety/profiles/<uuid>/report/
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+    )
+
+    def post(
+        self,
+        request: Request,
+        profile_id,
+    ) -> Response:
+        input_serializer = ProfileReportCreateSerializer(
+            data=request.data,
+        )
+        input_serializer.is_valid(
+            raise_exception=True,
+        )
+
+        try:
+            result = create_profile_report(
+                reporter=request.user,
+                profile_id=profile_id,
+                reason=(
+                    input_serializer.validated_data["reason"]
+                ),
+                description=(
+                    input_serializer.validated_data[
+                        "description"
+                    ]
+                ),
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+
+        log_security_event(
+            request=request,
+            event="safety.profile.report",
+            outcome="success",
+            reason=(
+                "report_created"
+                if result.created
+                else "active_report_already_exists"
+            ),
+            user=request.user,
+            email=request.user.email,
+        )
+
+        output_serializer = (
+            ProfileSafetyActionResponseSerializer(
+                {
+                    "created": result.created,
+                    "message": (
+                        "Le signalement a été transmis à la modération."
+                        if result.created
+                        else (
+                            "Un signalement actif existe déjà "
+                            "pour ce motif."
+                        )
+                    ),
+                }
+            )
+        )
+
+        return Response(
+            output_serializer.data,
+            status=(
+                status.HTTP_201_CREATED
+                if result.created
+                else status.HTTP_200_OK
+            ),
         )

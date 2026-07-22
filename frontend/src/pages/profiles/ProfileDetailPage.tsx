@@ -11,6 +11,10 @@ import {
 
 import { normalizeApiError } from "../../api/apiError";
 import {
+  blockProfile,
+  reportProfile,
+} from "../../api/safetyService";
+import {
   createInteraction,
 } from "../../api/interactionService";
 import {
@@ -23,6 +27,9 @@ import type {
 import type {
   PublicProfileDetail,
 } from "../../types/profileDetail";
+import type {
+  ReportReason,
+} from "../../types/safety";
 
 
 type DetailStatus =
@@ -49,6 +56,24 @@ export function ProfileDetailPage() {
 
   const [pendingDecision, setPendingDecision] =
     useState<InteractionDecision | null>(null);
+
+  const [isSafetyMenuOpen, setIsSafetyMenuOpen] =
+    useState(false);
+
+  const [isBlockDialogOpen, setIsBlockDialogOpen] =
+    useState(false);
+
+  const [isReportDialogOpen, setIsReportDialogOpen] =
+    useState(false);
+
+  const [reportReason, setReportReason] =
+    useState<ReportReason>("harassment");
+
+  const [reportDescription, setReportDescription] =
+    useState("");
+
+  const [isSafetyActionPending, setIsSafetyActionPending] =
+    useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -159,6 +184,75 @@ export function ProfileDetailPage() {
     }
   }
 
+
+  async function handleBlockProfile(): Promise<void> {
+    if (
+      profile === null ||
+      isSafetyActionPending
+    ) {
+      return;
+    }
+
+    setIsSafetyActionPending(true);
+    setErrorMessage("");
+
+    try {
+      await blockProfile(profile.id);
+
+      setIsBlockDialogOpen(false);
+      setIsSafetyMenuOpen(false);
+
+      navigate(
+        "/discovery",
+        {
+          replace: true,
+          state: {
+            message: "Le profil a été bloqué.",
+          },
+        },
+      );
+    } catch (error: unknown) {
+      const normalized = normalizeApiError(error);
+      setErrorMessage(normalized.message);
+    } finally {
+      setIsSafetyActionPending(false);
+    }
+  }
+
+
+  async function handleReportProfile(): Promise<void> {
+    if (
+      profile === null ||
+      isSafetyActionPending
+    ) {
+      return;
+    }
+
+    setIsSafetyActionPending(true);
+    setErrorMessage("");
+
+    try {
+      const result = await reportProfile(
+        profile.id,
+        {
+          reason: reportReason,
+          description: reportDescription.trim(),
+        },
+      );
+
+      setActionMessage(result.message);
+      setIsReportDialogOpen(false);
+      setIsSafetyMenuOpen(false);
+      setReportDescription("");
+    } catch (error: unknown) {
+      const normalized = normalizeApiError(error);
+      setErrorMessage(normalized.message);
+    } finally {
+      setIsSafetyActionPending(false);
+    }
+  }
+
+
   if (status === "loading") {
     return (
       <main className="profile-detail-page">
@@ -201,11 +295,52 @@ export function ProfileDetailPage() {
           ← Retour
         </button>
 
-        <span>
-          {profile.relationship === "match"
-            ? "Profil d’un match"
-            : "Profil public"}
-        </span>
+        <div className="profile-detail-safety-menu">
+          <span>
+            {profile.relationship === "match"
+              ? "Profil d’un match"
+              : "Profil public"}
+          </span>
+
+          <button
+            type="button"
+            className="profile-detail-safety-menu__trigger"
+            aria-label="Actions de sécurité"
+            aria-expanded={isSafetyMenuOpen}
+            onClick={() => {
+              setIsSafetyMenuOpen(
+                (currentValue) => !currentValue,
+              );
+            }}
+          >
+            ⋯
+          </button>
+
+          {isSafetyMenuOpen ? (
+            <div className="profile-detail-safety-menu__panel">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsReportDialogOpen(true);
+                  setIsSafetyMenuOpen(false);
+                }}
+              >
+                Signaler ce profil
+              </button>
+
+              <button
+                type="button"
+                className="profile-detail-safety-menu__danger"
+                onClick={() => {
+                  setIsBlockDialogOpen(true);
+                  setIsSafetyMenuOpen(false);
+                }}
+              >
+                Bloquer ce profil
+              </button>
+            </div>
+          ) : null}
+        </div>
       </section>
 
       <section className="profile-detail-layout">
@@ -338,6 +473,161 @@ export function ProfileDetailPage() {
           </div>
         </article>
       </section>
+
+
+      {isBlockDialogOpen ? (
+        <div
+          className="profile-safety-dialog-backdrop"
+          role="presentation"
+        >
+          <section
+            className="profile-safety-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="block-profile-title"
+          >
+            <p className="section-heading__eyebrow">
+              Action de sécurité
+            </p>
+
+            <h2 id="block-profile-title">
+              Bloquer {profile.display_name} ?
+            </h2>
+
+            <p>
+              Vous ne pourrez plus vous voir, vous liker ni
+              continuer une conversation. Un match actif sera
+              désactivé.
+            </p>
+
+            <div className="profile-safety-dialog__actions">
+              <button
+                type="button"
+                disabled={isSafetyActionPending}
+                onClick={() => {
+                  setIsBlockDialogOpen(false);
+                }}
+              >
+                Annuler
+              </button>
+
+              <button
+                type="button"
+                className="profile-safety-dialog__danger"
+                disabled={isSafetyActionPending}
+                onClick={() => {
+                  void handleBlockProfile();
+                }}
+              >
+                {isSafetyActionPending
+                  ? "Blocage…"
+                  : "Confirmer le blocage"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {isReportDialogOpen ? (
+        <div
+          className="profile-safety-dialog-backdrop"
+          role="presentation"
+        >
+          <section
+            className="profile-safety-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="report-profile-title"
+          >
+            <p className="section-heading__eyebrow">
+              Signalement confidentiel
+            </p>
+
+            <h2 id="report-profile-title">
+              Signaler ce profil
+            </h2>
+
+            <label>
+              Motif
+              <select
+                value={reportReason}
+                onChange={(event) => {
+                  setReportReason(
+                    event.target.value as ReportReason,
+                  );
+                }}
+              >
+                <option value="harassment">
+                  Harcèlement
+                </option>
+                <option value="fake_profile">
+                  Faux profil ou usurpation
+                </option>
+                <option value="scam">
+                  Arnaque ou demande d’argent
+                </option>
+                <option value="inappropriate_content">
+                  Contenu inapproprié
+                </option>
+                <option value="threat">
+                  Menace ou violence
+                </option>
+                <option value="spam">
+                  Spam ou sollicitation abusive
+                </option>
+                <option value="underage_suspicion">
+                  Suspicion de personne mineure
+                </option>
+                <option value="other">
+                  Autre motif
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Informations complémentaires
+              <textarea
+                maxLength={2000}
+                value={reportDescription}
+                placeholder="Décris les faits observés sans partager de données sensibles."
+                onChange={(event) => {
+                  setReportDescription(
+                    event.target.value,
+                  );
+                }}
+              />
+            </label>
+
+            <small>
+              {reportDescription.length}/2000
+            </small>
+
+            <div className="profile-safety-dialog__actions">
+              <button
+                type="button"
+                disabled={isSafetyActionPending}
+                onClick={() => {
+                  setIsReportDialogOpen(false);
+                }}
+              >
+                Annuler
+              </button>
+
+              <button
+                type="button"
+                disabled={isSafetyActionPending}
+                onClick={() => {
+                  void handleReportProfile();
+                }}
+              >
+                {isSafetyActionPending
+                  ? "Envoi…"
+                  : "Envoyer le signalement"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

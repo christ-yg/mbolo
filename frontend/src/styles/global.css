@@ -5310,3 +5310,191 @@ svg {
   color: #7c2741;
   background: #fff0f5;
 }
+
+
+/* ============================================================
+   ACTIONS DE SÉCURITÉ DU PROFIL
+   ============================================================ */
+
+.profile-detail-safety-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-detail-safety-menu__trigger {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 0 !important;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text);
+  background: white;
+  font-size: 1.35rem;
+  cursor: pointer;
+}
+
+.profile-detail-safety-menu__panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 9px);
+  right: 0;
+  display: grid;
+  width: 220px;
+  padding: 8px;
+  gap: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 17px;
+  background: white;
+  box-shadow: 0 18px 50px rgb(61 25 46 / 16%);
+}
+
+.profile-detail-safety-menu__panel button {
+  min-height: 42px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 11px;
+  color: var(--color-text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-detail-safety-menu__panel button:hover {
+  background: var(--color-surface-soft);
+}
+
+.profile-detail-safety-menu__panel
+.profile-detail-safety-menu__danger {
+  color: #942c4a;
+}
+
+.profile-safety-dialog-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  padding: 20px;
+  place-items: center;
+  background: rgb(34 17 27 / 58%);
+  backdrop-filter: blur(8px);
+}
+
+.profile-safety-dialog {
+  width: min(100%, 530px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  padding: clamp(25px, 5vw, 40px);
+  border: 1px solid rgb(255 255 255 / 28%);
+  border-radius: 27px;
+  background: white;
+  box-shadow: 0 30px 90px rgb(20 8 15 / 30%);
+}
+
+.profile-safety-dialog h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+
+.profile-safety-dialog > p:not(
+  .section-heading__eyebrow
+) {
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+.profile-safety-dialog label {
+  display: grid;
+  margin-top: 19px;
+  gap: 8px;
+  color: var(--color-text);
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.profile-safety-dialog select,
+.profile-safety-dialog textarea {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  color: var(--color-text);
+  background: #fffafd;
+  font: inherit;
+}
+
+.profile-safety-dialog select {
+  min-height: 48px;
+  padding: 0 13px;
+}
+
+.profile-safety-dialog textarea {
+  min-height: 130px;
+  padding: 13px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.profile-safety-dialog > small {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.profile-safety-dialog__actions {
+  display: grid;
+  margin-top: 25px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.profile-safety-dialog__actions button {
+  min-height: 46px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text);
+  background: white;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.profile-safety-dialog__actions button:last-child {
+  color: white;
+  border: 0;
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-primary),
+      var(--color-primary-dark)
+    );
+}
+
+.profile-safety-dialog__actions
+.profile-safety-dialog__danger {
+  background: linear-gradient(135deg, #aa3153, #741d39);
+}
+
+.profile-safety-dialog__actions button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+@media (max-width: 520px) {
+  .profile-detail-page__topbar {
+    align-items: flex-start;
+  }
+
+  .profile-detail-safety-menu > span {
+    display: none;
+  }
+
+  .profile-safety-dialog__actions {
+    grid-template-columns: 1fr;
+  }
+}
