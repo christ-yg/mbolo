@@ -178,7 +178,11 @@ export function ConversationPage() {
   const typingWasPublishedReference =
     useRef(false);
 
-  const realtime = useConversationRealtime(
+  const {
+    isConnected: isRealtimeConnected,
+    publishTyping,
+    publishRead,
+  } = useConversationRealtime(
     conversationId,
     {
       onMessageCreated: (incomingMessage) => {
@@ -245,7 +249,7 @@ export function ConversationPage() {
             candidateConversation.id === conversationId,
         ) ?? null
       );
-    }, [conversationId, realtime]);
+    }, [conversationId]);
 
   const markReceivedMessagesAsRead =
     useCallback(
@@ -279,7 +283,7 @@ export function ConversationPage() {
             ),
           );
 
-          realtime.publishRead();
+          publishRead();
 
           return loadedMessages.map((message) => {
             if (
@@ -305,7 +309,7 @@ export function ConversationPage() {
           return loadedMessages;
         }
       },
-      [conversationId, realtime],
+      [conversationId, publishRead],
     );
 
   /**
@@ -482,7 +486,7 @@ export function ConversationPage() {
     if (
       status !== "success" ||
       !conversationId ||
-      realtime.isConnected
+      isRealtimeConnected
     ) {
       return undefined;
     }
@@ -503,7 +507,7 @@ export function ConversationPage() {
     conversationId,
     loadMessages,
     status,
-    realtime.isConnected,
+    isRealtimeConnected,
   ]);
 
   /**
@@ -514,7 +518,7 @@ export function ConversationPage() {
     if (
       status !== "success" ||
       !conversationId ||
-      realtime.isConnected
+      isRealtimeConnected
     ) {
       return undefined;
     }
@@ -544,14 +548,14 @@ export function ConversationPage() {
       isMounted = false;
       window.clearInterval(intervalIdentifier);
     };
-  }, [conversationId, status, realtime.isConnected]);
+  }, [conversationId, status, isRealtimeConnected]);
 
   const publishTypingStatus = useCallback((isTyping: boolean): void => {
     if (!conversationId) {
       return;
     }
 
-    if (realtime.publishTyping(isTyping)) {
+    if (publishTyping(isTyping)) {
       typingWasPublishedReference.current = isTyping;
       return;
     }
@@ -572,7 +576,7 @@ export function ConversationPage() {
         typingWasPublishedReference.current = false;
       });
     }, isTyping ? TYPING_DEBOUNCE_MILLISECONDS : 0);
-  }, [conversationId]);
+  }, [conversationId, publishTyping]);
 
   useEffect(() => {
     return () => {

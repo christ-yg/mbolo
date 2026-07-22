@@ -35,6 +35,7 @@ import {
 import { normalizeApiError } from "../../api/apiError";
 import { getUnreadMessageCount } from "../../api/messagingService";
 import { useAuth } from "../../hooks/useAuth";
+import { useAccountRealtime } from "../../hooks/useAccountRealtime";
 
 import { BrandLogo } from "../common/BrandLogo";
 
@@ -69,6 +70,11 @@ export function PublicHeader() {
     logout,
   } = useAuth();
 
+  const {
+    state: accountRealtimeState,
+    unreadCount: realtimeUnreadCount,
+  } = useAccountRealtime();
+
   const [isLoggingOut, setIsLoggingOut] =
     useState(false);
 
@@ -77,6 +83,12 @@ export function PublicHeader() {
 
   const [unreadMessageCount, setUnreadMessageCount] =
     useState(0);
+
+  useEffect(() => {
+    if (accountRealtimeState === "open") {
+      setUnreadMessageCount(realtimeUnreadCount);
+    }
+  }, [accountRealtimeState, realtimeUnreadCount]);
 
   const loadUnreadMessageCount =
     useCallback(async (): Promise<void> => {
@@ -113,8 +125,10 @@ export function PublicHeader() {
 
     const intervalIdentifier =
       window.setInterval(() => {
-        void loadUnreadMessageCount();
-      }, 15000);
+        if (accountRealtimeState !== "open") {
+          void loadUnreadMessageCount();
+        }
+      }, 60000);
 
     function handleCounterRefresh(): void {
       void loadUnreadMessageCount();
@@ -158,6 +172,7 @@ export function PublicHeader() {
     isAuthenticated,
     isInitializing,
     loadUnreadMessageCount,
+    accountRealtimeState,
   ]);
 
 

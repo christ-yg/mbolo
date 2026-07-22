@@ -28,6 +28,7 @@ import {
 } from "react";
 
 import { normalizeApiError } from "../api/apiError";
+import { accountRealtimeHub } from "../api/accountRealtime";
 import {
   getCurrentUser,
   loginUser,
@@ -185,6 +186,26 @@ export function AuthProvider({
       isComponentMounted = false;
     };
   }, [refreshCurrentUser]);
+
+  /**
+   * Canal temps réel global du compte.
+   *
+   * Il est ouvert uniquement après authentification et fermé dès que
+   * la session disparaît. L'identité réelle vient du cookie Django :
+   * aucun UUID utilisateur n'est transmis dans l'URL WebSocket.
+   */
+  useEffect(() => {
+    if (user === null) {
+      accountRealtimeHub.stop();
+      return undefined;
+    }
+
+    accountRealtimeHub.start(user.id);
+
+    return () => {
+      accountRealtimeHub.stop();
+    };
+  }, [user]);
 
   /**
    * Battement de présence.

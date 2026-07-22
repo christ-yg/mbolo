@@ -19,6 +19,7 @@ import {
   getConversations,
 } from "../../api/messagingService";
 import { ConversationCard } from "../../components/messaging/ConversationCard";
+import { useAccountRealtime } from "../../hooks/useAccountRealtime";
 
 import type {
   ConversationItem,
@@ -53,6 +54,8 @@ function formatLastSeen(lastSeenAt: string | null): string {
 }
 
 export function MessagesPage() {
+  const { lastEvent, revision } = useAccountRealtime();
+
   const [status, setStatus] =
     useState<ConversationsStatus>("loading");
 
@@ -104,6 +107,20 @@ export function MessagesPage() {
   useEffect(() => {
     void loadConversations(1);
   }, [loadConversations]);
+
+  useEffect(() => {
+    if (revision === 0 || lastEvent === null) {
+      return;
+    }
+
+    if (
+      lastEvent.event === "message.notification" ||
+      lastEvent.event === "conversation.updated" ||
+      lastEvent.event === "unread.count.changed"
+    ) {
+      void loadConversations(currentPage);
+    }
+  }, [currentPage, lastEvent, loadConversations, revision]);
 
 
   const conversations: ConversationItem[] =

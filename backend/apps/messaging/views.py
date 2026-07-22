@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 from apps.core.security_logging import (
     log_security_event,
 )
+from apps.accounts.realtime import broadcast_account_event
 
 from .models import Conversation, Message
 from .realtime import broadcast_conversation_event
@@ -299,6 +300,37 @@ class ConversationMessageListCreateView(
             },
         )
 
+        recipient_user = (
+            message.conversation
+            .other_profile_for_user(request.user)
+            .user
+        )
+
+        recipient_unread_count = get_total_unread_count(
+            actor=recipient_user,
+        )
+
+        broadcast_account_event(
+            user_id=recipient_user.id,
+            event={
+                "event": "message.notification",
+                "conversation_id": str(message.conversation_id),
+                "message_id": str(message.id),
+                "sender_display_name": request.user.profile.display_name,
+                "body_preview": message.body[:160],
+                "created_at": message.created_at.isoformat(),
+                "unread_count": recipient_unread_count,
+            },
+        )
+
+        broadcast_account_event(
+            user_id=request.user.id,
+            event={
+                "event": "conversation.updated",
+                "conversation_id": str(message.conversation_id),
+            },
+        )
+
         return Response(
             output_serializer.data,
             status=status.HTTP_201_CREATED,
@@ -355,6 +387,28 @@ class ConversationMarkReadView(APIView):
                 "reader_id": str(request.user.id),
                 "marked_count": result.marked_count,
                 "read_at": result.read_at.isoformat(),
+            },
+        )
+
+        broadcast_account_event(
+            user_id=request.user.id,
+            event={
+                "event": "unread.count.changed",
+                "unread_count": get_total_unread_count(actor=request.user),
+                "conversation_id": str(result.conversation.id),
+            },
+        )
+
+        other_user = (
+            result.conversation
+            .other_profile_for_user(request.user)
+            .user
+        )
+        broadcast_account_event(
+            user_id=other_user.id,
+            event={
+                "event": "conversation.updated",
+                "conversation_id": str(result.conversation.id),
             },
         )
 
