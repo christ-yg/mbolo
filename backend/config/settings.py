@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "apps.safety.apps.SafetyConfig",
     "apps.photos.apps.PhotosConfig",
     "apps.messaging.apps.MessagingConfig",
+    "apps.notifications.apps.NotificationsConfig",
 ]
 
 MIDDLEWARE = [

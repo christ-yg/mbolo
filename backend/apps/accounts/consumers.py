@@ -4,6 +4,7 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
 from apps.messaging.services import get_total_unread_count
+from apps.notifications.services import get_unread_notification_count
 
 from .presence import touch_user_presence
 from .realtime import account_group_name
@@ -38,6 +39,9 @@ class AccountConsumer(AsyncJsonWebsocketConsumer):
             {
                 "event": "account.connection.ready",
                 "unread_count": await self._get_unread_count(),
+                "notification_unread_count": (
+                    await self._get_notification_unread_count()
+                ),
             }
         )
 
@@ -61,6 +65,9 @@ class AccountConsumer(AsyncJsonWebsocketConsumer):
                 {
                     "event": "unread.count.changed",
                     "unread_count": await self._get_unread_count(),
+                    "notification_unread_count": (
+                        await self._get_notification_unread_count()
+                    ),
                 }
             )
             return
@@ -84,5 +91,15 @@ class AccountConsumer(AsyncJsonWebsocketConsumer):
     def _get_unread_count(self) -> int:
         try:
             return get_total_unread_count(actor=self.scope["user"])
+        except Exception:
+            return 0
+
+
+    @database_sync_to_async
+    def _get_notification_unread_count(self) -> int:
+        try:
+            return get_unread_notification_count(
+                actor=self.scope["user"]
+            )
         except Exception:
             return 0

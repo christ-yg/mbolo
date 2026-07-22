@@ -18,6 +18,7 @@ import { MatchesPage } from "../pages/matches/MatchesPage";
 import { MessagesPage } from "../pages/messages/MessagesPage";
 import { ConversationPage } from "../pages/messages/ConversationPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
+import { NotificationsPage } from "../pages/notifications/NotificationsPage";
 import { SafetyPage } from "../pages/settings/SafetyPage";
 
 export const appRouter = createBrowserRouter([
@@ -84,6 +85,15 @@ export const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ConversationPage />
+          </ProtectedRoute>
+        ),
+      },
+
+      {
+        path: "/notifications",
+        element: (
+          <ProtectedRoute>
+            <NotificationsPage />
           </ProtectedRoute>
         ),
       },

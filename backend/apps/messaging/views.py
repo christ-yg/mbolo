@@ -16,6 +16,11 @@ from apps.core.security_logging import (
     log_security_event,
 )
 from apps.accounts.realtime import broadcast_account_event
+from apps.notifications.serializers import NotificationSerializer
+from apps.notifications.services import (
+    create_message_notification,
+    get_unread_notification_count,
+)
 
 from .models import Conversation, Message
 from .realtime import broadcast_conversation_event
@@ -310,6 +315,24 @@ class ConversationMessageListCreateView(
             actor=recipient_user,
         )
 
+        durable_notification_result = (
+            create_message_notification(
+                recipient=recipient_user,
+                sender_display_name=(
+                    request.user.profile.display_name
+                ),
+                conversation_id=message.conversation_id,
+                message_id=message.id,
+                body_preview=message.body[:160],
+            )
+        )
+
+        notification_unread_count = (
+            get_unread_notification_count(
+                actor=recipient_user,
+            )
+        )
+
         broadcast_account_event(
             user_id=recipient_user.id,
             event={
@@ -320,6 +343,12 @@ class ConversationMessageListCreateView(
                 "body_preview": message.body[:160],
                 "created_at": message.created_at.isoformat(),
                 "unread_count": recipient_unread_count,
+                "notification_unread_count": (
+                    notification_unread_count
+                ),
+                "notification": NotificationSerializer(
+                    durable_notification_result.notification
+                ).data,
             },
         )
 

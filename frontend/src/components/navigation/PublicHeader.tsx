@@ -34,6 +34,7 @@ import {
 
 import { normalizeApiError } from "../../api/apiError";
 import { getUnreadMessageCount } from "../../api/messagingService";
+import { getNotificationUnreadCount } from "../../api/notificationService";
 import { useAuth } from "../../hooks/useAuth";
 import { useAccountRealtime } from "../../hooks/useAccountRealtime";
 
@@ -73,6 +74,8 @@ export function PublicHeader() {
   const {
     state: accountRealtimeState,
     unreadCount: realtimeUnreadCount,
+    notificationUnreadCount:
+      realtimeNotificationUnreadCount,
   } = useAccountRealtime();
 
   const [isLoggingOut, setIsLoggingOut] =
@@ -84,11 +87,23 @@ export function PublicHeader() {
   const [unreadMessageCount, setUnreadMessageCount] =
     useState(0);
 
+  const [
+    unreadNotificationCount,
+    setUnreadNotificationCount,
+  ] = useState(0);
+
   useEffect(() => {
     if (accountRealtimeState === "open") {
       setUnreadMessageCount(realtimeUnreadCount);
+      setUnreadNotificationCount(
+        realtimeNotificationUnreadCount,
+      );
     }
-  }, [accountRealtimeState, realtimeUnreadCount]);
+  }, [
+    accountRealtimeState,
+    realtimeNotificationUnreadCount,
+    realtimeUnreadCount,
+  ]);
 
   const loadUnreadMessageCount =
     useCallback(async (): Promise<void> => {
@@ -112,26 +127,54 @@ export function PublicHeader() {
       }
     }, [isAuthenticated]);
 
+
+  const loadUnreadNotificationCount =
+    useCallback(async (): Promise<void> => {
+      if (!isAuthenticated) {
+        setUnreadNotificationCount(0);
+        return;
+      }
+
+      try {
+        const result =
+          await getNotificationUnreadCount();
+
+        setUnreadNotificationCount(
+          Math.max(0, result.unread_count),
+        );
+      } catch {
+        /**
+         * Le centre de notifications ne doit jamais bloquer
+         * l'affichage de l'en-tête.
+         */
+      }
+    }, [isAuthenticated]);
+
   useEffect(() => {
     if (
       isInitializing ||
       !isAuthenticated
     ) {
       setUnreadMessageCount(0);
+      setUnreadNotificationCount(0);
       return undefined;
     }
 
     void loadUnreadMessageCount();
+    void loadUnreadNotificationCount();
 
     const intervalIdentifier =
       window.setInterval(() => {
         if (accountRealtimeState !== "open") {
           void loadUnreadMessageCount();
+        void loadUnreadNotificationCount();
+          void loadUnreadNotificationCount();
         }
       }, 60000);
 
     function handleCounterRefresh(): void {
       void loadUnreadMessageCount();
+      void loadUnreadNotificationCount();
     }
 
     function handleVisibilityChange(): void {
@@ -172,6 +215,7 @@ export function PublicHeader() {
     isAuthenticated,
     isInitializing,
     loadUnreadMessageCount,
+    loadUnreadNotificationCount,
     accountRealtimeState,
   ]);
 
@@ -252,6 +296,25 @@ export function PublicHeader() {
                       {unreadMessageCount > 99
                         ? "99+"
                         : unreadMessageCount}
+                    </span>
+                  ) : null}
+                </NavLink>
+
+
+                <NavLink
+                  className={getNavigationLinkClass}
+                  to="/notifications"
+                >
+                  <span>Notifications</span>
+
+                  {unreadNotificationCount > 0 ? (
+                    <span
+                      className="public-header__unread-badge"
+                      aria-label={`${unreadNotificationCount} notification${unreadNotificationCount > 1 ? "s" : ""} non lue${unreadNotificationCount > 1 ? "s" : ""}`}
+                    >
+                      {unreadNotificationCount > 99
+                        ? "99+"
+                        : unreadNotificationCount}
                     </span>
                   ) : null}
                 </NavLink>
