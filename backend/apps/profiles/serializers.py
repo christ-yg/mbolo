@@ -414,6 +414,10 @@ class PublicProfileDetailSerializer(serializers.ModelSerializer):
     """
     Détail public et minimisé d'un profil autorisé.
 
+    Le backend fournit aussi des libellés humains afin que React
+    n'affiche jamais les valeurs techniques comme ``friendship``
+    ou ``non_binary``.
+
     Ce sérialiseur n'expose jamais :
     - l'adresse e-mail ;
     - la date de naissance exacte ;
@@ -427,6 +431,23 @@ class PublicProfileDetailSerializer(serializers.ModelSerializer):
     photos = ProfilePhotoSerializer(many=True, read_only=True)
     relationship = serializers.SerializerMethodField()
 
+    gender_label = serializers.CharField(
+        source="get_gender_display",
+        read_only=True,
+    )
+
+    city_label = serializers.CharField(
+        source="get_city_display",
+        read_only=True,
+    )
+
+    dating_intent_label = serializers.CharField(
+        source="get_dating_intent_display",
+        read_only=True,
+    )
+
+    current_decision = serializers.SerializerMethodField()
+
     class Meta:
         model = Profile
         fields = (
@@ -434,12 +455,16 @@ class PublicProfileDetailSerializer(serializers.ModelSerializer):
             "display_name",
             "age",
             "gender",
+            "gender_label",
             "city",
+            "city_label",
             "biography",
             "dating_intent",
+            "dating_intent_label",
             "is_verified",
             "photos",
             "relationship",
+            "current_decision",
         )
         read_only_fields = fields
 
@@ -482,3 +507,29 @@ class PublicProfileDetailSerializer(serializers.ModelSerializer):
         ).exists()
 
         return "match" if is_match else "discovery"
+
+    def get_current_decision(
+        self,
+        profile: Profile,
+    ) -> str | None:
+        """
+        Retourne uniquement la décision du compte connecté vers
+        ce profil. Aucune interaction d'un autre membre n'est exposée.
+        """
+
+        request = self.context.get("request")
+
+        if request is None or not request.user.is_authenticated:
+            return None
+
+        from apps.interactions.models import Interaction
+
+        return (
+            Interaction.objects
+            .filter(
+                actor=request.user,
+                target_profile=profile,
+            )
+            .values_list("decision", flat=True)
+            .first()
+        )

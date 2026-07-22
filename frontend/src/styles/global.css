@@ -5258,3 +5258,55 @@ svg {
     min-height: 420px;
   }
 }
+
+/* ============================================================
+   ACTIONS DU PROFIL DÉTAILLÉ
+   ============================================================ */
+
+.profile-detail-card__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.profile-detail-card__actions > button:only-child {
+  grid-column: 1 / -1;
+}
+
+.profile-detail-card__actions button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.profile-detail-card__pass {
+  color: var(--color-text-muted) !important;
+  border: 1px solid var(--color-border) !important;
+  background: white !important;
+}
+
+.profile-detail-card__like {
+  color: white;
+  border: 0;
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-primary),
+      var(--color-primary-dark)
+    );
+}
+
+.profile-detail-card__feedback {
+  margin: 22px 0 0;
+  padding: 13px 15px;
+  border-radius: 14px;
+  color: #236849;
+  background: #eaf8f1;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.profile-detail-card__feedback--error {
+  color: #7c2741;
+  background: #fff0f5;
+}

@@ -10,10 +10,26 @@ import {
 } from "react-router-dom";
 
 import { normalizeApiError } from "../../api/apiError";
-import { getPublicProfileDetail } from "../../api/profileDetailService";
-import type { PublicProfileDetail } from "../../types/profileDetail";
+import {
+  createInteraction,
+} from "../../api/interactionService";
+import {
+  getPublicProfileDetail,
+} from "../../api/profileDetailService";
 
-type DetailStatus = "loading" | "success" | "error";
+import type {
+  InteractionDecision,
+} from "../../types/interactions";
+import type {
+  PublicProfileDetail,
+} from "../../types/profileDetail";
+
+
+type DetailStatus =
+  | "loading"
+  | "success"
+  | "error";
+
 
 export function ProfileDetailPage() {
   const navigate = useNavigate();
@@ -21,10 +37,18 @@ export function ProfileDetailPage() {
 
   const [status, setStatus] =
     useState<DetailStatus>("loading");
+
   const [profile, setProfile] =
     useState<PublicProfileDetail | null>(null);
+
   const [errorMessage, setErrorMessage] =
     useState("");
+
+  const [actionMessage, setActionMessage] =
+    useState("");
+
+  const [pendingDecision, setPendingDecision] =
+    useState<InteractionDecision | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -48,7 +72,9 @@ export function ProfileDetailPage() {
           return;
         }
 
-        const normalized = normalizeApiError(error);
+        const normalized =
+          normalizeApiError(error);
+
         setErrorMessage(normalized.message);
         setStatus("error");
       }
@@ -72,6 +98,67 @@ export function ProfileDetailPage() {
     [profile],
   );
 
+  async function handleDecision(
+    decision: InteractionDecision,
+  ): Promise<void> {
+    if (
+      profile === null ||
+      pendingDecision !== null ||
+      profile.relationship === "match"
+    ) {
+      return;
+    }
+
+    setPendingDecision(decision);
+    setErrorMessage("");
+    setActionMessage("");
+
+    try {
+      const result = await createInteraction({
+        target_profile_id: profile.id,
+        decision,
+      });
+
+      setProfile((currentProfile) =>
+        currentProfile === null
+          ? currentProfile
+          : {
+              ...currentProfile,
+              current_decision: decision,
+              relationship:
+                result.matched
+                  ? "match"
+                  : currentProfile.relationship,
+            },
+      );
+
+      if (result.matched) {
+        setActionMessage(
+          `Nouveau match avec ${profile.display_name}.`,
+        );
+
+        window.setTimeout(() => {
+          navigate("/matches");
+        }, 900);
+
+        return;
+      }
+
+      setActionMessage(
+        decision === "like"
+          ? "Ton intérêt a bien été enregistré."
+          : "Ce profil a été passé.",
+      );
+    } catch (error: unknown) {
+      const normalized =
+        normalizeApiError(error);
+
+      setErrorMessage(normalized.message);
+    } finally {
+      setPendingDecision(null);
+    }
+  }
+
   if (status === "loading") {
     return (
       <main className="profile-detail-page">
@@ -87,11 +174,16 @@ export function ProfileDetailPage() {
       <main className="profile-detail-page">
         <section className="profile-detail-state">
           <h1>Profil indisponible</h1>
+
           <p>
             {errorMessage ||
               "Ce profil n’est pas accessible."}
           </p>
-          <button type="button" onClick={() => navigate(-1)}>
+
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+          >
             Revenir
           </button>
         </section>
@@ -102,7 +194,10 @@ export function ProfileDetailPage() {
   return (
     <main className="profile-detail-page">
       <section className="profile-detail-page__topbar">
-        <button type="button" onClick={() => navigate(-1)}>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+        >
           ← Retour
         </button>
 
@@ -128,7 +223,9 @@ export function ProfileDetailPage() {
             ))
           ) : (
             <div className="profile-detail-gallery__placeholder">
-              {profile.display_name.charAt(0).toUpperCase()}
+              {profile.display_name
+                .charAt(0)
+                .toUpperCase()}
             </div>
           )}
         </div>
@@ -140,8 +237,11 @@ export function ProfileDetailPage() {
 
           <div className="profile-detail-card__title">
             <h1>{profile.display_name}</h1>
+
             {profile.is_verified ? (
-              <span aria-label="Compte vérifié">✓</span>
+              <span aria-label="Compte vérifié">
+                ✓
+              </span>
             ) : null}
           </div>
 
@@ -150,27 +250,49 @@ export function ProfileDetailPage() {
               ? `${profile.age} ans`
               : "Âge non précisé"}
             {" · "}
-            {profile.city}
+            {profile.city_label}
           </p>
 
           <dl className="profile-detail-card__facts">
             <div>
               <dt>Recherche</dt>
-              <dd>{profile.dating_intent}</dd>
+              <dd>
+                {profile.dating_intent_label}
+              </dd>
             </div>
+
             <div>
               <dt>Genre</dt>
-              <dd>{profile.gender}</dd>
+              <dd>{profile.gender_label}</dd>
             </div>
           </dl>
 
           <section className="profile-detail-card__bio">
             <h2>À propos</h2>
+
             <p>
               {profile.biography ||
                 "Cette personne n’a pas encore ajouté de biographie."}
             </p>
           </section>
+
+          {errorMessage ? (
+            <p
+              className="profile-detail-card__feedback profile-detail-card__feedback--error"
+              role="alert"
+            >
+              {errorMessage}
+            </p>
+          ) : null}
+
+          {actionMessage ? (
+            <p
+              className="profile-detail-card__feedback"
+              role="status"
+            >
+              {actionMessage}
+            </p>
+          ) : null}
 
           <div className="profile-detail-card__actions">
             {profile.relationship === "match" ? (
@@ -181,12 +303,37 @@ export function ProfileDetailPage() {
                 Voir dans Mes matchs
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={() => navigate("/discovery")}
-              >
-                Revenir à Découvrir
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="profile-detail-card__pass"
+                  disabled={pendingDecision !== null}
+                  onClick={() => {
+                    void handleDecision("pass");
+                  }}
+                >
+                  {pendingDecision === "pass"
+                    ? "Traitement…"
+                    : profile.current_decision === "pass"
+                      ? "Déjà passé"
+                      : "Passer"}
+                </button>
+
+                <button
+                  type="button"
+                  className="profile-detail-card__like"
+                  disabled={pendingDecision !== null}
+                  onClick={() => {
+                    void handleDecision("like");
+                  }}
+                >
+                  {pendingDecision === "like"
+                    ? "Traitement…"
+                    : profile.current_decision === "like"
+                      ? "Déjà aimé"
+                      : "J’aime"}
+                </button>
+              </>
             )}
           </div>
         </article>
