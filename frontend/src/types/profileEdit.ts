@@ -36,6 +36,24 @@ export type ProfileDatingIntent =
   | "marriage"
   | "not_sure";
 
+export type ProfileInterest =
+  | "music"
+  | "football"
+  | "fitness"
+  | "martial_arts"
+  | "technology"
+  | "cybersecurity"
+  | "travel"
+  | "cooking"
+  | "cinema"
+  | "reading"
+  | "entrepreneurship"
+  | "personal_growth"
+  | "dance"
+  | "art"
+  | "nature"
+  | "family";
+
 export interface EditableProfile {
   id: string;
   display_name: string;
@@ -45,6 +63,7 @@ export interface EditableProfile {
   city: ProfileCity;
   biography: string;
   dating_intent: ProfileDatingIntent;
+  interests: ProfileInterest[];
   is_discoverable: boolean;
   is_complete: boolean;
   created_at: string;
@@ -59,6 +78,7 @@ export interface UpdateProfilePayload {
   city: ProfileCity;
   biography: string;
   dating_intent: ProfileDatingIntent;
+  interests: ProfileInterest[];
   is_discoverable: boolean;
 }
 

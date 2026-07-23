@@ -17,6 +17,7 @@ import type {
   ProfileDatingIntent,
   ProfileFieldErrors,
   ProfileGender,
+  ProfileInterest,
   UpdateProfilePayload,
 } from "../../types/profileEdit";
 
@@ -53,6 +54,25 @@ const INTENTS: Array<{value: ProfileDatingIntent; label: string}> = [
   {value: "not_sure", label: "Je ne sais pas encore"},
 ];
 
+const INTERESTS: Array<{value: ProfileInterest; label: string}> = [
+  {value: "music", label: "Musique"},
+  {value: "football", label: "Football"},
+  {value: "fitness", label: "Musculation et fitness"},
+  {value: "martial_arts", label: "Arts martiaux"},
+  {value: "technology", label: "Technologie"},
+  {value: "cybersecurity", label: "Cybersécurité"},
+  {value: "travel", label: "Voyages"},
+  {value: "cooking", label: "Cuisine"},
+  {value: "cinema", label: "Cinéma"},
+  {value: "reading", label: "Lecture"},
+  {value: "entrepreneurship", label: "Entrepreneuriat"},
+  {value: "personal_growth", label: "Développement personnel"},
+  {value: "dance", label: "Danse"},
+  {value: "art", label: "Art"},
+  {value: "nature", label: "Nature"},
+  {value: "family", label: "Famille"},
+];
+
 const EMPTY_FORM: UpdateProfilePayload = {
   display_name: "",
   birth_date: null,
@@ -60,6 +80,7 @@ const EMPTY_FORM: UpdateProfilePayload = {
   city: "",
   biography: "",
   dating_intent: "",
+  interests: [],
   is_discoverable: false,
 };
 
@@ -121,6 +142,7 @@ export function ProfileEditPage() {
             city: result.city,
             biography: result.biography,
             dating_intent: result.dating_intent,
+            interests: result.interests,
             is_discoverable: result.is_discoverable,
           });
         }
@@ -164,6 +186,25 @@ export function ProfileEditPage() {
     setForm((current) => ({...current, [field]: value}));
     setFieldErrors((current) => ({...current, [field]: undefined}));
     setSuccessMessage("");
+  }
+
+  function toggleInterest(interest: ProfileInterest): void {
+    const alreadySelected = form.interests.includes(interest);
+
+    if (!alreadySelected && form.interests.length >= 8) {
+      setFieldErrors((current) => ({
+        ...current,
+        interests: "Tu peux sélectionner au maximum 8 centres d’intérêt.",
+      }));
+      return;
+    }
+
+    updateField(
+      "interests",
+      alreadySelected
+        ? form.interests.filter((value) => value !== interest)
+        : [...form.interests, interest],
+    );
   }
 
   function validateForm(): ProfileFieldErrors {
@@ -236,6 +277,7 @@ export function ProfileEditPage() {
         city: saved.city,
         biography: saved.biography,
         dating_intent: saved.dating_intent,
+        interests: saved.interests,
         is_discoverable: saved.is_discoverable,
       });
       setSuccessMessage("Ton profil a été enregistré avec succès.");
@@ -373,6 +415,27 @@ export function ProfileEditPage() {
               />
               <small>{fieldErrors.biography ?? `${form.biography.length}/500 caractères`}</small>
             </label>
+
+            <fieldset className="profile-edit-interests profile-edit-field--wide">
+              <legend>Centres d’intérêt</legend>
+              <p>Choisis jusqu’à 8 passions pour calculer les points communs.</p>
+              <div>
+                {INTERESTS.map((interest) => (
+                  <label key={interest.value}>
+                    <input
+                      type="checkbox"
+                      checked={form.interests.includes(interest.value)}
+                      onChange={() => toggleInterest(interest.value)}
+                    />
+                    <span>{interest.label}</span>
+                  </label>
+                ))}
+              </div>
+              <small>
+                {fieldErrors.interests ??
+                  `${form.interests.length}/8 sélectionnés`}
+              </small>
+            </fieldset>
           </div>
 
           <label className="profile-edit-visibility">
@@ -432,6 +495,15 @@ export function ProfileEditPage() {
                   : "Profil privé"}
             </span>
           </div>
+          {form.interests.length > 0 ? (
+            <div className="profile-edit-preview__interests">
+              {form.interests.map((value) => (
+                <span key={value}>
+                  {INTERESTS.find((item) => item.value === value)?.label}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <p className="profile-edit-preview__privacy">
             Ton e-mail, ton mot de passe et tes informations techniques ne sont jamais affichés ici.
           </p>

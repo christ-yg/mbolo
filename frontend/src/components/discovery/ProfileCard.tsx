@@ -372,6 +372,20 @@ export function ProfileCard({
           </span>
         </div>
 
+        {profile.common_interest_labels.length > 0 ? (
+          <section className="discovery-profile-card__compatibility">
+            <div>
+              <p className="section-heading__eyebrow">Compatibilité</p>
+              <strong>{profile.compatibility_score}%</strong>
+            </div>
+            <div>
+              {profile.common_interest_labels.map((label) => (
+                <span key={label}>{label}</span>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {/*
          * Biographie publique du profil.
          */}

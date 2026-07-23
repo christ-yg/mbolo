@@ -82,6 +82,12 @@ export interface DiscoveryProfile {
    * Le tableau peut être vide. L'interface affiche alors les initiales.
    */
   photos: ProfilePhoto[];
+
+  interests: string[];
+  interest_labels: string[];
+  common_interests: string[];
+  common_interest_labels: string[];
+  compatibility_score: number;
 }
 
 /**

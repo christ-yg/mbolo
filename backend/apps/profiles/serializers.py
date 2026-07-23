@@ -11,6 +11,7 @@ from .models import (
     DatingIntent,
     GabonCity,
     Gender,
+    Interest,
     Profile,
     SearchPreferences,
 )
@@ -37,6 +38,15 @@ class ProfileSerializer(serializers.ModelSerializer):
         read_only=True,
     )
 
+    interests = serializers.ListField(
+        child=serializers.ChoiceField(
+            choices=Interest.choices,
+        ),
+        allow_empty=True,
+        max_length=8,
+        required=False,
+    )
+
     class Meta:
         model = Profile
 
@@ -49,6 +59,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             "city",
             "biography",
             "dating_intent",
+            "interests",
             "is_discoverable",
             "is_complete",
             "created_at",
@@ -104,6 +115,17 @@ class ProfileSerializer(serializers.ModelSerializer):
         """
 
         return value.strip()
+
+    def validate_interests(
+        self,
+        value: list[str],
+    ) -> list[str]:
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError(
+                "Un centre d'intérêt ne peut être sélectionné qu'une fois."
+            )
+
+        return value
 
     def validate_birth_date(
         self,
@@ -378,6 +400,10 @@ class DiscoveryProfileSerializer(
     )
 
     is_verified = serializers.SerializerMethodField()
+    interest_labels = serializers.SerializerMethodField()
+    common_interests = serializers.SerializerMethodField()
+    common_interest_labels = serializers.SerializerMethodField()
+    compatibility_score = serializers.SerializerMethodField()
     photos = ProfilePhotoSerializer(
         many=True,
         read_only=True,
@@ -396,6 +422,11 @@ class DiscoveryProfileSerializer(
             "dating_intent",
             "is_verified",
             "photos",
+            "interests",
+            "interest_labels",
+            "common_interests",
+            "common_interest_labels",
+            "compatibility_score",
         )
 
         read_only_fields = fields
@@ -412,6 +443,65 @@ class DiscoveryProfileSerializer(
 
         return bool(
             profile.user.is_email_verified
+        )
+
+    def get_interest_labels(self, profile: Profile) -> list[str]:
+        labels = dict(Interest.choices)
+        return [
+            labels[value]
+            for value in profile.interests
+            if value in labels
+        ]
+
+    def get_common_interests(self, profile: Profile) -> list[str]:
+        request = self.context.get("request")
+        current_profile = getattr(
+            getattr(request, "user", None),
+            "profile",
+            None,
+        )
+
+        if current_profile is None:
+            return []
+
+        current_values = set(current_profile.interests)
+        return [
+            value
+            for value in profile.interests
+            if value in current_values
+        ]
+
+    def get_common_interest_labels(
+        self,
+        profile: Profile,
+    ) -> list[str]:
+        labels = dict(Interest.choices)
+        return [
+            labels[value]
+            for value in self.get_common_interests(profile)
+            if value in labels
+        ]
+
+    def get_compatibility_score(self, profile: Profile) -> int:
+        request = self.context.get("request")
+        current_profile = getattr(
+            getattr(request, "user", None),
+            "profile",
+            None,
+        )
+
+        if current_profile is None:
+            return 0
+
+        first = set(current_profile.interests)
+        second = set(profile.interests)
+        union = first | second
+
+        if not union:
+            return 0
+
+        return round(
+            len(first & second) / len(union) * 100
         )
 
 

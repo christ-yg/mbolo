@@ -54,6 +54,28 @@ class GabonCity(models.TextChoices):
     BITAM = "bitam", "Bitam"
     OTHER = "other", "Autre ville"
 
+class Interest(models.TextChoices):
+    """
+    Centres d'intérêt publics, normalisés et stables.
+    """
+
+    MUSIC = "music", "Musique"
+    FOOTBALL = "football", "Football"
+    FITNESS = "fitness", "Musculation et fitness"
+    MARTIAL_ARTS = "martial_arts", "Arts martiaux"
+    TECHNOLOGY = "technology", "Technologie"
+    CYBERSECURITY = "cybersecurity", "Cybersécurité"
+    TRAVEL = "travel", "Voyages"
+    COOKING = "cooking", "Cuisine"
+    CINEMA = "cinema", "Cinéma"
+    READING = "reading", "Lecture"
+    ENTREPRENEURSHIP = "entrepreneurship", "Entrepreneuriat"
+    PERSONAL_GROWTH = "personal_growth", "Développement personnel"
+    DANCE = "dance", "Danse"
+    ART = "art", "Art"
+    NATURE = "nature", "Nature"
+    FAMILY = "family", "Famille"
+
 
 def calculate_age(
     birth_date: date,
@@ -218,6 +240,11 @@ class Profile(models.Model):
         default="",
     )
 
+    interests = models.JSONField(
+        default=list,
+        blank=True,
+    )
+
     is_discoverable = models.BooleanField(
         default=False,
     )
@@ -276,6 +303,21 @@ class Profile(models.Model):
         if self.birth_date is not None:
             validate_adult_birth_date(
                 self.birth_date
+            )
+
+        validate_choice_list(
+            values=self.interests,
+            allowed_values=set(Interest.values),
+            field_name="interests",
+        )
+
+        if len(self.interests) > 8:
+            raise ValidationError(
+                {
+                    "interests": (
+                        "Sélectionnez au maximum 8 centres d'intérêt."
+                    )
+                }
             )
 
         if (
