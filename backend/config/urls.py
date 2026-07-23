@@ -17,9 +17,10 @@ Including another URLconf
 
 
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve
 
 urlpatterns = [
     path(
@@ -67,7 +68,8 @@ urlpatterns = [
 ]
 
 
-# Django sert les médias uniquement pendant le développement local.
+# Django sert les médias uniquement lorsque le mode de développement ou le
+# réglage local explicite est actif.
 #
 # En production, cette responsabilité sera confiée à un stockage
 # d'objets, un CDN ou un proxy web sécurisé.
@@ -76,3 +78,16 @@ if settings.DEBUG:
         settings.MEDIA_URL,
         document_root=settings.MEDIA_ROOT,
     )
+elif settings.SERVE_MEDIA_LOCALLY:
+    # django.conf.urls.static.static() retourne volontairement une liste vide
+    # lorsque DEBUG=False. Cette route explicite est donc réservée au serveur
+    # local et n'est créée que si SERVE_MEDIA_LOCALLY=True dans le .env.
+    urlpatterns += [
+        re_path(
+            r"^media/(?P<path>.*)$",
+            serve,
+            {
+                "document_root": settings.MEDIA_ROOT,
+            },
+        ),
+    ]

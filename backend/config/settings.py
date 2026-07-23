@@ -33,6 +33,14 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("APP_DEBUG", default=False)
 
+# Le serveur Django de développement peut servir les photos locales sans
+# activer DEBUG. Ce réglage reste désactivé par défaut et doit être demandé
+# explicitement dans l'environnement local.
+SERVE_MEDIA_LOCALLY = env.bool(
+    "SERVE_MEDIA_LOCALLY",
+    default=False,
+)
+
 ALLOWED_HOSTS = env.list(
     "DJANGO_ALLOWED_HOSTS",
     default=["localhost", "127.0.0.1"],

@@ -290,6 +290,13 @@ export function PublicHeader() {
 
                 <NavLink
                   className={getNavigationLinkClass}
+                  to="/profile/photos"
+                >
+                  Mes photos
+                </NavLink>
+
+                <NavLink
+                  className={getNavigationLinkClass}
                   to="/matches"
                 >
                   Mes matchs
