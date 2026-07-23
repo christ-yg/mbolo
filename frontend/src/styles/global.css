@@ -7137,3 +7137,192 @@ svg {
     grid-template-columns: 1fr;
   }
 }
+/* Fondation Mbolo Premium */
+.premium-page {
+  width: min(100% - 2rem, 96rem);
+  margin: 0 auto;
+  padding: clamp(3rem, 7vw, 7rem) 0;
+}
+
+.premium-page__hero {
+  position: relative;
+  max-width: 76rem;
+  padding: clamp(2rem, 6vw, 5rem);
+  border-radius: 2.5rem;
+  overflow: hidden;
+  color: #fff;
+  background:
+    radial-gradient(circle at 80% 20%, rgba(238, 185, 127, 0.3), transparent 32%),
+    linear-gradient(135deg, #28121e, #731f48 62%, #a3476f);
+  box-shadow: 0 2rem 5rem rgba(57, 19, 37, 0.2);
+}
+
+.premium-page__hero h1 {
+  max-width: 12ch;
+  margin: 0.5rem 0 1rem;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(3.5rem, 8vw, 7rem);
+  line-height: 0.9;
+}
+
+.premium-current-plan {
+  display: inline-grid;
+  gap: 0.2rem;
+  margin-top: 1.5rem;
+  padding: 1rem 1.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.premium-current-plan strong {
+  font-size: 1.35rem;
+}
+
+.premium-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.premium-plan-card {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  border: 1px solid rgba(139, 35, 78, 0.16);
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1.5rem 4rem rgba(82, 28, 50, 0.08);
+}
+
+.premium-plan-card--prestige {
+  color: #fff;
+  background: linear-gradient(160deg, #311421, #7c254e);
+}
+
+.premium-plan-card h2 {
+  margin: 0;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+}
+
+.premium-plan-card__price {
+  font-size: 1.25rem;
+}
+
+.premium-plan-card ul {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.premium-plan-card li {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.premium-plan-card button {
+  min-height: 3.5rem;
+  margin-top: auto;
+  border: 0;
+  border-radius: 999px;
+  background: #a3295a;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+}
+
+.premium-plan-card button:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.premium-page__security {
+  max-width: 60rem;
+  margin: 2rem auto 0;
+  padding: 2rem;
+  text-align: center;
+}
+
+.premium-page__security h2 {
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+@media (max-width: 900px) {
+  .premium-plan-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.premium-payment-section {
+  margin: 2rem auto;
+  max-width: 1320px;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  border: 1px solid rgba(143, 30, 78, 0.14);
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.premium-payment-section__intro {
+  max-width: 780px;
+}
+
+.premium-payment-section__intro h2 {
+  margin: 0.4rem 0 0.8rem;
+  font-family: Georgia, serif;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-weight: 500;
+}
+
+.premium-payment-methods {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.premium-payment-methods article {
+  display: flex;
+  gap: 1rem;
+  padding: 1.35rem;
+  border: 1px solid rgba(143, 30, 78, 0.14);
+  border-radius: 1.3rem;
+  background: #fff9fc;
+}
+
+.premium-payment-methods article > span {
+  color: #a92760;
+  font-size: 1.5rem;
+}
+
+.premium-payment-methods h3,
+.premium-payment-methods p {
+  margin: 0 0 0.5rem;
+}
+
+.premium-payment-methods small {
+  color: #8f1e4e;
+  font-weight: 700;
+}
+
+.premium-payment-notice {
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-left: 4px solid #a92760;
+  background: #fff0f5;
+}
+
+.premium-payment-notice p {
+  margin: 0.35rem 0 0;
+}
+
+@media (max-width: 900px) {
+  .premium-payment-methods {
+    grid-template-columns: 1fr;
+  }
+}

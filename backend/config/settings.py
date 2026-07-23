@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     "apps.photos.apps.PhotosConfig",
     "apps.messaging.apps.MessagingConfig",
     "apps.notifications.apps.NotificationsConfig",
+    "apps.subscriptions.apps.SubscriptionsConfig",
 ]
 
 MIDDLEWARE = [
@@ -368,3 +369,12 @@ CHANNEL_LAYERS = {
         },
     },
 }
+# Configuration du paiement Premium (désactivé tant que ces valeurs ne sont
+# pas fournies par un prestataire officiellement validé pour le Gabon).
+MBOLO_PAYMENT_PROVIDER = env(
+    "MBOLO_PAYMENT_PROVIDER", default=""
+).strip()
+MBOLO_PLUS_PRICE_XAF = env.int("MBOLO_PLUS_PRICE_XAF", default=0)
+MBOLO_PRESTIGE_PRICE_XAF = env.int(
+    "MBOLO_PRESTIGE_PRICE_XAF", default=0
+)

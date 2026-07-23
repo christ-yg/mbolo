@@ -1,0 +1,45 @@
+export interface PremiumEntitlements {
+  unlimited_likes: boolean;
+  see_likers: boolean;
+  advanced_filters: boolean;
+  read_receipts: boolean;
+  priority_profile: boolean;
+  incognito_mode: boolean;
+  priority_support: boolean;
+}
+
+export interface SubscriptionState {
+  plan: "free" | "plus" | "prestige";
+  plan_name: string;
+  status: string;
+  is_premium: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  auto_renew: boolean;
+  entitlements: PremiumEntitlements;
+}
+
+export interface PremiumPlan {
+  code: "free" | "plus" | "prestige";
+  name: string;
+  description: string;
+  features: string[];
+  price_label: string;
+  amount_xaf: number;
+  payment_available: boolean;
+}
+
+export interface PremiumPaymentMethod {
+  code: "airtel_money" | "moov_money" | "bank_card";
+  name: string;
+  description: string;
+  available: boolean;
+}
+
+export interface PremiumOverview {
+  subscription: SubscriptionState;
+  plans: PremiumPlan[];
+  payment_methods: PremiumPaymentMethod[];
+  currency: "XAF";
+  payment_notice: string;
+}
