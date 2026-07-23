@@ -4,6 +4,7 @@ from django.contrib.auth import (
     update_session_auth_hash,
 )
 from django.core.exceptions import ObjectDoesNotExist
+from django.http import JsonResponse
 from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
@@ -21,6 +22,10 @@ from .email_verification import (
     send_email_verification_message,
 )
 from .password_reset import send_password_reset_message
+from .privacy import (
+    build_personal_data_export,
+    permanently_delete_account,
+)
 from .session_security import revoke_other_sessions
 from .models import User
 from .presence import (
@@ -32,6 +37,7 @@ from .serializers import (
     ChangePasswordSerializer,
     CurrentPasswordSerializer,
     DeactivateAccountSerializer,
+    DeleteAccountSerializer,
     EmailVerificationConfirmSerializer,
     EmailVerificationRequestSerializer,
     LoginSerializer,
@@ -579,6 +585,68 @@ class DeactivateAccountView(APIView):
                 "message": (
                     "Ton compte est désactivé et toutes les sessions "
                     "sont fermées."
+                )
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PersonalDataExportView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request: Request) -> JsonResponse:
+        payload = build_personal_data_export(request.user)
+        log_security_event(
+            request=request,
+            event="privacy.data_export",
+            outcome="success",
+            reason="export_downloaded",
+            user=request.user,
+            email=request.user.email,
+        )
+        response = JsonResponse(
+            payload,
+            json_dumps_params={
+                "ensure_ascii": False,
+                "indent": 2,
+            },
+        )
+        response["Content-Disposition"] = (
+            'attachment; filename="mbolo-mes-donnees.json"'
+        )
+        response["Cache-Control"] = "no-store, private"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PermanentAccountDeleteView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    @transaction.atomic
+    def post(self, request: Request) -> Response:
+        serializer = DeleteAccountSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        log_security_event(
+            request=request,
+            event="privacy.account_delete",
+            outcome="success",
+            reason="account_permanently_deleted",
+            user=user,
+            email=user.email,
+        )
+        mark_user_offline(user)
+        permanently_delete_account(user)
+        request.session.flush()
+        return Response(
+            {
+                "message": (
+                    "Le compte et ses données personnelles "
+                    "ont été supprimés définitivement."
                 )
             },
             status=status.HTTP_200_OK,

@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { normalizeApiError } from "../../api/apiError";
 import {
@@ -98,6 +99,9 @@ export function AccountSecurityPage() {
         <p>
           Contrôle ton mot de passe, tes appareils connectés et l’accès à ton compte.
         </p>
+        <Link to="/account/privacy">
+          Gérer mes données et ma confidentialité →
+        </Link>
       </section>
 
       {message ? (

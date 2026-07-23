@@ -11,6 +11,8 @@ from .views import (
     LogoutView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
+    PermanentAccountDeleteView,
+    PersonalDataExportView,
     RevokeOtherSessionsView,
     RegisterView,
 )
@@ -78,5 +80,15 @@ urlpatterns = [
         "security/deactivate/",
         DeactivateAccountView.as_view(),
         name="deactivate-account",
+    ),
+    path(
+        "privacy/export/",
+        PersonalDataExportView.as_view(),
+        name="personal-data-export",
+    ),
+    path(
+        "privacy/delete/",
+        PermanentAccountDeleteView.as_view(),
+        name="permanent-account-delete",
     ),
 ]

@@ -7047,3 +7047,93 @@ svg {
     grid-column: auto;
   }
 }
+/* Centre de confidentialité et portabilité RGPD */
+.privacy-center-page {
+  width: min(100% - 2rem, 92rem);
+  margin: 0 auto;
+  padding: clamp(3rem, 7vw, 7rem) 0;
+}
+
+.privacy-center-page__hero {
+  max-width: 62rem;
+  margin-bottom: 2rem;
+}
+
+.privacy-center-page__hero h1 {
+  margin: 0.5rem 0 1rem;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: 0.95;
+}
+
+.privacy-center-page__hero a {
+  display: inline-block;
+  margin-top: 1rem;
+  color: #8f214d;
+  font-weight: 800;
+}
+
+.privacy-center-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.privacy-card {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px solid rgba(139, 35, 78, 0.16);
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1.5rem 4rem rgba(82, 28, 50, 0.08);
+}
+
+.privacy-card h2 {
+  margin: 0;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.privacy-card label {
+  display: grid;
+  gap: 0.5rem;
+  font-weight: 800;
+}
+
+.privacy-card input {
+  min-height: 3.75rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(139, 35, 78, 0.22);
+  border-radius: 1rem;
+  background: #fff9fc;
+  font: inherit;
+}
+
+.privacy-card button {
+  min-height: 3.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: #952753;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.privacy-card--danger {
+  border-color: rgba(165, 28, 50, 0.35);
+  background: #fff5f6;
+}
+
+.privacy-card--danger button {
+  background: #9d1c32;
+}
+
+@media (max-width: 760px) {
+  .privacy-center-grid {
+    grid-template-columns: 1fr;
+  }
+}

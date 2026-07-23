@@ -128,3 +128,8 @@ export interface DeactivateAccountPayload
   extends CurrentPasswordPayload {
   confirmation: string;
 }
+
+export interface DeleteAccountPayload {
+  current_password: string;
+  confirmation: string;
+}

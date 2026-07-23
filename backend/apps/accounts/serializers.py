@@ -425,3 +425,18 @@ class DeactivateAccountSerializer(CurrentPasswordSerializer):
                 "Écris exactement DESACTIVER pour confirmer."
             )
         return value
+
+
+class DeleteAccountSerializer(CurrentPasswordSerializer):
+    confirmation = serializers.CharField(
+        max_length=64,
+        write_only=True,
+        trim_whitespace=True,
+    )
+
+    def validate_confirmation(self, value: str) -> str:
+        if value != "SUPPRIMER DEFINITIVEMENT":
+            raise serializers.ValidationError(
+                "Écris exactement SUPPRIMER DEFINITIVEMENT."
+            )
+        return value

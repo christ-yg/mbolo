@@ -20,6 +20,7 @@ import type {
   ChangePasswordPayload,
   CurrentPasswordPayload,
   DeactivateAccountPayload,
+  DeleteAccountPayload,
   LoginPayload,
   LoginResponseData,
   PasswordResetConfirmPayload,
@@ -379,6 +380,33 @@ export async function deactivateAccount(
   const csrfToken = await ensureCsrfToken();
   await httpClient.post(
     "/v1/auth/security/deactivate/",
+    payload,
+    { headers: { "X-CSRFToken": csrfToken } },
+  );
+  clearInMemoryCsrfToken();
+}
+
+export async function downloadPersonalData(): Promise<void> {
+  const response = await httpClient.get<Blob>(
+    "/v1/auth/privacy/export/",
+    { responseType: "blob" },
+  );
+  const url = URL.createObjectURL(response.data);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "mbolo-mes-donnees.json";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function permanentlyDeleteAccount(
+  payload: DeleteAccountPayload,
+): Promise<void> {
+  const csrfToken = await ensureCsrfToken();
+  await httpClient.post(
+    "/v1/auth/privacy/delete/",
     payload,
     { headers: { "X-CSRFToken": csrfToken } },
   );
