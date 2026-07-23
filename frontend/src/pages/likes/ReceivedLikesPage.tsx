@@ -241,8 +241,9 @@ export function ReceivedLikesPage() {
           <h1>Qui m’a liké</h1>
 
           <p>
-            Découvre les indices essentiels sans compromettre
-            la confidentialité des membres.
+            Les comptes gratuits voient des indices protégés.
+            Mbolo Plus et Prestige peuvent identifier directement
+            les personnes intéressées.
           </p>
         </div>
 
@@ -261,15 +262,15 @@ export function ReceivedLikesPage() {
         <span aria-hidden="true">◇</span>
 
         <div>
-          <strong>Identité protégée</strong>
+          <strong>Révélation contrôlée par ton offre</strong>
 
           <p>
-            Dans cette version, le nom et la photo ne sont
-            révélés qu’après un like réciproque.
+            L’identité reste masquée avec Mbolo Gratuit. Elle est
+            révélée ici avec un abonnement Plus ou Prestige actif.
           </p>
         </div>
 
-        <small>Compatible avec une future offre Premium</small>
+        <small>Vérification effectuée par le serveur</small>
       </section>
 
       {matchMessage ? (
@@ -354,9 +355,16 @@ export function ReceivedLikesPage() {
                   className="received-like-card"
                 >
                   <div className="received-like-card__visual">
-                    <span aria-hidden="true">
-                      {item.has_photo ? "●" : "◇"}
-                    </span>
+                    {item.is_identity_revealed && item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt={`Photo de ${item.display_name ?? "ce membre"}`}
+                      />
+                    ) : (
+                      <span aria-hidden="true">
+                        {item.has_photo ? "●" : "◇"}
+                      </span>
+                    )}
 
                     <small>
                       Profil {String(index + 1).padStart(2, "0")}
@@ -374,7 +382,11 @@ export function ReceivedLikesPage() {
                       </time>
                     </div>
 
-                    <h2>Quelqu’un s’intéresse à toi</h2>
+                    <h2>
+                      {item.is_identity_revealed && item.display_name
+                        ? item.display_name
+                        : "Quelqu’un s’intéresse à toi"}
+                    </h2>
 
                     <dl>
                       <div>

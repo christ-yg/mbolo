@@ -7,6 +7,11 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.profiles.models import Profile
+from apps.subscriptions.models import (
+    Subscription,
+    SubscriptionPlan,
+    SubscriptionStatus,
+)
 
 from .models import (
     Interaction,
@@ -127,18 +132,11 @@ class ReceivedLikesApiTests(APITestCase):
 
         item = response.data["results"][0]
 
-        self.assertNotIn(
-            "display_name",
-            item,
-        )
-        self.assertNotIn(
-            "profile_id",
-            item,
-        )
-        self.assertNotIn(
-            "image_url",
-            item,
-        )
+        # Le contrat JSON reste stable pour React : les champs existent,
+        # mais leur valeur demeure nulle pour un compte gratuit.
+        self.assertIsNone(item["display_name"])
+        self.assertIsNone(item["profile_id"])
+        self.assertIsNone(item["image_url"])
         self.assertNotIn(
             self.liker_profile.display_name,
             str(item),
@@ -151,6 +149,31 @@ class ReceivedLikesApiTests(APITestCase):
 
         self.assertFalse(
             item["is_identity_revealed"],
+        )
+
+    def test_plus_subscription_reveals_liker_identity(self) -> None:
+        """
+        La révélation est décidée par l'abonnement actif en base,
+        jamais par une valeur envoyée depuis React.
+        """
+
+        Subscription.objects.create(
+            user=self.recipient_user,
+            plan=SubscriptionPlan.PLUS,
+            status=SubscriptionStatus.ACTIVE,
+        )
+
+        response = self.client.get(self.list_url)
+        item = response.data["results"][0]
+
+        self.assertTrue(item["is_identity_revealed"])
+        self.assertEqual(
+            item["display_name"],
+            self.liker_profile.display_name,
+        )
+        self.assertEqual(
+            str(item["profile_id"]),
+            str(self.liker_profile.id),
         )
 
     def test_list_returns_only_current_users_received_likes(

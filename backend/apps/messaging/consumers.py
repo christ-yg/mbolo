@@ -12,6 +12,7 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.core.exceptions import ValidationError
 
 from apps.accounts.presence import touch_user_presence
+from apps.subscriptions.services import get_subscription_state
 
 from .realtime import conversation_group_name
 from .services import (
@@ -146,6 +147,16 @@ class ConversationConsumer(AsyncJsonWebsocketConsumer):
         if payload.get("event") == "conversation.read":
             payload["read_by_other"] = reader_id != current_user_id
 
+            # Un événement temps réel ne doit pas contourner le masquage
+            # appliqué par le sérialiseur HTTP. Le lecteur conserve son
+            # fonctionnement normal, mais seul un auteur Plus/Prestige
+            # reçoit l'accusé de lecture de l'autre personne.
+            if (
+                payload["read_by_other"]
+                and not await self._has_read_receipts()
+            ):
+                return
+
         await self.send_json(payload)
 
     async def _send_error(self, code: str) -> None:
@@ -166,6 +177,11 @@ class ConversationConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def _touch_presence(self):
         return touch_user_presence(self.scope["user"])
+
+    @database_sync_to_async
+    def _has_read_receipts(self) -> bool:
+        state = get_subscription_state(self.scope["user"])
+        return bool(state["entitlements"]["read_receipts"])
 
     @database_sync_to_async
     def _set_typing(self, is_typing: bool):

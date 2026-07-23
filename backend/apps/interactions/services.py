@@ -22,17 +22,23 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from django.core.exceptions import ValidationError
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.profiles.models import Profile
 from apps.safety.services import users_are_blocked
+from apps.subscriptions.services import get_subscription_state
 
 from .models import (
     Interaction,
     InteractionDecision,
     Match,
 )
+
+
+User = get_user_model()
 
 
 @dataclass(frozen=True)
@@ -66,6 +72,44 @@ class InteractionResult:
     match: Match | None
     match_created: bool
     decision_changed: bool
+
+
+def enforce_daily_like_entitlement(*, actor) -> None:
+    """
+    Applique le quota quotidien du compte gratuit côté serveur.
+
+    La vérification ne dépend jamais d'un compteur envoyé par React.
+    Un verrou SQL posé sur le compte empêche deux requêtes parallèles
+    de dépasser le quota au même instant.
+    """
+
+    subscription_state = get_subscription_state(actor)
+
+    if subscription_state["entitlements"]["unlimited_likes"]:
+        return
+
+    daily_limit = int(
+        getattr(settings, "MBOLO_FREE_DAILY_LIKE_LIMIT", 20)
+    )
+    start_of_day = timezone.localdate()
+
+    used_likes = Interaction.objects.filter(
+        actor=actor,
+        decision=InteractionDecision.LIKE,
+        updated_at__date=start_of_day,
+    ).count()
+
+    if used_likes >= daily_limit:
+        raise ValidationError(
+            {
+                "decision": (
+                    "Tu as utilisé tous tes likes gratuits "
+                    f"d'aujourd'hui ({daily_limit}). "
+                    "Ils seront renouvelés demain. Mbolo Plus et "
+                    "Prestige disposent de likes illimités."
+                )
+            }
+        )
 
 
 def canonical_profile_pair(
@@ -487,6 +531,26 @@ def record_interaction(
         )
         .first()
     )
+
+    # Le quota ne doit être consommé que lorsqu'une nouvelle décision
+    # LIKE va réellement être enregistrée. Répéter exactement le même
+    # LIKE reste idempotent et ne consomme rien de plus.
+    is_new_like_decision = (
+        decision == InteractionDecision.LIKE
+        and (
+            existing_interaction is None
+            or existing_interaction.decision
+            != InteractionDecision.LIKE
+        )
+    )
+
+    if is_new_like_decision:
+        # Verrouille la ligne User pendant le comptage et l'écriture.
+        # request.user peut être un SimpleLazyObject fourni par Django.
+        # Nous utilisons donc explicitement AUTH_USER_MODEL pour poser
+        # le verrou sur la vraie table utilisateur.
+        User.objects.select_for_update().get(pk=actor.pk)
+        enforce_daily_like_entitlement(actor=actor)
 
     if existing_interaction is None:
         interaction, interaction_created = (

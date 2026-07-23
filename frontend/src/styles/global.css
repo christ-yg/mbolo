@@ -7326,3 +7326,8 @@ svg {
     grid-template-columns: 1fr;
   }
 }
+.received-like-card__visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

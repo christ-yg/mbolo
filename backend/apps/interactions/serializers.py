@@ -4,6 +4,7 @@ from apps.profiles.models import Profile
 from apps.profiles.serializers import (
     DiscoveryProfileSerializer,
 )
+from apps.subscriptions.services import get_subscription_state
 
 from .models import (
     InteractionDecision,
@@ -150,6 +151,9 @@ class ReceivedLikeSerializer(serializers.Serializer):
     age_range = serializers.SerializerMethodField()
     dating_intent = serializers.SerializerMethodField()
     has_photo = serializers.SerializerMethodField()
+    profile_id = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
 
     received_at = serializers.DateTimeField(
         source="updated_at",
@@ -188,8 +192,41 @@ class ReceivedLikeSerializer(serializers.Serializer):
         )
 
     def get_is_identity_revealed(self, interaction) -> bool:
-        # Préparation explicite pour une future entitlement premium.
-        return False
+        return self._can_reveal_identity()
+
+    def _can_reveal_identity(self) -> bool:
+        request = self.context.get("request")
+
+        if request is None or not request.user.is_authenticated:
+            return False
+
+        state = get_subscription_state(request.user)
+        return bool(state["entitlements"]["see_likers"])
+
+    def get_profile_id(self, interaction):
+        if not self._can_reveal_identity():
+            return None
+        return interaction.actor.profile.id
+
+    def get_display_name(self, interaction):
+        if not self._can_reveal_identity():
+            return None
+        return interaction.actor.profile.display_name
+
+    def get_image_url(self, interaction):
+        if not self._can_reveal_identity():
+            return None
+
+        photo = interaction.actor.profile.photos.order_by(
+            "position", "created_at"
+        ).first()
+
+        if photo is None or not photo.image:
+            return None
+
+        request = self.context.get("request")
+        url = photo.image.url
+        return request.build_absolute_uri(url) if request else url
 
 
 class ReceivedLikeResponseSerializer(serializers.Serializer):

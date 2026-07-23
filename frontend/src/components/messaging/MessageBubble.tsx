@@ -86,7 +86,7 @@ export function MessageBubble({
           {formattedTime}
         </time>
 
-        {message.is_mine ? (
+        {message.is_mine && message.read_receipts_available ? (
           <span
             className={
               message.is_read
@@ -100,6 +100,13 @@ export function MessageBubble({
             }
           >
             {message.is_read ? "Lu" : "Envoyé"}
+          </span>
+        ) : message.is_mine ? (
+          <span
+            className="message-bubble__read-status"
+            title="Accusés de lecture disponibles avec Mbolo Plus et Prestige"
+          >
+            Envoyé
           </span>
         ) : null}
       </footer>

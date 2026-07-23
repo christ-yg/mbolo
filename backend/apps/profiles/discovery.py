@@ -31,7 +31,15 @@ réutilisée par :
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
-from django.db.models import QuerySet
+from django.db.models import (
+    Case,
+    IntegerField,
+    Q,
+    QuerySet,
+    Value,
+    When,
+)
+from django.utils import timezone
 
 from apps.safety.models import Block
 
@@ -317,11 +325,34 @@ def build_discovery_queryset(
             ),
         )
 
+    # Priorité Prestige calculée par PostgreSQL.
+    #
+    # Un simple champ envoyé par React ne peut donc pas promouvoir un profil.
+    # Seul un abonnement Prestige actif ou en essai, non expiré, reçoit le
+    # rang prioritaire. Tous les contrôles de sécurité et préférences restent
+    # appliqués avant ce classement.
+    queryset = queryset.annotate(
+        premium_priority=Case(
+            When(
+                Q(user__subscription__plan="prestige")
+                & Q(user__subscription__status__in=("active", "trial"))
+                & (
+                    Q(user__subscription__ends_at__isnull=True)
+                    | Q(user__subscription__ends_at__gt=timezone.now())
+                ),
+                then=Value(1),
+            ),
+            default=Value(0),
+            output_field=IntegerField(),
+        )
+    )
+
     # Ordre stable des résultats.
     #
     # L'UUID départage les profils qui auraient exactement
     # la même date de création.
     return queryset.order_by(
+        "-premium_priority",
         "-created_at",
         "id",
     )

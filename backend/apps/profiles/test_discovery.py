@@ -6,6 +6,11 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
+from apps.subscriptions.models import (
+    Subscription,
+    SubscriptionPlan,
+    SubscriptionStatus,
+)
 
 from .models import (
     Profile,
@@ -518,6 +523,39 @@ class DiscoveryEndpointTests(TestCase):
 
         self.assertIsNotNone(
             response.data["next"],
+        )
+
+    def test_active_prestige_profile_is_ranked_before_newer_free_profile(
+        self,
+    ) -> None:
+        prestige_profile = self.create_candidate(
+            email="prestige-priority@example.com",
+            display_name="Profil Prestige",
+        )
+        Subscription.objects.create(
+            user=prestige_profile.user,
+            plan=SubscriptionPlan.PRESTIGE,
+            status=SubscriptionStatus.ACTIVE,
+        )
+
+        free_profile = self.create_candidate(
+            email="newer-free@example.com",
+            display_name="Profil gratuit plus récent",
+        )
+
+        self.authenticate()
+        response = self.client.get(self.discovery_url)
+        # Ici l'ordre est précisément ce que nous testons. Nous utilisons
+        # donc une liste au lieu du helper historique qui retourne un set
+        # pour les tests ne vérifiant que la présence.
+        result_ids = [
+            str(item["id"])
+            for item in response.data["results"]
+        ]
+
+        self.assertLess(
+            result_ids.index(str(prestige_profile.id)),
+            result_ids.index(str(free_profile.id)),
         )
 
     def test_page_size_cannot_exceed_fifty(

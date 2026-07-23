@@ -41,6 +41,11 @@ export interface MessageItem {
   is_read: boolean;
 
   /**
+   * true lorsque l'offre actuelle autorise l'affichage de l'accusé.
+   */
+  read_receipts_available: boolean;
+
+  /**
    * Indique si le message appartient au compte connecté.
    */
   is_mine: boolean;

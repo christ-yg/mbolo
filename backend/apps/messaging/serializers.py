@@ -8,6 +8,7 @@ from apps.accounts.presence import get_user_presence
 from apps.profiles.serializers import (
     DiscoveryProfileSerializer,
 )
+from apps.subscriptions.services import get_subscription_state
 
 from .models import Conversation, Message
 
@@ -52,6 +53,7 @@ class MessageSerializer(
     is_read = serializers.BooleanField(
         read_only=True,
     )
+    read_receipts_available = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -62,6 +64,7 @@ class MessageSerializer(
             "created_at",
             "read_at",
             "is_read",
+            "read_receipts_available",
             "is_mine",
         )
 
@@ -74,6 +77,34 @@ class MessageSerializer(
         request = self.context["request"]
 
         return message.sender_id == request.user.id
+
+    def get_read_receipts_available(
+        self,
+        message: Message,
+    ) -> bool:
+        """
+        L'accusé de lecture n'est utile que pour l'auteur du message.
+        Sa disponibilité vient de l'abonnement serveur du compte courant.
+        """
+
+        request = self.context["request"]
+
+        if message.sender_id != request.user.id:
+            return False
+
+        state = get_subscription_state(request.user)
+        return bool(state["entitlements"]["read_receipts"])
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        # La base conserve read_at pour le compteur de messages non lus,
+        # mais un compte gratuit ne reçoit jamais cette information.
+        if data["is_mine"] and not data["read_receipts_available"]:
+            data["read_at"] = None
+            data["is_read"] = False
+
+        return data
 
 
 class ConversationSerializer(

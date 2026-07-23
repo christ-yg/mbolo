@@ -74,7 +74,10 @@ export interface ReceivedLikeItem {
   dating_intent: string;
   has_photo: boolean;
   received_at: string;
-  is_identity_revealed: false;
+  is_identity_revealed: boolean;
+  profile_id: string | null;
+  display_name: string | null;
+  image_url: string | null;
 }
 
 

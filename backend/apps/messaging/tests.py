@@ -3,15 +3,23 @@ Tests de sécurité de la messagerie privée Mbolo.
 """
 
 from datetime import date
+from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from apps.interactions.models import Match
 from apps.profiles.models import Profile
+from apps.subscriptions.models import (
+    Subscription,
+    SubscriptionPlan,
+    SubscriptionStatus,
+)
 
 from .models import Conversation, Message
+from .serializers import MessageSerializer
 from .services import (
     get_or_create_conversation,
     get_total_unread_count,
@@ -169,6 +177,49 @@ class MessagingServiceTests(TestCase):
         )
         self.assertIsNone(message.read_at)
         self.assertFalse(message.is_read)
+
+    def test_free_sender_cannot_receive_read_receipt(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Message gratuit.",
+        )
+        Message.objects.filter(pk=message.pk).update(read_at=timezone.now())
+        message.refresh_from_db()
+
+        data = MessageSerializer(
+            message,
+            context={"request": SimpleNamespace(user=self.user_one)},
+        ).data
+
+        self.assertFalse(data["read_receipts_available"])
+        self.assertFalse(data["is_read"])
+        self.assertIsNone(data["read_at"])
+
+    def test_plus_sender_receives_read_receipt(self):
+        Subscription.objects.create(
+            user=self.user_one,
+            plan=SubscriptionPlan.PLUS,
+            status=SubscriptionStatus.ACTIVE,
+        )
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Message Premium.",
+        )
+        Message.objects.filter(pk=message.pk).update(read_at=timezone.now())
+        message.refresh_from_db()
+
+        data = MessageSerializer(
+            message,
+            context={"request": SimpleNamespace(user=self.user_one)},
+        ).data
+
+        self.assertTrue(data["read_receipts_available"])
+        self.assertTrue(data["is_read"])
+        self.assertIsNotNone(data["read_at"])
 
     def test_outsider_cannot_send_message(self):
         conversation = Conversation.objects.create(

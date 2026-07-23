@@ -23,7 +23,7 @@ from datetime import date
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -231,6 +231,46 @@ class InteractionEndpointTests(TestCase):
             payload,
             format="json",
             HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+    @override_settings(MBOLO_FREE_DAILY_LIKE_LIMIT=1)
+    def test_free_account_daily_like_limit_is_enforced_server_side(
+        self,
+    ) -> None:
+        """
+        Même si le navigateur envoie directement une deuxième requête,
+        Django doit refuser le dépassement du quota gratuit.
+        """
+
+        second_user, second_profile = self.create_eligible_user(
+            email="second-target@example.com",
+            display_name="Deuxième cible",
+            gender="woman",
+        )
+        self.assertIsNotNone(second_user)
+
+        csrf_token = self.authenticate()
+
+        first_response = self.post_interaction(
+            target_profile_id=self.target_profile.id,
+            decision="like",
+            csrf_token=csrf_token,
+        )
+        second_response = self.post_interaction(
+            target_profile_id=second_profile.id,
+            decision="like",
+            csrf_token=csrf_token,
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("likes gratuits", str(second_response.data))
+        self.assertEqual(
+            Interaction.objects.filter(
+                actor=self.actor_user,
+                decision=InteractionDecision.LIKE,
+            ).count(),
+            1,
         )
 
     def test_anonymous_user_cannot_create_interaction(

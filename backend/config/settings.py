@@ -378,3 +378,11 @@ MBOLO_PLUS_PRICE_XAF = env.int("MBOLO_PLUS_PRICE_XAF", default=0)
 MBOLO_PRESTIGE_PRICE_XAF = env.int(
     "MBOLO_PRESTIGE_PRICE_XAF", default=0
 )
+
+# Les comptes gratuits disposent d'un quota journalier calculé et
+# contrôlé exclusivement par Django. Les abonnements actifs possédant
+# l'entitlement unlimited_likes ne sont pas concernés.
+MBOLO_FREE_DAILY_LIKE_LIMIT = env.int(
+    "MBOLO_FREE_DAILY_LIKE_LIMIT",
+    default=20,
+)

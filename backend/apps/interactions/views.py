@@ -354,7 +354,7 @@ class ReceivedLikeListView(ListAPIView):
             request=request,
             event="received_like.list",
             outcome="success",
-            reason="masked_likes_requested",
+            reason="likes_requested_entitlement_applied",
             user=request.user,
             email=request.user.email,
         )
