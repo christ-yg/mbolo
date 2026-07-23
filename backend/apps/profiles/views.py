@@ -193,7 +193,11 @@ class DiscoveryProfileListView(ListAPIView):
                 photos__isnull=False,
             ).distinct()
 
-        return queryset
+        # Les photos sont préchargées en une seule requête supplémentaire.
+        # Cela évite une requête SQL par profil pendant la sérialisation.
+        return queryset.prefetch_related(
+            "photos",
+        )
 
     def list(
         self,

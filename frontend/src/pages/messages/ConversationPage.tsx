@@ -88,6 +88,21 @@ function getProfileInitial(
   return normalizedName.charAt(0).toUpperCase();
 }
 
+function getPrimaryPhotoUrl(
+  conversation: ConversationItem,
+): string | null {
+  const photo = [...conversation.other_profile.photos]
+    .sort(
+      (first, second) =>
+        Number(second.is_primary) -
+          Number(first.is_primary) ||
+        first.position - second.position,
+    )
+    .find((item) => Boolean(item.image_url));
+
+  return photo?.image_url ?? null;
+}
+
 function getProfileMetadata(
   conversation: ConversationItem | null,
 ): string {
@@ -843,6 +858,10 @@ export function ConversationPage() {
     );
   }
 
+  const primaryPhotoUrl = getPrimaryPhotoUrl(
+    conversation,
+  );
+
   return (
     <main className="conversation-page">
       <section className="conversation-shell">
@@ -858,11 +877,20 @@ export function ConversationPage() {
           <div className="conversation-contact">
             <div
               className="conversation-contact__avatar"
-              aria-hidden="true"
+              aria-label={
+                `Photo de ${conversation.other_profile.display_name}`
+              }
             >
-              {getProfileInitial(
-                conversation.other_profile.display_name,
-              )}
+              {primaryPhotoUrl ? (
+                  <img
+                    src={primaryPhotoUrl}
+                    alt=""
+                  />
+                ) : (
+                  getProfileInitial(
+                    conversation.other_profile.display_name,
+                  )
+                )}
             </div>
 
             <div className="conversation-contact__identity">

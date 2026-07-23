@@ -16,9 +16,10 @@
  * - date de naissance exacte ;
  * - identifiant du compte utilisateur ;
  * - préférences privées ;
- * - informations administratives ;
- * - photo, pour le moment.
+ * - informations administratives.
  */
+
+import type { ProfilePhoto } from "./profilePhotos";
 
 /**
  * Profil public visible dans le moteur de découverte.
@@ -74,6 +75,13 @@ export interface DiscoveryProfile {
    * L'adresse elle-même n'est jamais exposée.
    */
   is_verified: boolean;
+
+  /**
+   * Photos publiques déjà nettoyées et réencodées par Django.
+   *
+   * Le tableau peut être vide. L'interface affiche alors les initiales.
+   */
+  photos: ProfilePhoto[];
 }
 
 /**

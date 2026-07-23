@@ -2,26 +2,8 @@
  * Carte publique d'un profil affiché dans le moteur
  * de découverte Mbolo.
  *
- * Cette première version ne contient pas encore de photo.
- *
- * Pourquoi ?
- *
- * Le serializer Django DiscoveryProfileSerializer retourne
- * actuellement uniquement :
- *
- * - id ;
- * - display_name ;
- * - age ;
- * - gender ;
- * - city ;
- * - biography ;
- * - dating_intent ;
- * - is_verified.
- *
- * Il ne retourne pas encore de champ photo.
- *
- * Nous utilisons donc les initiales du profil afin de ne pas
- * inventer une donnée absente de l'API.
+ * La photo principale sécurisée est utilisée lorsqu'elle existe.
+ * Les initiales restent disponibles comme solution de secours.
  */
 
 import type { DiscoveryProfile } from "../../types/discovery";
@@ -178,15 +160,31 @@ export function ProfileCard({
     profile.display_name,
   );
 
+  /**
+   * La photo principale est prioritaire.
+   *
+   * Si une ancienne donnée ne possède pas encore ce marqueur,
+   * la première photo ordonnée devient le visuel de secours.
+   */
+  const primaryPhoto = [...profile.photos]
+    .sort(
+      (first, second) =>
+        Number(second.is_primary) -
+          Number(first.is_primary) ||
+        first.position - second.position,
+    )
+    .find((photo) => Boolean(photo.image_url));
+
   return (
     <article className="discovery-profile-card">
-      {/*
-       * Partie visuelle de la carte.
-       *
-       * Une vraie photo sera intégrée lorsque le backend
-       * l'exposera explicitement dans le serializer.
-       */}
       <div className="discovery-profile-card__visual">
+        {primaryPhoto?.image_url ? (
+          <img
+            className="discovery-profile-card__photo"
+            src={primaryPhoto.image_url}
+            alt={`Photo principale de ${profile.display_name}`}
+          />
+        ) : null}
         {/*
          * Indicateur de progression dans la page courante.
          */}
@@ -216,16 +214,14 @@ export function ProfileCard({
           </div>
         ) : null}
 
-        {/*
-         * Initiales utilisées comme représentation provisoire
-         * tant que les photos ne sont pas exposées par l'API.
-         */}
-        <div
-          className="discovery-profile-card__initials"
-          aria-hidden="true"
-        >
-          {initials}
-        </div>
+        {!primaryPhoto?.image_url ? (
+          <div
+            className="discovery-profile-card__initials"
+            aria-hidden="true"
+          >
+            {initials}
+          </div>
+        ) : null}
 
         {/*
          * Identité publique du profil.

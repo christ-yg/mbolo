@@ -378,6 +378,10 @@ class DiscoveryProfileSerializer(
     )
 
     is_verified = serializers.SerializerMethodField()
+    photos = ProfilePhotoSerializer(
+        many=True,
+        read_only=True,
+    )
 
     class Meta:
         model = Profile
@@ -391,6 +395,7 @@ class DiscoveryProfileSerializer(
             "biography",
             "dating_intent",
             "is_verified",
+            "photos",
         )
 
         read_only_fields = fields
