@@ -39,3 +39,13 @@ class PaymentMethodSerializer(serializers.Serializer):
     name = serializers.CharField()
     description = serializers.CharField()
     available = serializers.BooleanField()
+
+
+class PremiumPrivacySerializer(serializers.Serializer):
+    incognito_enabled = serializers.BooleanField()
+    incognito_available = serializers.BooleanField()
+    effective_incognito = serializers.BooleanField()
+
+
+class PremiumPrivacyUpdateSerializer(serializers.Serializer):
+    incognito_enabled = serializers.BooleanField(required=True)

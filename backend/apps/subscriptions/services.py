@@ -2,7 +2,11 @@ from dataclasses import dataclass
 
 from django.conf import settings
 
-from .models import Subscription, SubscriptionPlan
+from .models import (
+    PremiumPrivacyPreference,
+    Subscription,
+    SubscriptionPlan,
+)
 
 
 @dataclass(frozen=True)
@@ -176,3 +180,44 @@ def get_payment_methods() -> list[dict]:
             "available": configured,
         },
     ]
+
+
+def get_privacy_state(user) -> dict:
+    """
+    Retourne la préférence enregistrée et son effet réel.
+
+    effective_incognito devient automatiquement False lorsque Prestige
+    expire, même si l'utilisateur avait activé le bouton auparavant.
+    """
+
+    preference, _created = (
+        PremiumPrivacyPreference.objects.get_or_create(user=user)
+    )
+    subscription_state = get_subscription_state(user)
+    entitled = bool(
+        subscription_state["entitlements"]["incognito_mode"]
+    )
+
+    return {
+        "incognito_enabled": preference.incognito_enabled,
+        "incognito_available": entitled,
+        "effective_incognito": (
+            entitled and preference.incognito_enabled
+        ),
+    }
+
+
+def update_incognito_preference(*, user, enabled: bool) -> dict:
+    state = get_subscription_state(user)
+
+    if not state["entitlements"]["incognito_mode"]:
+        raise PermissionError(
+            "Le mode discret nécessite un abonnement Mbolo Prestige actif."
+        )
+
+    preference, _created = (
+        PremiumPrivacyPreference.objects.get_or_create(user=user)
+    )
+    preference.incognito_enabled = enabled
+    preference.save(update_fields=("incognito_enabled", "updated_at"))
+    return get_privacy_state(user)

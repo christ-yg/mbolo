@@ -57,6 +57,17 @@ def mark_user_offline(user) -> dict[str, object]:
 
 def get_user_presence(user) -> dict[str, object]:
     """Retourne une présence publique minimale et calculée côté serveur."""
+    # Import local pour éviter un cycle d'import au démarrage de Django.
+    from apps.subscriptions.services import get_privacy_state
+
+    privacy_state = get_privacy_state(user)
+
+    if privacy_state["effective_incognito"]:
+        return {
+            "is_online": False,
+            "last_seen_at": None,
+        }
+
     cached_payload = cache.get(
         _presence_cache_key(user.id),
     )

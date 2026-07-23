@@ -42,4 +42,11 @@ export interface PremiumOverview {
   payment_methods: PremiumPaymentMethod[];
   currency: "XAF";
   payment_notice: string;
+  privacy: PremiumPrivacyState;
+}
+
+export interface PremiumPrivacyState {
+  incognito_enabled: boolean;
+  incognito_available: boolean;
+  effective_incognito: boolean;
 }

@@ -7331,3 +7331,55 @@ svg {
   height: 100%;
   object-fit: cover;
 }
+.premium-incognito {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.5rem 3rem;
+  align-items: center;
+  max-width: 1320px;
+  margin: 2rem auto;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  border: 1px solid rgba(143, 30, 78, 0.16);
+  border-radius: 2rem;
+  background: linear-gradient(135deg, #fff 0%, #fff0f6 100%);
+}
+
+.premium-incognito h2 {
+  margin: 0.35rem 0 0.7rem;
+  font-family: Georgia, serif;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-weight: 500;
+}
+
+.premium-incognito__control {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 16rem;
+  padding: 1rem 1.25rem;
+  border-radius: 999px;
+  background: #8f1e4e;
+  color: white;
+  font-weight: 800;
+}
+
+.premium-incognito__control input {
+  width: 1.3rem;
+  height: 1.3rem;
+  accent-color: #fff;
+}
+
+.premium-incognito__control:has(input:disabled) {
+  opacity: 0.55;
+}
+
+.premium-incognito > small {
+  grid-column: 1 / -1;
+  color: #765665;
+}
+
+@media (max-width: 760px) {
+  .premium-incognito {
+    grid-template-columns: 1fr;
+  }
+}

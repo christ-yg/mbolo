@@ -1,13 +1,35 @@
 import { useEffect, useState } from "react";
 
 import { normalizeApiError } from "../../api/apiError";
-import { getPremiumOverview } from "../../api/premiumService";
+import {
+  getPremiumOverview,
+  updatePremiumPrivacy,
+} from "../../api/premiumService";
 import type { PremiumOverview } from "../../types/premium";
 
 
 export function PremiumPage() {
   const [overview, setOverview] = useState<PremiumOverview | null>(null);
   const [error, setError] = useState("");
+  const [isUpdatingPrivacy, setIsUpdatingPrivacy] = useState(false);
+
+  async function handleIncognitoChange(enabled: boolean): Promise<void> {
+    if (!overview || isUpdatingPrivacy) return;
+
+    setIsUpdatingPrivacy(true);
+    setError("");
+
+    try {
+      const privacy = await updatePremiumPrivacy(enabled);
+      setOverview((current) => (
+        current ? { ...current, privacy } : current
+      ));
+    } catch (caught: unknown) {
+      setError(normalizeApiError(caught).message);
+    } finally {
+      setIsUpdatingPrivacy(false);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -95,6 +117,44 @@ export function PremiumPage() {
               </article>
             );
           })}
+        </section>
+      ) : null}
+
+      {overview ? (
+        <section className="premium-incognito">
+          <div>
+            <p className="section-heading__eyebrow">Confidentialité Prestige</p>
+            <h2>Mode discret</h2>
+            <p>
+              Lorsque ce mode est actif, tes matchs ne voient ni ta présence
+              en ligne ni ta dernière activité. Tu continues néanmoins à
+              recevoir tes messages et notifications normalement.
+            </p>
+          </div>
+          <label className="premium-incognito__control">
+            <input
+              type="checkbox"
+              checked={overview.privacy.incognito_enabled}
+              disabled={
+                !overview.privacy.incognito_available ||
+                isUpdatingPrivacy
+              }
+              onChange={(event) => {
+                void handleIncognitoChange(event.target.checked);
+              }}
+            />
+            <span>
+              {overview.privacy.effective_incognito
+                ? "Mode discret actif"
+                : overview.privacy.incognito_available
+                  ? "Activer le mode discret"
+                  : "Réservé à Mbolo Prestige"}
+            </span>
+          </label>
+          <small>
+            La disponibilité est revérifiée par Django à chaque consultation.
+            Une expiration de Prestige désactive automatiquement son effet.
+          </small>
         </section>
       ) : null}
 

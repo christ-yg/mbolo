@@ -6,8 +6,13 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import Subscription, SubscriptionPlan, SubscriptionStatus
-from .services import get_subscription_state
+from .models import (
+    PremiumPrivacyPreference,
+    Subscription,
+    SubscriptionPlan,
+    SubscriptionStatus,
+)
+from .services import get_privacy_state, get_subscription_state
 
 
 User = get_user_model()
@@ -73,3 +78,48 @@ class PremiumFoundationTests(TestCase):
             reverse("subscriptions:premium-overview")
         )
         self.assertIn(response.status_code, (401, 403))
+
+    def test_free_account_cannot_enable_incognito(self):
+        response = self.client.patch(
+            reverse("subscriptions:premium-privacy"),
+            {"incognito_enabled": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(
+            PremiumPrivacyPreference.objects.filter(
+                user=self.user,
+                incognito_enabled=True,
+            ).exists()
+        )
+
+    def test_active_prestige_can_enable_incognito(self):
+        Subscription.objects.create(
+            user=self.user,
+            plan=SubscriptionPlan.PRESTIGE,
+            status=SubscriptionStatus.ACTIVE,
+            ends_at=timezone.now() + timedelta(days=30),
+        )
+        response = self.client.patch(
+            reverse("subscriptions:premium-privacy"),
+            {"incognito_enabled": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["data"]["effective_incognito"])
+
+    def test_expired_prestige_preference_has_no_effect(self):
+        Subscription.objects.create(
+            user=self.user,
+            plan=SubscriptionPlan.PRESTIGE,
+            status=SubscriptionStatus.EXPIRED,
+            ends_at=timezone.now() - timedelta(seconds=1),
+        )
+        PremiumPrivacyPreference.objects.create(
+            user=self.user,
+            incognito_enabled=True,
+        )
+        state = get_privacy_state(self.user)
+        self.assertTrue(state["incognito_enabled"])
+        self.assertFalse(state["incognito_available"])
+        self.assertFalse(state["effective_incognito"])

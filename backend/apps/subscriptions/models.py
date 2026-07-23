@@ -131,3 +131,26 @@ class PaymentTransaction(models.Model):
 
     def __str__(self) -> str:
         return f"PaymentTransaction<{self.id}:{self.method}:{self.status}>"
+
+
+class PremiumPrivacyPreference(models.Model):
+    """
+    Préférence privée du compte pour les fonctions de confidentialité Premium.
+
+    Le booléen seul ne donne aucun droit : le service vérifie toujours que
+    l'abonnement courant possède encore l'entitlement incognito_mode.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="premium_privacy_preference",
+    )
+    incognito_enabled = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "subscriptions_premium_privacy_preference"
+
+    def __str__(self) -> str:
+        return f"PremiumPrivacyPreference<{self.user_id}>"

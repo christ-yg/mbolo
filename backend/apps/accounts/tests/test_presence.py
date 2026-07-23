@@ -4,7 +4,18 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from ..presence import get_user_presence, mark_user_offline
+from apps.subscriptions.models import (
+    PremiumPrivacyPreference,
+    Subscription,
+    SubscriptionPlan,
+    SubscriptionStatus,
+)
+
+from ..presence import (
+    get_user_presence,
+    mark_user_offline,
+    touch_user_presence,
+)
 
 
 User = get_user_model()
@@ -35,3 +46,20 @@ class ActivityHeartbeatTests(TestCase):
         presence = get_user_presence(self.user)
         self.assertFalse(presence["is_online"])
         self.assertIsNotNone(presence["last_seen_at"])
+
+    def test_incognito_prestige_masks_public_presence(self):
+        Subscription.objects.create(
+            user=self.user,
+            plan=SubscriptionPlan.PRESTIGE,
+            status=SubscriptionStatus.ACTIVE,
+        )
+        PremiumPrivacyPreference.objects.create(
+            user=self.user,
+            incognito_enabled=True,
+        )
+        touch_user_presence(self.user)
+
+        presence = get_user_presence(self.user)
+
+        self.assertFalse(presence["is_online"])
+        self.assertIsNone(presence["last_seen_at"])
