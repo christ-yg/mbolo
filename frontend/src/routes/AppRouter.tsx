@@ -10,6 +10,8 @@ import { createBrowserRouter } from "react-router-dom";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 import { PublicLayout } from "../layouts/PublicLayout";
 import { LoginPage } from "../pages/auth/LoginPage";
+import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "../pages/auth/ResetPasswordPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
 import { DiscoveryPage } from "../pages/discovery/DiscoveryPage";
@@ -46,6 +48,14 @@ export const appRouter = createBrowserRouter([
       {
         path: "/register",
         element: <RegisterPage />,
+      },
+      {
+        path: "/forgot-password",
+        element: <ForgotPasswordPage />,
+      },
+      {
+        path: "/reset-password",
+        element: <ResetPasswordPage />,
       },
       {
         path: "/verify-email",

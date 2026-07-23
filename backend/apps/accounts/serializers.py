@@ -4,6 +4,9 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 
 from .email_verification import (
@@ -278,4 +281,63 @@ class EmailVerificationConfirmSerializer(
 
         attrs["user"] = user
 
+        return attrs
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(max_length=254, write_only=True)
+
+    def validate_email(self, value: str) -> str:
+        return User.objects.normalize_email(value).strip().lower()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField(max_length=128, write_only=True)
+    token = serializers.CharField(max_length=256, write_only=True)
+    password = serializers.CharField(
+        min_length=12,
+        max_length=128,
+        write_only=True,
+        trim_whitespace=False,
+        style={"input_type": "password"},
+    )
+    password_confirmation = serializers.CharField(
+        min_length=12,
+        max_length=128,
+        write_only=True,
+        trim_whitespace=False,
+        style={"input_type": "password"},
+    )
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if attrs["password"] != attrs["password_confirmation"]:
+            raise serializers.ValidationError(
+                {"password_confirmation": "Les deux mots de passe ne correspondent pas."}
+            )
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(attrs["uid"]))
+            user = User.objects.get(pk=user_id)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist) as exc:
+            raise serializers.ValidationError(
+                {"detail": "Ce lien de réinitialisation est invalide ou a expiré."}
+            ) from exc
+
+        if (
+            not user.is_active
+            or user.is_suspended
+            or not default_token_generator.check_token(user, attrs["token"])
+        ):
+            raise serializers.ValidationError(
+                {"detail": "Ce lien de réinitialisation est invalide ou a expiré."}
+            )
+
+        try:
+            validate_password(attrs["password"], user=user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                {"password": list(exc.messages)}
+            ) from exc
+
+        attrs["user"] = user
         return attrs

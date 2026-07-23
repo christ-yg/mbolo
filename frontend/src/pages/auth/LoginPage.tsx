@@ -52,6 +52,7 @@ interface LoginLocationState {
   accountCreated?: boolean;
   email?: string;
   from?: string;
+  passwordReset?: boolean;
 }
 
 const INITIAL_FORM_VALUES: LoginFormValues = {
@@ -281,6 +282,16 @@ export function LoginPage() {
                 Ton compte a été créé. Vérifie ton
                 adresse e-mail avant de te connecter.
               </p>
+            </div>
+          ) : null}
+
+          {locationState?.passwordReset ? (
+            <div
+              className="form-alert form-alert--success"
+              role="status"
+            >
+              <span aria-hidden="true">✓</span>
+              <p>Ton mot de passe a été modifié. Connecte-toi avec le nouveau.</p>
             </div>
           ) : null}
 

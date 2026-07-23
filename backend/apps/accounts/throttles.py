@@ -184,3 +184,21 @@ class EmailVerificationRequestEmailThrottle(AtomicRedisThrottle):
             return ""
 
         return email.strip().lower()
+
+
+class PasswordResetRequestIPThrottle(EmailVerificationRequestIPThrottle):
+    """Dix demandes par cinq minutes pour une IP."""
+
+
+class PasswordResetRequestEmailThrottle(EmailVerificationRequestEmailThrottle):
+    """Trois demandes par quinze minutes pour une adresse."""
+
+
+class PasswordResetConfirmIPThrottle(AtomicRedisThrottle):
+    """Dix validations de lien par cinq minutes pour une IP."""
+
+    limit = 10
+    window_seconds = 300
+
+    def get_identifier(self, request: Request, view) -> str:
+        return str(request.META.get("REMOTE_ADDR", ""))

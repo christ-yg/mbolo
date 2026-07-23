@@ -102,3 +102,14 @@ export interface VerifyEmailResponseData {
   email: string;
   isEmailVerified: boolean;
 }
+
+export interface PasswordResetRequestPayload {
+  email: string;
+}
+
+export interface PasswordResetConfirmPayload {
+  uid: string;
+  token: string;
+  password: string;
+  password_confirmation: string;
+}

@@ -19,6 +19,8 @@ import type {
   AuthenticatedUser,
   LoginPayload,
   LoginResponseData,
+  PasswordResetConfirmPayload,
+  PasswordResetRequestPayload,
   RegisterPayload,
   RegisterResponseData,
   VerifyEmailPayload,
@@ -320,4 +322,27 @@ export async function sendActivityHeartbeat(): Promise<void> {
       },
     },
   );
+}
+
+export async function requestPasswordReset(
+  payload: PasswordResetRequestPayload,
+): Promise<void> {
+  const csrfToken = await ensureCsrfToken();
+  await httpClient.post(
+    "/v1/auth/password-reset/request/",
+    payload,
+    { headers: { "X-CSRFToken": csrfToken } },
+  );
+}
+
+export async function confirmPasswordReset(
+  payload: PasswordResetConfirmPayload,
+): Promise<void> {
+  const csrfToken = await ensureCsrfToken();
+  await httpClient.post(
+    "/v1/auth/password-reset/confirm/",
+    payload,
+    { headers: { "X-CSRFToken": csrfToken } },
+  );
+  clearInMemoryCsrfToken();
 }

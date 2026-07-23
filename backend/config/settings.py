@@ -139,6 +139,11 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+PASSWORD_RESET_TIMEOUT = env.int(
+    "PASSWORD_RESET_TIMEOUT",
+    default=1800,
+)
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/

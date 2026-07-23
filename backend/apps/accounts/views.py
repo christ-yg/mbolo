@@ -15,6 +15,7 @@ from apps.core.security_logging import log_security_event
 from .email_verification import (
     send_email_verification_message,
 )
+from .password_reset import send_password_reset_message
 from .models import User
 from .presence import (
     mark_user_offline,
@@ -25,6 +26,8 @@ from .serializers import (
     EmailVerificationConfirmSerializer,
     EmailVerificationRequestSerializer,
     LoginSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     RegistrationSerializer,
 )
 from .throttles import (
@@ -32,6 +35,9 @@ from .throttles import (
     EmailVerificationRequestIPThrottle,
     LoginEmailThrottle,
     LoginIPThrottle,
+    PasswordResetConfirmIPThrottle,
+    PasswordResetRequestEmailThrottle,
+    PasswordResetRequestIPThrottle,
 )
 
 
@@ -369,3 +375,84 @@ class CurrentUserView(RetrieveAPIView):
     def get_object(self) -> User:
         touch_user_presence(self.request.user)
         return self.request.user
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PasswordResetRequestView(APIView):
+    authentication_classes: tuple = ()
+    permission_classes = (AllowAny,)
+    throttle_classes = (
+        PasswordResetRequestIPThrottle,
+        PasswordResetRequestEmailThrottle,
+    )
+
+    def post(self, request: Request) -> Response:
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+        user = User.objects.filter(
+            email=email,
+            is_active=True,
+            is_suspended=False,
+        ).first()
+
+        if user is not None:
+            send_password_reset_message(user=user)
+            reason = "message_sent"
+        else:
+            reason = "generic_response"
+
+        log_security_event(
+            request=request,
+            event="auth.password_reset_request",
+            outcome="accepted",
+            reason=reason,
+            user=user,
+            email=email,
+        )
+        return Response(
+            {
+                "message": (
+                    "Si un compte éligible correspond à cette adresse, "
+                    "un lien de réinitialisation sera envoyé."
+                )
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PasswordResetConfirmView(APIView):
+    authentication_classes: tuple = ()
+    permission_classes = (AllowAny,)
+    throttle_classes = (PasswordResetConfirmIPThrottle,)
+
+    @transaction.atomic
+    def post(self, request: Request) -> Response:
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError:
+            log_security_event(
+                request=request,
+                event="auth.password_reset_confirm",
+                outcome="failure",
+                reason="invalid_or_expired_token",
+            )
+            raise
+
+        user = serializer.validated_data["user"]
+        user.set_password(serializer.validated_data["password"])
+        user.save(update_fields=["password", "updated_at"])
+        log_security_event(
+            request=request,
+            event="auth.password_reset_confirm",
+            outcome="success",
+            reason="password_changed",
+            user=user,
+            email=user.email,
+        )
+        return Response(
+            {"message": "Ton mot de passe a été modifié. Tu peux te connecter."},
+            status=status.HTTP_200_OK,
+        )
