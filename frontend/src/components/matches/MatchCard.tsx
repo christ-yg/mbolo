@@ -61,6 +61,21 @@ function getInitials(displayName: string): string {
     .join("");
 }
 
+function getPrimaryPhotoUrl(
+  match: MatchItem,
+): string | null {
+  const photo = [...match.other_profile.photos]
+    .sort(
+      (first, second) =>
+        Number(second.is_primary) -
+          Number(first.is_primary) ||
+        first.position - second.position,
+    )
+    .find((item) => Boolean(item.image_url));
+
+  return photo?.image_url ?? null;
+}
+
 /**
  * Formate la date dans la langue du navigateur.
  */
@@ -82,16 +97,25 @@ export function MatchCard({
   match,
 }: MatchCardProps) {
   const profile = match.other_profile;
+  const primaryPhotoUrl = getPrimaryPhotoUrl(match);
 
   return (
     <article className="match-card">
       <div className="match-card__visual">
-        <div
-          className="match-card__initials"
-          aria-hidden="true"
-        >
-          {getInitials(profile.display_name)}
-        </div>
+        {primaryPhotoUrl ? (
+          <img
+            className="match-card__photo"
+            src={primaryPhotoUrl}
+            alt={`Photo principale de ${profile.display_name}`}
+          />
+        ) : (
+          <div
+            className="match-card__initials"
+            aria-hidden="true"
+          >
+            {getInitials(profile.display_name)}
+          </div>
+        )}
 
         {profile.is_verified ? (
           <span className="match-card__verified">

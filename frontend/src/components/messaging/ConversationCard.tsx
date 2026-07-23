@@ -28,6 +28,21 @@ function getInitials(displayName: string): string {
     .join("");
 }
 
+function getPrimaryPhotoUrl(
+  conversation: ConversationItem,
+): string | null {
+  const photo = [...conversation.other_profile.photos]
+    .sort(
+      (first, second) =>
+        Number(second.is_primary) -
+          Number(first.is_primary) ||
+        first.position - second.position,
+    )
+    .find((item) => Boolean(item.image_url));
+
+  return photo?.image_url ?? null;
+}
+
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -62,6 +77,9 @@ export function ConversationCard({
 }: ConversationCardProps) {
   const profile = conversation.other_profile;
   const lastMessage = conversation.last_message;
+  const primaryPhotoUrl = getPrimaryPhotoUrl(
+    conversation,
+  );
 
   return (
     <Link
@@ -70,9 +88,13 @@ export function ConversationCard({
     >
       <div
         className="conversation-card__avatar"
-        aria-hidden="true"
+        aria-label={`Photo de ${profile.display_name}`}
       >
-        {getInitials(profile.display_name)}
+        {primaryPhotoUrl ? (
+          <img src={primaryPhotoUrl} alt="" />
+        ) : (
+          getInitials(profile.display_name)
+        )}
       </div>
 
       <div className="conversation-card__content">
