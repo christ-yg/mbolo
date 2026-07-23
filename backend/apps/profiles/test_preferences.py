@@ -5,6 +5,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.subscriptions.models import Subscription, SubscriptionPlan
+
 from .models import SearchPreferences
 
 
@@ -37,6 +39,10 @@ class SearchPreferencesEndpointTests(TestCase):
                 "Strong-Preferences-Password-2026!"
             ),
             is_email_verified=True,
+        )
+        Subscription.objects.create(
+            user=self.user,
+            plan=SubscriptionPlan.PLUS,
         )
 
     def tearDown(self) -> None:

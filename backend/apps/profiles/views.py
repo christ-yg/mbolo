@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.core.security_logging import log_security_event
 from apps.interactions.models import Match
 from apps.safety.services import users_are_blocked
+from apps.subscriptions.services import get_subscription_state
 
 from .discovery import build_discovery_queryset
 from .models import (
@@ -188,7 +189,16 @@ class DiscoveryProfileListView(ListAPIView):
             )
         )
 
-        if preferences.only_profiles_with_photos:
+        advanced_filters_enabled = bool(
+            get_subscription_state(self.request.user)["entitlements"][
+                "advanced_filters"
+            ]
+        )
+
+        if (
+            advanced_filters_enabled
+            and preferences.only_profiles_with_photos
+        ):
             queryset = queryset.filter(
                 photos__isnull=False,
             ).distinct()

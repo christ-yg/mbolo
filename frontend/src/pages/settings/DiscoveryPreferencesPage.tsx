@@ -133,10 +133,14 @@ export function DiscoveryPreferencesPage() {
 
     return (
       preferences.preferred_genders.length +
-      preferences.preferred_cities.length +
-      preferences.preferred_dating_intents.length +
-      Number(preferences.only_verified_profiles) +
-      Number(preferences.only_profiles_with_photos)
+      (
+        preferences.advanced_filters_effective
+          ? preferences.preferred_cities.length +
+            preferences.preferred_dating_intents.length +
+            Number(preferences.only_verified_profiles) +
+            Number(preferences.only_profiles_with_photos)
+          : 0
+      )
     );
   }, [preferences]);
 
@@ -170,16 +174,22 @@ export function DiscoveryPreferencesPage() {
           maximum_age: preferences.maximum_age,
           preferred_genders:
             preferences.preferred_genders,
-          preferred_cities:
-            preferences.preferred_cities,
-          preferred_dating_intents:
-            preferences.preferred_dating_intents,
-          maximum_distance_km:
-            preferences.maximum_distance_km,
-          only_verified_profiles:
-            preferences.only_verified_profiles,
-          only_profiles_with_photos:
-            preferences.only_profiles_with_photos,
+          ...(
+            preferences.advanced_filters_available
+              ? {
+                  preferred_cities:
+                    preferences.preferred_cities,
+                  preferred_dating_intents:
+                    preferences.preferred_dating_intents,
+                  maximum_distance_km:
+                    preferences.maximum_distance_km,
+                  only_verified_profiles:
+                    preferences.only_verified_profiles,
+                  only_profiles_with_photos:
+                    preferences.only_profiles_with_photos,
+                }
+              : {}
+          ),
         });
 
       setPreferences(saved);
@@ -350,15 +360,31 @@ export function DiscoveryPreferencesPage() {
           </div>
         </section>
 
-        <section className="discovery-preferences-section">
+        <section
+          className={`discovery-preferences-section discovery-preferences-section--advanced${
+            preferences.advanced_filters_available
+              ? ""
+              : " discovery-preferences-section--locked"
+          }`}
+        >
           <div>
             <p className="section-heading__eyebrow">
-              Localisation
+              Filtres avancés · Mbolo Plus
             </p>
             <h2>Villes recherchées</h2>
             <p>
               Tu peux sélectionner plusieurs villes.
             </p>
+            {!preferences.advanced_filters_available ? (
+              <div className="premium-filter-lock" role="note">
+                <strong>Disponible avec Mbolo Plus ou Prestige</strong>
+                <span>
+                  Tes anciens choix sont conservés, mais ils ne filtrent
+                  plus Découvrir tant que ton abonnement n’est pas actif.
+                </span>
+                <Link to="/premium">Découvrir les offres Premium</Link>
+              </div>
+            ) : null}
           </div>
 
           <div className="discovery-preferences-options">
@@ -366,6 +392,7 @@ export function DiscoveryPreferencesPage() {
               <label key={option.value}>
                 <input
                   type="checkbox"
+                  disabled={!preferences.advanced_filters_available}
                   checked={
                     preferences.preferred_cities.includes(
                       option.value,
@@ -387,7 +414,7 @@ export function DiscoveryPreferencesPage() {
           </div>
         </section>
 
-        <section className="discovery-preferences-section">
+        <section className="discovery-preferences-section discovery-preferences-section--advanced">
           <div>
             <p className="section-heading__eyebrow">
               Intention
@@ -400,6 +427,7 @@ export function DiscoveryPreferencesPage() {
               <label key={option.value}>
                 <input
                   type="checkbox"
+                  disabled={!preferences.advanced_filters_available}
                   checked={
                     preferences.preferred_dating_intents.includes(
                       option.value,
@@ -421,7 +449,7 @@ export function DiscoveryPreferencesPage() {
           </div>
         </section>
 
-        <section className="discovery-preferences-section">
+        <section className="discovery-preferences-section discovery-preferences-section--advanced">
           <div>
             <p className="section-heading__eyebrow">
               Qualité des profils
@@ -433,6 +461,7 @@ export function DiscoveryPreferencesPage() {
             <label>
               <input
                 type="checkbox"
+                disabled={!preferences.advanced_filters_available}
                 checked={
                   preferences.only_verified_profiles
                 }
@@ -456,6 +485,7 @@ export function DiscoveryPreferencesPage() {
             <label>
               <input
                 type="checkbox"
+                disabled={!preferences.advanced_filters_available}
                 checked={
                   preferences.only_profiles_with_photos
                 }

@@ -42,6 +42,7 @@ from django.db.models import (
 from django.utils import timezone
 
 from apps.safety.models import Block
+from apps.subscriptions.services import get_subscription_state
 
 from .models import (
     Profile,
@@ -215,6 +216,9 @@ def build_discovery_queryset(
     preferences = get_or_create_search_preferences(
         user=user,
     )
+    advanced_filters_enabled = bool(
+        get_subscription_state(user)["entitlements"]["advanced_filters"]
+    )
 
     (
         earliest_birth_date,
@@ -311,14 +315,14 @@ def build_discovery_queryset(
 
     # Une liste vide signifie :
     # toutes les villes sont acceptées.
-    if preferences.preferred_cities:
+    if advanced_filters_enabled and preferences.preferred_cities:
         queryset = queryset.filter(
             city__in=preferences.preferred_cities,
         )
 
     # Une liste vide signifie :
     # toutes les intentions de rencontre sont acceptées.
-    if preferences.preferred_dating_intents:
+    if advanced_filters_enabled and preferences.preferred_dating_intents:
         queryset = queryset.filter(
             dating_intent__in=(
                 preferences.preferred_dating_intents

@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.photos.models import ProfilePhoto
+from apps.subscriptions.models import Subscription, SubscriptionPlan
 
 from .models import Profile, SearchPreferences
 
@@ -33,6 +34,10 @@ class AdvancedDiscoveryPreferencesTests(APITestCase):
             email="preferences-actor@example.com",
             password="StrongPassword2026!",
             is_email_verified=True,
+        )
+        Subscription.objects.create(
+            user=self.actor,
+            plan=SubscriptionPlan.PLUS,
         )
         Profile.objects.create(
             user=self.actor,

@@ -36,6 +36,8 @@ export interface DiscoveryPreferences {
   maximum_distance_km: number;
   only_verified_profiles: boolean;
   only_profiles_with_photos: boolean;
+  advanced_filters_available: boolean;
+  advanced_filters_effective: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -45,9 +47,14 @@ export type UpdateDiscoveryPreferencesPayload = Pick<
   | "minimum_age"
   | "maximum_age"
   | "preferred_genders"
-  | "preferred_cities"
-  | "preferred_dating_intents"
-  | "maximum_distance_km"
-  | "only_verified_profiles"
-  | "only_profiles_with_photos"
->;
+> &
+  Partial<
+    Pick<
+      DiscoveryPreferences,
+      | "preferred_cities"
+      | "preferred_dating_intents"
+      | "maximum_distance_km"
+      | "only_verified_profiles"
+      | "only_profiles_with_photos"
+    >
+  >;

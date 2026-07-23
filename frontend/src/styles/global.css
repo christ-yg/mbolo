@@ -6798,6 +6798,45 @@ svg {
   box-shadow: var(--shadow-soft);
 }
 
+.discovery-preferences-section--advanced {
+  position: relative;
+}
+
+.discovery-preferences-section--locked {
+  background: linear-gradient(135deg, #fff 0%, #fff7fb 100%);
+  border-color: rgba(165, 37, 91, 0.24);
+}
+
+.discovery-preferences-section--locked
+  .discovery-preferences-options {
+  opacity: 0.52;
+}
+
+.premium-filter-lock {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(165, 37, 91, 0.2);
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.premium-filter-lock strong {
+  color: #8f1f50;
+}
+
+.premium-filter-lock span {
+  color: #755f69;
+  line-height: 1.5;
+}
+
+.premium-filter-lock a {
+  width: fit-content;
+  color: #9b2458;
+  font-weight: 800;
+}
+
 .discovery-preferences-section h2 {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;

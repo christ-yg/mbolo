@@ -70,6 +70,10 @@ class DiscoveryEndpointTests(TestCase):
             password=self.password,
             is_email_verified=True,
         )
+        Subscription.objects.create(
+            user=self.user,
+            plan=SubscriptionPlan.PLUS,
+        )
 
         self.own_profile = Profile.objects.create(
             user=self.user,

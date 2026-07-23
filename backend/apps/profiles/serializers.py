@@ -6,6 +6,7 @@ from django.db import models
 from rest_framework import serializers
 
 from apps.photos.serializers import ProfilePhotoSerializer
+from apps.subscriptions.services import get_subscription_state
 
 from .models import (
     DatingIntent,
@@ -262,6 +263,17 @@ class SearchPreferencesSerializer(
         required=False,
     )
 
+    advanced_filters_available = serializers.SerializerMethodField()
+    advanced_filters_effective = serializers.SerializerMethodField()
+
+    ADVANCED_FIELDS = (
+        "preferred_cities",
+        "preferred_dating_intents",
+        "maximum_distance_km",
+        "only_verified_profiles",
+        "only_profiles_with_photos",
+    )
+
     class Meta:
         model = SearchPreferences
 
@@ -275,15 +287,35 @@ class SearchPreferencesSerializer(
             "maximum_distance_km",
             "only_verified_profiles",
             "only_profiles_with_photos",
+            "advanced_filters_available",
+            "advanced_filters_effective",
             "created_at",
             "updated_at",
         )
 
         read_only_fields = (
             "id",
+            "advanced_filters_available",
+            "advanced_filters_effective",
             "created_at",
             "updated_at",
         )
+
+    def _advanced_filters_available(self) -> bool:
+        request = self.context.get("request")
+        if request is None or not request.user.is_authenticated:
+            return False
+        return bool(
+            get_subscription_state(request.user)["entitlements"][
+                "advanced_filters"
+            ]
+        )
+
+    def get_advanced_filters_available(self, _instance) -> bool:
+        return self._advanced_filters_available()
+
+    def get_advanced_filters_effective(self, _instance) -> bool:
+        return self._advanced_filters_available()
 
     @staticmethod
     def validate_unique_list(
@@ -370,6 +402,33 @@ class SearchPreferencesSerializer(
                     )
                 }
             )
+
+        if not self._advanced_filters_available():
+            changed_advanced_fields = []
+
+            for field_name in self.ADVANCED_FIELDS:
+                if field_name not in attrs:
+                    continue
+
+                current_value = (
+                    getattr(instance, field_name)
+                    if instance is not None
+                    else self.fields[field_name].get_default()
+                )
+
+                if attrs[field_name] != current_value:
+                    changed_advanced_fields.append(field_name)
+
+            if changed_advanced_fields:
+                raise serializers.ValidationError(
+                    {
+                        field_name: (
+                            "Ce filtre avancé nécessite un abonnement "
+                            "Mbolo Plus ou Prestige actif."
+                        )
+                        for field_name in changed_advanced_fields
+                    }
+                )
 
         return attrs
 
