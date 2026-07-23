@@ -6,6 +6,12 @@
  * Les initiales restent disponibles comme solution de secours.
  */
 
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import type { DiscoveryProfile } from "../../types/discovery";
 
 /**
@@ -153,6 +159,9 @@ export function ProfileCard({
   onLike,
   isActionPending = false,
 }: ProfileCardProps) {
+  const [activePhotoIndex, setActivePhotoIndex] =
+    useState(0);
+
   /**
    * Calcul des initiales utilisées dans la partie visuelle.
    */
@@ -166,23 +175,70 @@ export function ProfileCard({
    * Si une ancienne donnée ne possède pas encore ce marqueur,
    * la première photo ordonnée devient le visuel de secours.
    */
-  const primaryPhoto = [...profile.photos]
-    .sort(
-      (first, second) =>
-        Number(second.is_primary) -
-          Number(first.is_primary) ||
-        first.position - second.position,
-    )
-    .find((photo) => Boolean(photo.image_url));
+  const visiblePhotos = useMemo(
+    () =>
+      [...profile.photos]
+        .filter((photo) => Boolean(photo.image_url))
+        .sort(
+          (first, second) =>
+            Number(second.is_primary) -
+              Number(first.is_primary) ||
+            first.position - second.position,
+        ),
+    [profile.photos],
+  );
+
+  const activePhoto =
+    visiblePhotos[activePhotoIndex] ?? null;
+
+  /**
+   * Chaque nouvelle carte recommence sur sa photo principale.
+   */
+  useEffect(() => {
+    setActivePhotoIndex(0);
+  }, [profile.id]);
+
+  function showPreviousPhoto(): void {
+    setActivePhotoIndex((current) =>
+      current === 0
+        ? visiblePhotos.length - 1
+        : current - 1,
+    );
+  }
+
+  function showNextPhoto(): void {
+    setActivePhotoIndex((current) =>
+      current === visiblePhotos.length - 1
+        ? 0
+        : current + 1,
+    );
+  }
 
   return (
     <article className="discovery-profile-card">
-      <div className="discovery-profile-card__visual">
-        {primaryPhoto?.image_url ? (
+      <div
+        className="discovery-profile-card__visual"
+        tabIndex={visiblePhotos.length > 1 ? 0 : undefined}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            showPreviousPhoto();
+          }
+
+          if (event.key === "ArrowRight") {
+            event.preventDefault();
+            showNextPhoto();
+          }
+        }}
+      >
+        {activePhoto?.image_url ? (
           <img
             className="discovery-profile-card__photo"
-            src={primaryPhoto.image_url}
-            alt={`Photo principale de ${profile.display_name}`}
+            src={activePhoto.image_url}
+            alt={
+              `Photo ${activePhotoIndex + 1} sur ` +
+              `${visiblePhotos.length} de ${profile.display_name}`
+            }
           />
         ) : null}
         {/*
@@ -214,13 +270,70 @@ export function ProfileCard({
           </div>
         ) : null}
 
-        {!primaryPhoto?.image_url ? (
+        {!activePhoto?.image_url ? (
           <div
             className="discovery-profile-card__initials"
             aria-hidden="true"
           >
             {initials}
           </div>
+        ) : null}
+
+        {visiblePhotos.length > 1 ? (
+          <>
+            <button
+              type="button"
+              className={
+                "discovery-profile-card__photo-control " +
+                "discovery-profile-card__photo-control--previous"
+              }
+              aria-label="Afficher la photo précédente"
+              onClick={showPreviousPhoto}
+            >
+              ‹
+            </button>
+
+            <button
+              type="button"
+              className={
+                "discovery-profile-card__photo-control " +
+                "discovery-profile-card__photo-control--next"
+              }
+              aria-label="Afficher la photo suivante"
+              onClick={showNextPhoto}
+            >
+              ›
+            </button>
+
+            <div
+              className="discovery-profile-card__photo-dots"
+              aria-label={
+                `Photo ${activePhotoIndex + 1} sur ` +
+                `${visiblePhotos.length}`
+              }
+            >
+              {visiblePhotos.map((photo, index) => (
+                <button
+                  key={photo.id}
+                  type="button"
+                  className={
+                    index === activePhotoIndex
+                      ? "is-active"
+                      : ""
+                  }
+                  aria-label={`Afficher la photo ${index + 1}`}
+                  aria-current={
+                    index === activePhotoIndex
+                      ? "true"
+                      : undefined
+                  }
+                  onClick={() => {
+                    setActivePhotoIndex(index);
+                  }}
+                />
+              ))}
+            </div>
+          </>
         ) : null}
 
         {/*
