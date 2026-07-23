@@ -341,3 +341,87 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
         attrs["user"] = user
         return attrs
+
+
+class CurrentPasswordSerializer(serializers.Serializer):
+    """Exige une nouvelle authentification avant une action sensible."""
+
+    current_password = serializers.CharField(
+        max_length=128,
+        write_only=True,
+        trim_whitespace=False,
+        style={"input_type": "password"},
+    )
+
+    def validate_current_password(self, value: str) -> str:
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError(
+                "Le mot de passe actuel est incorrect."
+            )
+        return value
+
+
+class ChangePasswordSerializer(CurrentPasswordSerializer):
+    new_password = serializers.CharField(
+        min_length=12,
+        max_length=128,
+        write_only=True,
+        trim_whitespace=False,
+        style={"input_type": "password"},
+    )
+    new_password_confirmation = serializers.CharField(
+        min_length=12,
+        max_length=128,
+        write_only=True,
+        trim_whitespace=False,
+        style={"input_type": "password"},
+    )
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if (
+            attrs["new_password"]
+            != attrs["new_password_confirmation"]
+        ):
+            raise serializers.ValidationError(
+                {
+                    "new_password_confirmation": (
+                        "Les deux nouveaux mots de passe "
+                        "ne correspondent pas."
+                    )
+                }
+            )
+
+        user = self.context["request"].user
+        if user.check_password(attrs["new_password"]):
+            raise serializers.ValidationError(
+                {
+                    "new_password": (
+                        "Le nouveau mot de passe doit être différent."
+                    )
+                }
+            )
+
+        try:
+            validate_password(attrs["new_password"], user=user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                {"new_password": list(exc.messages)}
+            ) from exc
+
+        return attrs
+
+
+class DeactivateAccountSerializer(CurrentPasswordSerializer):
+    confirmation = serializers.CharField(
+        max_length=32,
+        write_only=True,
+        trim_whitespace=True,
+    )
+
+    def validate_confirmation(self, value: str) -> str:
+        if value != "DESACTIVER":
+            raise serializers.ValidationError(
+                "Écris exactement DESACTIVER pour confirmer."
+            )
+        return value

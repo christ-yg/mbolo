@@ -113,3 +113,18 @@ export interface PasswordResetConfirmPayload {
   password: string;
   password_confirmation: string;
 }
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
+  new_password_confirmation: string;
+}
+
+export interface CurrentPasswordPayload {
+  current_password: string;
+}
+
+export interface DeactivateAccountPayload
+  extends CurrentPasswordPayload {
+  confirmation: string;
+}

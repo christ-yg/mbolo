@@ -17,6 +17,9 @@ import type { ApiSuccessResponse } from "../types/api";
 
 import type {
   AuthenticatedUser,
+  ChangePasswordPayload,
+  CurrentPasswordPayload,
+  DeactivateAccountPayload,
   LoginPayload,
   LoginResponseData,
   PasswordResetConfirmPayload,
@@ -341,6 +344,41 @@ export async function confirmPasswordReset(
   const csrfToken = await ensureCsrfToken();
   await httpClient.post(
     "/v1/auth/password-reset/confirm/",
+    payload,
+    { headers: { "X-CSRFToken": csrfToken } },
+  );
+  clearInMemoryCsrfToken();
+}
+
+export async function changePassword(
+  payload: ChangePasswordPayload,
+): Promise<void> {
+  const csrfToken = await ensureCsrfToken();
+  await httpClient.post(
+    "/v1/auth/security/change-password/",
+    payload,
+    { headers: { "X-CSRFToken": csrfToken } },
+  );
+  clearInMemoryCsrfToken();
+}
+
+export async function revokeOtherSessions(
+  payload: CurrentPasswordPayload,
+): Promise<void> {
+  const csrfToken = await ensureCsrfToken();
+  await httpClient.post(
+    "/v1/auth/security/revoke-sessions/",
+    payload,
+    { headers: { "X-CSRFToken": csrfToken } },
+  );
+}
+
+export async function deactivateAccount(
+  payload: DeactivateAccountPayload,
+): Promise<void> {
+  const csrfToken = await ensureCsrfToken();
+  await httpClient.post(
+    "/v1/auth/security/deactivate/",
     payload,
     { headers: { "X-CSRFToken": csrfToken } },
   );

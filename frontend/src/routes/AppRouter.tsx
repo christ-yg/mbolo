@@ -26,6 +26,7 @@ import { ProfileDetailPage } from "../pages/profiles/ProfileDetailPage";
 import { ProfileEditPage } from "../pages/profile/ProfileEditPage";
 import { ProfilePhotosPage } from "../pages/profile/ProfilePhotosPage";
 import { SafetyPage } from "../pages/settings/SafetyPage";
+import { AccountSecurityPage } from "../pages/settings/AccountSecurityPage";
 import { BlockedUsersPage } from "../pages/settings/BlockedUsersPage";
 import { DiscoveryPreferencesPage } from "../pages/settings/DiscoveryPreferencesPage";
 
@@ -150,6 +151,14 @@ export const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <BlockedUsersPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/account/security",
+        element: (
+          <ProtectedRoute>
+            <AccountSecurityPage />
           </ProtectedRoute>
         ),
       },

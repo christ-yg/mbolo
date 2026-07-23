@@ -1,4 +1,9 @@
-from django.contrib.auth import login, logout
+from django.contrib.auth import (
+    login,
+    logout,
+    update_session_auth_hash,
+)
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
@@ -16,6 +21,7 @@ from .email_verification import (
     send_email_verification_message,
 )
 from .password_reset import send_password_reset_message
+from .session_security import revoke_other_sessions
 from .models import User
 from .presence import (
     mark_user_offline,
@@ -23,6 +29,9 @@ from .presence import (
 )
 from .serializers import (
     CurrentUserSerializer,
+    ChangePasswordSerializer,
+    CurrentPasswordSerializer,
+    DeactivateAccountSerializer,
     EmailVerificationConfirmSerializer,
     EmailVerificationRequestSerializer,
     LoginSerializer,
@@ -454,5 +463,123 @@ class PasswordResetConfirmView(APIView):
         )
         return Response(
             {"message": "Ton mot de passe a été modifié. Tu peux te connecter."},
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ChangePasswordView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    @transaction.atomic
+    def post(self, request: Request) -> Response:
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        user.set_password(serializer.validated_data["new_password"])
+        user.save(update_fields=["password", "updated_at"])
+
+        # Conserve uniquement la session utilisée pour cette opération.
+        update_session_auth_hash(request, user)
+        revoked = revoke_other_sessions(
+            user=user,
+            current_session_key=request.session.session_key,
+        )
+        log_security_event(
+            request=request,
+            event="auth.password_change",
+            outcome="success",
+            reason="password_changed",
+            user=user,
+            email=user.email,
+        )
+        return Response(
+            {
+                "message": (
+                    "Mot de passe modifié. Les autres sessions "
+                    "ont été déconnectées."
+                ),
+                "data": {"revokedSessions": revoked},
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class RevokeOtherSessionsView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request: Request) -> Response:
+        serializer = CurrentPasswordSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        revoked = revoke_other_sessions(
+            user=request.user,
+            current_session_key=request.session.session_key,
+        )
+        log_security_event(
+            request=request,
+            event="auth.sessions_revoke",
+            outcome="success",
+            reason="other_sessions_revoked",
+            user=request.user,
+            email=request.user.email,
+        )
+        return Response(
+            {
+                "message": "Les autres sessions ont été déconnectées.",
+                "data": {"revokedSessions": revoked},
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class DeactivateAccountView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    @transaction.atomic
+    def post(self, request: Request) -> Response:
+        serializer = DeactivateAccountSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        log_security_event(
+            request=request,
+            event="auth.account_deactivate",
+            outcome="success",
+            reason="account_deactivated",
+            user=user,
+            email=user.email,
+        )
+        user.is_active = False
+        user.save(update_fields=["is_active", "updated_at"])
+        try:
+            profile = user.profile
+        except ObjectDoesNotExist:
+            profile = None
+        if profile is not None and profile.is_discoverable:
+            profile.is_discoverable = False
+            profile.save(update_fields=["is_discoverable", "updated_at"])
+        revoke_other_sessions(
+            user=user,
+            current_session_key=request.session.session_key,
+        )
+        mark_user_offline(user)
+        logout(request)
+        return Response(
+            {
+                "message": (
+                    "Ton compte est désactivé et toutes les sessions "
+                    "sont fermées."
+                )
+            },
             status=status.HTTP_200_OK,
         )

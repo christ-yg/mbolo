@@ -2,13 +2,16 @@ from django.urls import path
 
 from .views import (
     ActivityHeartbeatView,
+    ChangePasswordView,
     CurrentUserView,
     EmailVerificationConfirmView,
     EmailVerificationRequestView,
+    DeactivateAccountView,
     LoginView,
     LogoutView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
+    RevokeOtherSessionsView,
     RegisterView,
 )
 
@@ -60,5 +63,20 @@ urlpatterns = [
         "password-reset/confirm/",
         PasswordResetConfirmView.as_view(),
         name="password-reset-confirm",
+    ),
+    path(
+        "security/change-password/",
+        ChangePasswordView.as_view(),
+        name="change-password",
+    ),
+    path(
+        "security/revoke-sessions/",
+        RevokeOtherSessionsView.as_view(),
+        name="revoke-other-sessions",
+    ),
+    path(
+        "security/deactivate/",
+        DeactivateAccountView.as_view(),
+        name="deactivate-account",
     ),
 ]

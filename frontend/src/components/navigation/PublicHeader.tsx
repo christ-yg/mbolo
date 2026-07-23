@@ -351,7 +351,11 @@ export function PublicHeader() {
 
             <NavLink
               className={getNavigationLinkClass}
-              to="/safety"
+              to={
+                isAuthenticated
+                  ? "/account/security"
+                  : "/safety"
+              }
             >
               Sécurité
             </NavLink>

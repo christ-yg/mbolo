@@ -6959,3 +6959,91 @@ svg {
 .auth-card--reset {
   width: min(100%, 42rem);
 }
+/* Gestion sécurisée du compte */
+.account-security-page {
+  width: min(100% - 2rem, 92rem);
+  margin: 0 auto;
+  padding: clamp(3rem, 7vw, 7rem) 0;
+}
+
+.account-security-page__hero {
+  max-width: 58rem;
+  margin-bottom: 2rem;
+}
+
+.account-security-page__hero h1 {
+  margin: 0.5rem 0 1rem;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: 0.95;
+}
+
+.account-security-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.security-action-card {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px solid rgba(139, 35, 78, 0.15);
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1.5rem 4rem rgba(82, 28, 50, 0.08);
+}
+
+.security-action-card h2 {
+  margin: 0;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.security-action-card label {
+  display: grid;
+  gap: 0.5rem;
+  font-weight: 700;
+}
+
+.security-action-card input {
+  min-height: 3.75rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(139, 35, 78, 0.2);
+  border-radius: 1rem;
+  background: #fff9fc;
+  font: inherit;
+}
+
+.security-action-card button {
+  min-height: 3.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: #952753;
+  color: white;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.security-action-card--danger {
+  grid-column: 1 / -1;
+  border-color: rgba(165, 28, 50, 0.35);
+  background: #fff5f6;
+}
+
+.security-action-card--danger button {
+  background: #9d1c32;
+}
+
+@media (max-width: 760px) {
+  .account-security-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .security-action-card--danger {
+    grid-column: auto;
+  }
+}
