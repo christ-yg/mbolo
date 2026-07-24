@@ -263,14 +263,12 @@ export function ProfileCard({
 
         {/*
          * Badge affiché uniquement lorsque le backend indique
-         * que l'adresse e-mail du compte est vérifiée.
-         *
-         * L'adresse elle-même reste confidentielle.
+         * qu'une vérification humaine du profil a été approuvée.
          */}
         {profile.is_verified ? (
           <div
             className="discovery-profile-card__verified"
-            title="Compte avec adresse e-mail vérifiée"
+            title="Profil vérifié par l’équipe Mbolo"
           >
             <span aria-hidden="true">✓</span>
 

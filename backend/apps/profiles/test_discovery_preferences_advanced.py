@@ -9,7 +9,11 @@ from rest_framework.test import APITestCase
 from apps.photos.models import ProfilePhoto
 from apps.subscriptions.models import Subscription, SubscriptionPlan
 
-from .models import Profile, SearchPreferences
+from .models import (
+    Profile,
+    ProfileVerification,
+    SearchPreferences,
+)
 
 
 User = get_user_model()
@@ -64,6 +68,10 @@ class AdvancedDiscoveryPreferencesTests(APITestCase):
             biography="Profil avec photo.",
             dating_intent="friendship",
             is_discoverable=True,
+        )
+        ProfileVerification.objects.create(
+            profile=self.with_photo_profile,
+            status=ProfileVerification.Status.APPROVED,
         )
 
         self.without_photo_user = User.objects.create_user(

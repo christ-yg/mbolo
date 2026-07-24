@@ -25,6 +25,8 @@ import { NotificationsPage } from "../pages/notifications/NotificationsPage";
 import { ProfileDetailPage } from "../pages/profiles/ProfileDetailPage";
 import { ProfileEditPage } from "../pages/profile/ProfileEditPage";
 import { ProfilePhotosPage } from "../pages/profile/ProfilePhotosPage";
+import { ProfileVerificationPage } from "../pages/profile/ProfileVerificationPage";
+import { PremiumPage } from "../pages/premium/PremiumPage";
 import { SafetyPage } from "../pages/settings/SafetyPage";
 import { AccountSecurityPage } from "../pages/settings/AccountSecurityPage";
 import { PrivacyCenterPage } from "../pages/settings/PrivacyCenterPage";
@@ -123,6 +125,14 @@ export const appRouter = createBrowserRouter([
         ),
       },
       {
+        path: "/profile/verification",
+        element: (
+          <ProtectedRoute>
+            <ProfileVerificationPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: "/messages",
         element: (
           <ProtectedRoute>
@@ -168,6 +178,14 @@ export const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <PrivacyCenterPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/premium",
+        element: (
+          <ProtectedRoute>
+            <PremiumPage />
           </ProtectedRoute>
         ),
       },

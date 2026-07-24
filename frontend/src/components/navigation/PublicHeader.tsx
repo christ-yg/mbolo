@@ -297,6 +297,13 @@ export function PublicHeader() {
 
                 <NavLink
                   className={getNavigationLinkClass}
+                  to="/premium"
+                >
+                  Premium
+                </NavLink>
+
+                <NavLink
+                  className={getNavigationLinkClass}
                   to="/matches"
                 >
                   Mes matchs

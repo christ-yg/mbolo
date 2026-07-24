@@ -1,21 +1,29 @@
 from django.db import transaction
 from django.db.models import Q
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404
+from django.utils import timezone
 from rest_framework.generics import (
     ListAPIView,
     RetrieveAPIView,
     RetrieveUpdateAPIView,
 )
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.views import APIView
 
 from apps.core.security_logging import log_security_event
 from apps.interactions.models import Match
+from apps.photos.image_processing import process_profile_photo
 from apps.safety.services import users_are_blocked
 from apps.subscriptions.services import get_subscription_state
 
 from .discovery import build_discovery_queryset
 from .models import (
     Profile,
+    ProfileVerification,
     SearchPreferences,
 )
 from .pagination import DiscoveryPagination
@@ -23,6 +31,7 @@ from .serializers import (
     DiscoveryProfileSerializer,
     PublicProfileDetailSerializer,
     ProfileSerializer,
+    ProfileVerificationSerializer,
     SearchPreferencesSerializer,
 )
 
@@ -86,6 +95,157 @@ class CurrentProfileView(RetrieveUpdateAPIView):
         )
 
         serializer.instance = profile
+
+
+class CurrentProfileVerificationView(APIView):
+    """
+    Consulte ou soumet la vérification du profil connecté.
+
+    GET ne retourne que le statut. POST accepte un selfie récent, le traite
+    avec la même chaîne de sécurité que les photos publiques, puis le range
+    dans un stockage privé. Le client ne choisit jamais le profil concerné.
+    """
+
+    permission_classes = (IsAuthenticated,)
+    parser_classes = (MultiPartParser, FormParser)
+
+    @staticmethod
+    def _get_profile(request) -> Profile:
+        profile, _created = Profile.objects.get_or_create(
+            user=request.user,
+        )
+        return profile
+
+    @staticmethod
+    def _get_verification(profile) -> ProfileVerification:
+        verification, _created = (
+            ProfileVerification.objects.get_or_create(
+                profile=profile,
+            )
+        )
+        return verification
+
+    def get(self, request):
+        profile = self._get_profile(request)
+        verification = self._get_verification(profile)
+        return Response(
+            ProfileVerificationSerializer(verification).data,
+        )
+
+    @transaction.atomic
+    def post(self, request):
+        profile = (
+            Profile.objects.select_for_update()
+            .filter(user=request.user)
+            .first()
+        )
+
+        if profile is None or not profile.is_complete:
+            return Response(
+                {
+                    "detail": (
+                        "Complète d'abord les informations obligatoires "
+                        "de ton profil."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not request.user.is_email_verified:
+            return Response(
+                {
+                    "detail": (
+                        "Vérifie d'abord ton adresse e-mail."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not profile.photos.filter(is_primary=True).exists():
+            return Response(
+                {
+                    "detail": (
+                        "Ajoute d'abord une photo principale publique."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        verification, _created = (
+            ProfileVerification.objects.select_for_update()
+            .get_or_create(profile=profile)
+        )
+
+        if verification.status == ProfileVerification.Status.PENDING:
+            return Response(
+                {"detail": "Ta demande est déjà en cours d'examen."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if verification.status == ProfileVerification.Status.APPROVED:
+            return Response(
+                {"detail": "Ton profil est déjà vérifié."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        uploaded_selfie = request.FILES.get("selfie")
+        if uploaded_selfie is None:
+            return Response(
+                {"selfie": ["Ajoute un selfie récent et net."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            processed = process_profile_photo(uploaded_selfie)
+        except DjangoValidationError as exc:
+            detail = (
+                exc.message_dict
+                if hasattr(exc, "message_dict")
+                else {"selfie": list(exc.messages)}
+            )
+            if "image" in detail:
+                detail["selfie"] = detail.pop("image")
+            return Response(
+                detail,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        old_selfie_name = (
+            verification.selfie.name
+            if verification.selfie
+            else ""
+        )
+
+        verification.selfie.save(
+            processed.filename,
+            processed.content,
+            save=False,
+        )
+        verification.status = ProfileVerification.Status.PENDING
+        verification.rejection_reason = ""
+        verification.submitted_at = timezone.now()
+        verification.reviewed_at = None
+        verification.save()
+
+        if (
+            old_selfie_name
+            and old_selfie_name != verification.selfie.name
+        ):
+            verification.selfie.storage.delete(old_selfie_name)
+
+        log_security_event(
+            request=request,
+            event="profile.verification_submit",
+            outcome="success",
+            reason="verification_pending",
+            user=request.user,
+            email=request.user.email,
+        )
+
+        return Response(
+            ProfileVerificationSerializer(verification).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class CurrentSearchPreferencesView(
@@ -272,7 +432,7 @@ class PublicProfileDetailView(RetrieveAPIView):
 
         target = (
             Profile.objects
-            .select_related("user")
+            .select_related("user", "verification")
             .prefetch_related("photos")
             .filter(
                 id=profile_id,

@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from .storage import PrivateVerificationStorage
+
 
 class Gender(models.TextChoices):
     """
@@ -265,6 +267,22 @@ class Profile(models.Model):
         return f"Profile<{self.id}>"
 
     @property
+    def is_identity_verified(self) -> bool:
+        """
+        Retourne uniquement une décision administrative approuvée.
+
+        La vérification de l'adresse e-mail ne suffit volontairement plus
+        pour obtenir le badge public « Profil vérifié ».
+        """
+
+        verification = getattr(self, "verification", None)
+        return bool(
+            verification
+            and verification.status
+            == ProfileVerification.Status.APPROVED
+        )
+
+    @property
     def age(self) -> int | None:
         """
         Calcule l'âge à la demande sans le stocker.
@@ -363,6 +381,85 @@ class Profile(models.Model):
         )
 
 
+def verification_selfie_upload_path(
+    instance: "ProfileVerification",
+    _original_filename: str,
+) -> str:
+    """
+    Génère un nom opaque sans conserver le nom envoyé par le navigateur.
+    """
+
+    return (
+        f"{instance.profile_id}/"
+        f"{uuid4().hex}.webp"
+    )
+
+
+class ProfileVerification(models.Model):
+    """
+    Demande privée de vérification humaine d'un profil.
+
+    La première version vérifie une photo récente du visage. Elle ne prétend
+    pas encore constituer une vérification officielle d'une pièce d'identité.
+    Le justificatif reste hors des médias publics et n'est jamais sérialisé.
+    """
+
+    class Status(models.TextChoices):
+        NOT_SUBMITTED = "not_submitted", "Non demandée"
+        PENDING = "pending", "En attente"
+        APPROVED = "approved", "Approuvée"
+        REJECTED = "rejected", "Refusée"
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid4,
+        editable=False,
+    )
+    profile = models.OneToOneField(
+        Profile,
+        on_delete=models.CASCADE,
+        related_name="verification",
+    )
+    status = models.CharField(
+        max_length=24,
+        choices=Status.choices,
+        default=Status.NOT_SUBMITTED,
+        db_index=True,
+    )
+    selfie = models.ImageField(
+        upload_to=verification_selfie_upload_path,
+        storage=PrivateVerificationStorage(),
+        max_length=500,
+        blank=True,
+    )
+    rejection_reason = models.CharField(
+        max_length=240,
+        blank=True,
+        default="",
+    )
+    submitted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        db_table = "profiles_profile_verification"
+        ordering = ("-updated_at",)
+
+    def __str__(self) -> str:
+        return f"ProfileVerification<{self.id}:{self.status}>"
+
+
 class SearchPreferences(models.Model):
     """
     Préférences privées utilisées par le moteur de découverte.
@@ -425,7 +522,7 @@ class SearchPreferences(models.Model):
     )
 
     only_verified_profiles = models.BooleanField(
-        default=True,
+        default=False,
     )
 
     only_profiles_with_photos = models.BooleanField(

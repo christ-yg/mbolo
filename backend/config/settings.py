@@ -296,6 +296,13 @@ MEDIA_URL = "/media/"
 # Dossier physique de stockage pendant le développement.
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Les selfies de vérification sont des justificatifs privés.
+# Ils sont donc stockés hors de MEDIA_ROOT et ne peuvent jamais être
+# servis par la route publique /media/ utilisée pour les photos de profil.
+PRIVATE_VERIFICATION_MEDIA_ROOT = (
+    BASE_DIR / "private_media" / "profile_verifications"
+)
+
 
 # ============================================================
 # LIMITES DE TÉLÉVERSEMENT

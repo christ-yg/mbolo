@@ -17,6 +17,7 @@ from datetime import timedelta
 
 from .models import (
     Profile,
+    ProfileVerification,
     SearchPreferences,
 )
 
@@ -129,6 +130,7 @@ class DiscoveryEndpointTests(TestCase):
         dating_intent: str = "serious_relationship",
         is_discoverable: bool = True,
         is_email_verified: bool = True,
+        is_identity_verified: bool = True,
         is_active: bool = True,
         is_suspended: bool = False,
     ) -> Profile:
@@ -147,7 +149,7 @@ class DiscoveryEndpointTests(TestCase):
             is_suspended=is_suspended,
         )
 
-        return Profile.objects.create(
+        profile = Profile.objects.create(
             user=candidate_user,
             display_name=display_name,
             birth_date=years_ago(age),
@@ -157,6 +159,14 @@ class DiscoveryEndpointTests(TestCase):
             dating_intent=dating_intent,
             is_discoverable=is_discoverable,
         )
+
+        if is_email_verified and is_identity_verified:
+            ProfileVerification.objects.create(
+                profile=profile,
+                status=ProfileVerification.Status.APPROVED,
+            )
+
+        return profile
 
     def get_result_ids(
         self,

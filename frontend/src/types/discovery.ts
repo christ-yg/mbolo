@@ -70,9 +70,7 @@ export interface DiscoveryProfile {
   dating_intent: string;
 
   /**
-   * Indique que l'adresse e-mail du compte a été vérifiée.
-   *
-   * L'adresse elle-même n'est jamais exposée.
+   * Indique que la vérification humaine du profil a été approuvée.
    */
   is_verified: boolean;
 

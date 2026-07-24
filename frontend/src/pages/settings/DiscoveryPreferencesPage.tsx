@@ -476,8 +476,8 @@ export function DiscoveryPreferencesPage() {
               <span>
                 <strong>Profils vérifiés uniquement</strong>
                 <small>
-                  Afficher seulement les comptes ayant vérifié
-                  leur adresse e-mail.
+                  Afficher seulement les profils dont le selfie a été
+                  approuvé par l’équipe Mbolo.
                 </small>
               </span>
             </label>

@@ -10,6 +10,7 @@ from apps.interactions.models import Interaction, Match
 from apps.messaging.models import Conversation, Message
 from apps.notifications.models import Notification
 from apps.photos.models import ProfilePhoto
+from apps.profiles.models import ProfileVerification
 from apps.safety.models import Block, Report
 
 from .models import User
@@ -76,6 +77,11 @@ def build_personal_data_export(user: User) -> dict:
     )
     blocks = Block.objects.filter(blocker=user).order_by("created_at")
     reports = Report.objects.filter(reporter=user).order_by("created_at")
+    verification = (
+        ProfileVerification.objects
+        .filter(profile__user=user)
+        .first()
+    )
 
     return {
         "export": {
@@ -100,6 +106,14 @@ def build_personal_data_export(user: User) -> dict:
         "profile": (
             _model_data(profile, exclude=("user",))
             if profile is not None
+            else None
+        ),
+        "profile_verification": (
+            _model_data(
+                verification,
+                exclude=("profile", "selfie"),
+            )
+            if verification is not None
             else None
         ),
         "search_preferences": (
@@ -149,4 +163,11 @@ def permanently_delete_account(user: User) -> None:
     for photo in photos:
         if photo.image:
             photo.image.delete(save=False)
+    verification = (
+        ProfileVerification.objects
+        .filter(profile__user=user)
+        .first()
+    )
+    if verification is not None and verification.selfie:
+        verification.selfie.delete(save=False)
     user.delete()

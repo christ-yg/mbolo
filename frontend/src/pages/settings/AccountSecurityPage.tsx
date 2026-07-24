@@ -102,6 +102,9 @@ export function AccountSecurityPage() {
         <Link to="/account/privacy">
           Gérer mes données et ma confidentialité →
         </Link>
+        <Link to="/profile/verification">
+          Vérifier réellement mon profil →
+        </Link>
       </section>
 
       {message ? (
@@ -116,6 +119,18 @@ export function AccountSecurityPage() {
       ) : null}
 
       <div className="account-security-grid">
+        <section className="security-action-card">
+          <p className="section-heading__eyebrow">Confiance</p>
+          <h2>Badge Profil vérifié</h2>
+          <p>
+            Envoie un selfie privé pour confirmer que ton visage correspond
+            à la photo principale de ton profil.
+          </p>
+          <Link to="/profile/verification">
+            Consulter mon statut de vérification →
+          </Link>
+        </section>
+
         <form className="security-action-card" onSubmit={submitPassword}>
           <p className="section-heading__eyebrow">Mot de passe</p>
           <h2>Changer mon mot de passe</h2>

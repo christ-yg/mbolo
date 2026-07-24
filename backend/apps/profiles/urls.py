@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     CurrentProfileView,
+    CurrentProfileVerificationView,
     CurrentSearchPreferencesView,
     DiscoveryProfileListView,
     PublicProfileDetailView,
@@ -15,6 +16,11 @@ urlpatterns = [
         "me/",
         CurrentProfileView.as_view(),
         name="current-profile",
+    ),
+    path(
+        "verification/me/",
+        CurrentProfileVerificationView.as_view(),
+        name="current-profile-verification",
     ),
     path(
         "preferences/me/",

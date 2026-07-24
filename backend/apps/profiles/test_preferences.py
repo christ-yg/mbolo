@@ -127,7 +127,7 @@ class SearchPreferencesEndpointTests(TestCase):
             50,
         )
 
-        self.assertTrue(
+        self.assertFalse(
             response.data["only_verified_profiles"],
         )
 

@@ -244,7 +244,7 @@ def build_discovery_queryset(
         #
         # Cela évite le problème N+1 lorsque le sérialiseur accède
         # à profile.user pour chaque résultat.
-        .select_related("user")
+        .select_related("user", "verification")
 
         # Un utilisateur ne doit jamais apparaître
         # dans sa propre découverte.
@@ -329,6 +329,14 @@ def build_discovery_queryset(
     if advanced_filters_enabled and preferences.preferred_cities:
         queryset = queryset.filter(
             city__in=preferences.preferred_cities,
+        )
+
+    if (
+        advanced_filters_enabled
+        and preferences.only_verified_profiles
+    ):
+        queryset = queryset.filter(
+            verification__status="approved",
         )
 
     # Une liste vide signifie :

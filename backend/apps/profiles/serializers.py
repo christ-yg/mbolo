@@ -14,6 +14,7 @@ from .models import (
     Gender,
     Interest,
     Profile,
+    ProfileVerification,
     SearchPreferences,
 )
 
@@ -230,6 +231,54 @@ class ProfileSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class ProfileVerificationSerializer(serializers.ModelSerializer):
+    """
+    État privé de la vérification du profil connecté.
+
+    Le selfie, son chemin de stockage et les informations administratives
+    internes ne sont volontairement jamais renvoyés au navigateur.
+    """
+
+    status_label = serializers.CharField(
+        source="get_status_display",
+        read_only=True,
+    )
+    can_submit = serializers.SerializerMethodField()
+    is_verified = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProfileVerification
+        fields = (
+            "status",
+            "status_label",
+            "can_submit",
+            "is_verified",
+            "rejection_reason",
+            "submitted_at",
+            "reviewed_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+    def get_can_submit(
+        self,
+        verification: ProfileVerification,
+    ) -> bool:
+        return verification.status in {
+            ProfileVerification.Status.NOT_SUBMITTED,
+            ProfileVerification.Status.REJECTED,
+        }
+
+    def get_is_verified(
+        self,
+        verification: ProfileVerification,
+    ) -> bool:
+        return (
+            verification.status
+            == ProfileVerification.Status.APPROVED
+        )
 
 
 class SearchPreferencesSerializer(
@@ -495,14 +544,10 @@ class DiscoveryProfileSerializer(
         profile: Profile,
     ) -> bool:
         """
-        Indique que le compte a vérifié son adresse e-mail.
-
-        Nous ne renvoyons jamais l'adresse elle-même.
+        Indique qu'une demande de vérification humaine a été approuvée.
         """
 
-        return bool(
-            profile.user.is_email_verified
-        )
+        return profile.is_identity_verified
 
     def get_interest_labels(self, profile: Profile) -> list[str]:
         labels = dict(Interest.choices)
@@ -624,7 +669,7 @@ class PublicProfileDetailSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_is_verified(self, profile: Profile) -> bool:
-        return bool(profile.user.is_email_verified)
+        return profile.is_identity_verified
 
     def get_relationship(self, profile: Profile) -> str:
         """
