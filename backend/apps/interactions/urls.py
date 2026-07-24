@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     InteractionCreateView,
+    SuperLikeStateView,
     InteractionRewindView,
     MatchDeactivateView,
     MatchListView,
@@ -13,6 +14,11 @@ from .views import (
 app_name = "interactions"
 
 urlpatterns = [
+    path(
+        "super-like/",
+        SuperLikeStateView.as_view(),
+        name="super-like-state",
+    ),
     path(
         "interactions/",
         InteractionCreateView.as_view(),

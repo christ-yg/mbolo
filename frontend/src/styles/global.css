@@ -7490,3 +7490,14 @@ svg {
   }
   .premium-boost__button { min-width: 0; width: 100%; }
 }
+.discovery-action-button--super-like {
+  border-color: rgba(34, 105, 164, 0.35);
+  color: #175f9b;
+  background: linear-gradient(135deg, #f5fbff, #dcefff);
+}
+
+.discovery-action-button--super-like:hover:not(:disabled) {
+  color: #fff;
+  background: linear-gradient(135deg, #288bc9, #155483);
+  box-shadow: 0 0.8rem 2rem rgba(21, 84, 131, 0.24);
+}

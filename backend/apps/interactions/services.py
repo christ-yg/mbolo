@@ -213,6 +213,66 @@ def enforce_daily_like_entitlement(*, actor) -> None:
         )
 
 
+def enforce_super_like_entitlement(*, actor) -> None:
+    """
+    Vérifie le droit et le quota journalier des Super Likes.
+
+    Cette fonction est appelée après verrouillage SQL du compte : deux
+    requêtes parallèles ne peuvent donc pas dépasser silencieusement le quota.
+    """
+
+    entitlements = get_subscription_state(actor)["entitlements"]
+    if not entitlements["super_like"]:
+        raise ValidationError(
+            {
+                "is_super_like": (
+                    "Les Super Likes nécessitent un abonnement "
+                    "Mbolo Plus ou Prestige actif."
+                )
+            }
+        )
+
+    limit = int(entitlements["super_likes_per_day"])
+    used = Interaction.objects.filter(
+        actor=actor,
+        decision=InteractionDecision.LIKE,
+        is_super_like=True,
+        updated_at__date=timezone.localdate(),
+    ).count()
+    if used >= limit:
+        raise ValidationError(
+            {
+                "is_super_like": (
+                    f"Ton quota quotidien de Super Likes ({limit}) "
+                    "est épuisé. Il sera renouvelé demain."
+                )
+            }
+        )
+
+
+def get_super_like_state(*, actor) -> dict:
+    """Retourne uniquement le droit et le quota, sans exposer l'historique."""
+
+    entitlements = get_subscription_state(actor)["entitlements"]
+    entitled = bool(entitlements["super_like"])
+    limit = int(entitlements["super_likes_per_day"])
+    used = (
+        Interaction.objects.filter(
+            actor=actor,
+            decision=InteractionDecision.LIKE,
+            is_super_like=True,
+            updated_at__date=timezone.localdate(),
+        ).count()
+        if entitled
+        else 0
+    )
+    return {
+        "entitled": entitled,
+        "daily_limit": limit,
+        "remaining_today": max(limit - used, 0),
+    }
+
+
 def canonical_profile_pair(
     *,
     first_profile: Profile,
@@ -543,6 +603,7 @@ def create_interaction_safely(
     actor,
     target_profile: Profile,
     decision: str,
+    is_super_like: bool = False,
 ) -> tuple[Interaction, bool]:
     """
     Crée une interaction en protégeant la transaction principale
@@ -555,6 +616,7 @@ def create_interaction_safely(
                 actor=actor,
                 target_profile=target_profile,
                 decision=decision,
+                is_super_like=is_super_like,
             )
 
         return interaction, True
@@ -570,10 +632,12 @@ def create_interaction_safely(
         )
 
         interaction.decision = decision
+        interaction.is_super_like = is_super_like
 
         interaction.save(
             update_fields=[
                 "decision",
+                "is_super_like",
                 "updated_at",
             ]
         )
@@ -587,6 +651,7 @@ def record_interaction(
     actor,
     target_profile_id: UUID,
     decision: str,
+    is_super_like: bool = False,
 ) -> InteractionResult:
     """
     Enregistre un LIKE ou un PASS de manière atomique.
@@ -612,6 +677,11 @@ def record_interaction(
                     "La décision doit être 'like' ou 'pass'."
                 )
             }
+        )
+
+    if is_super_like and decision != InteractionDecision.LIKE:
+        raise ValidationError(
+            {"is_super_like": "Un Super Like doit utiliser la décision 'like'."}
         )
 
     actor_profile = validate_actor(
@@ -645,13 +715,25 @@ def record_interaction(
         )
     )
 
-    if is_new_like_decision:
+    is_new_super_like = bool(
+        is_super_like
+        and (
+            existing_interaction is None
+            or not existing_interaction.is_super_like
+            or existing_interaction.decision != InteractionDecision.LIKE
+        )
+    )
+
+    if is_new_like_decision or is_new_super_like:
         # Verrouille la ligne User pendant le comptage et l'écriture.
         # request.user peut être un SimpleLazyObject fourni par Django.
         # Nous utilisons donc explicitement AUTH_USER_MODEL pour poser
         # le verrou sur la vraie table utilisateur.
         User.objects.select_for_update().get(pk=actor.pk)
-        enforce_daily_like_entitlement(actor=actor)
+        if is_new_like_decision:
+            enforce_daily_like_entitlement(actor=actor)
+        if is_new_super_like:
+            enforce_super_like_entitlement(actor=actor)
 
     if existing_interaction is None:
         interaction, interaction_created = (
@@ -659,6 +741,7 @@ def record_interaction(
                 actor=actor,
                 target_profile=target_profile,
                 decision=decision,
+                is_super_like=is_super_like,
             )
         )
 
@@ -668,15 +751,18 @@ def record_interaction(
 
         decision_changed = (
             interaction.decision != decision
+            or interaction.is_super_like != is_super_like
         )
 
         # Évite une écriture inutile si la décision n'a pas changé.
         if decision_changed:
             interaction.decision = decision
+            interaction.is_super_like = is_super_like
 
             interaction.save(
                 update_fields=[
                     "decision",
+                    "is_super_like",
                     "updated_at",
                 ]
             )

@@ -101,6 +101,13 @@ class Interaction(models.Model):
         choices=InteractionDecision.choices,
     )
 
+    # Marqueur spécial d'un intérêt Premium.
+    #
+    # Il reste séparé de ``decision`` : un Super Like est toujours un LIKE
+    # pour la création d'un match, mais possède une présentation et un quota
+    # spécifiques. Un PASS ne peut jamais conserver ce marqueur.
+    is_super_like = models.BooleanField(default=False, db_index=True)
+
     # Date de création initiale de l'interaction.
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -204,6 +211,11 @@ class Interaction(models.Model):
         """
 
         super().clean()
+
+        if self.is_super_like and self.decision != InteractionDecision.LIKE:
+            raise ValidationError(
+                {"is_super_like": "Un Super Like doit être un like positif."}
+            )
 
         # Nous vérifions d'abord que les deux relations existent.
         if (

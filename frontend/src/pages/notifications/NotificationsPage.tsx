@@ -52,6 +52,8 @@ function getKindLabel(kind: NotificationKind): string {
       return "Nouveau match";
     case "like":
       return "Like";
+    case "super_like":
+      return "Super Like";
     case "security":
       return "Sécurité";
     case "system":
@@ -68,6 +70,8 @@ function getKindSymbol(kind: NotificationKind): string {
       return "♥";
     case "like":
       return "♡";
+    case "super_like":
+      return "★";
     case "security":
       return "!";
     case "system":

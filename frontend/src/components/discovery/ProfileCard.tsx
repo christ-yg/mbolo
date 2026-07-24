@@ -53,6 +53,11 @@ interface ProfileCardProps {
    */
   onLike: () => void;
 
+  /** Envoie un intérêt Premium distinct et prioritaire. */
+  onSuperLike: () => void;
+  superLikeLabel: string;
+  isSuperLikeDisabled?: boolean;
+
   /**
    * Indique qu'une action est déjà en cours.
    *
@@ -157,6 +162,9 @@ export function ProfileCard({
   totalInCurrentPage,
   onPass,
   onLike,
+  onSuperLike,
+  superLikeLabel,
+  isSuperLikeDisabled = false,
   isActionPending = false,
 }: ProfileCardProps) {
   const [activePhotoIndex, setActivePhotoIndex] =
@@ -420,6 +428,17 @@ export function ProfileCard({
          * est déjà en cours.
          */}
         <div className="discovery-profile-card__actions">
+          <button
+            type="button"
+            className="discovery-action-button discovery-action-button--super-like"
+            disabled={isActionPending || isSuperLikeDisabled}
+            onClick={onSuperLike}
+            title="Montre un intérêt particulier à ce profil"
+          >
+            <span aria-hidden="true">★</span>
+            {superLikeLabel}
+          </button>
+
           <button
             type="button"
             className={

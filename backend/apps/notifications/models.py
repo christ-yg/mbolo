@@ -33,6 +33,7 @@ class Notification(models.Model):
         MESSAGE = "message", "Message"
         MATCH = "match", "Nouveau match"
         LIKE = "like", "Like"
+        SUPER_LIKE = "super_like", "Super Like"
         SECURITY = "security", "Sécurité"
         SYSTEM = "system", "Système"
 

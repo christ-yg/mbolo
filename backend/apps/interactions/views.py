@@ -22,6 +22,7 @@ from .serializers import (
     InteractionResponseSerializer,
     RewindResponseSerializer,
     RewindStateSerializer,
+    SuperLikeStateSerializer,
     MatchSerializer,
     UnmatchResponseSerializer,
     ReceivedLikeActionResultSerializer,
@@ -35,6 +36,7 @@ from .services import (
     get_rewind_state,
     rewind_last_pass,
     respond_to_received_like,
+    get_super_like_state,
 )
 
 
@@ -103,6 +105,7 @@ def publish_interaction_notifications(*, result) -> None:
     like_result = create_like_notification(
         recipient=target_user,
         interaction_id=result.interaction.id,
+        is_super_like=result.interaction.is_super_like,
     )
 
     if like_result.created:
@@ -161,6 +164,7 @@ class InteractionCreateView(APIView):
                         "decision"
                     ]
                 ),
+                is_super_like=serializer.validated_data["is_super_like"],
             )
         except DjangoValidationError as exc:
             # Le service utilise les ValidationError Django,
@@ -211,6 +215,7 @@ class InteractionCreateView(APIView):
                     "decision": (
                         result.interaction.decision
                     ),
+                    "is_super_like": result.interaction.is_super_like,
                     "interaction_created": (
                         result.interaction_created
                     ),
@@ -238,6 +243,17 @@ class InteractionCreateView(APIView):
         return Response(
             response_serializer.data,
             status=response_status,
+        )
+
+
+class SuperLikeStateView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request: Request) -> Response:
+        return Response(
+            SuperLikeStateSerializer(
+                get_super_like_state(actor=request.user)
+            ).data
         )
 
 

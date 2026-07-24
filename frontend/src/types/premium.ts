@@ -9,6 +9,8 @@ export interface PremiumEntitlements {
   priority_support: boolean;
   profile_boost: boolean;
   boosts_per_window: number;
+  super_like: boolean;
+  super_likes_per_day: number;
 }
 
 export interface SubscriptionState {

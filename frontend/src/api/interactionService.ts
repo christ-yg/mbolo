@@ -22,6 +22,7 @@ import type {
   RewindResponse,
   RewindState,
   UnmatchResponse,
+  SuperLikeState,
 } from "../types/interactions";
 
 import { ensureCsrfToken } from "./csrfService";
@@ -45,6 +46,13 @@ export async function createInteraction(
     },
   );
 
+  return response.data;
+}
+
+export async function getSuperLikeState(): Promise<SuperLikeState> {
+  const response = await httpClient.get<SuperLikeState>(
+    "/v1/super-like/",
+  );
   return response.data;
 }
 

@@ -21,6 +21,7 @@ export type InteractionDecision = "like" | "pass";
 export interface CreateInteractionPayload {
   target_profile_id: string;
   decision: InteractionDecision;
+  is_super_like?: boolean;
 }
 
 /**
@@ -30,6 +31,7 @@ export interface CreateInteractionPayload {
 export interface InteractionResponse {
   interaction_id: string;
   decision: InteractionDecision;
+  is_super_like: boolean;
 
   /**
    * true lorsque l'interaction vient d'être créée.
@@ -51,6 +53,12 @@ export interface InteractionResponse {
    * Identifiant du match lorsqu'un match existe.
    */
   match_id: string | null;
+}
+
+export interface SuperLikeState {
+  entitled: boolean;
+  daily_limit: number;
+  remaining_today: number;
 }
 
 export interface RewindState {
@@ -91,6 +99,7 @@ export interface ReceivedLikeItem {
   has_photo: boolean;
   received_at: string;
   is_identity_revealed: boolean;
+  is_super_like: boolean;
   profile_id: string | null;
   display_name: string | null;
   image_url: string | null;

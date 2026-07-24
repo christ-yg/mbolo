@@ -12,6 +12,8 @@ class EntitlementsSerializer(serializers.Serializer):
     priority_support = serializers.BooleanField()
     profile_boost = serializers.BooleanField()
     boosts_per_window = serializers.IntegerField(min_value=0)
+    super_like = serializers.BooleanField()
+    super_likes_per_day = serializers.IntegerField(min_value=0)
 
 
 class ProfileBoostStateSerializer(serializers.Serializer):

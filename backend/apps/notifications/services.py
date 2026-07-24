@@ -128,6 +128,7 @@ def create_like_notification(
     *,
     recipient,
     interaction_id,
+    is_super_like: bool = False,
 ) -> NotificationCreationResult:
     """
     Crée une notification de like respectueuse de la confidentialité.
@@ -138,17 +139,37 @@ def create_like_notification(
 
     notification, created = Notification.objects.get_or_create(
         recipient=recipient,
-        source_key=f"like:{interaction_id}",
+        source_key=(
+            f"super-like:{interaction_id}"
+            if is_super_like
+            else f"like:{interaction_id}"
+        ),
         defaults={
-            "kind": Notification.Kind.LIKE,
-            "title": "Quelqu’un a aimé ton profil",
+            "kind": (
+                Notification.Kind.SUPER_LIKE
+                if is_super_like
+                else Notification.Kind.LIKE
+            ),
+            "title": (
+                "Quelqu’un t’a envoyé un Super Like"
+                if is_super_like
+                else "Quelqu’un a aimé ton profil"
+            ),
             "body": (
-                "Continue à découvrir des profils. "
-                "Un like réciproque créera un match."
+                (
+                    "Ton profil a particulièrement retenu son attention. "
+                    "Réponds depuis l’espace Qui m’a liké."
+                )
+                if is_super_like
+                else (
+                    "Continue à découvrir des profils. "
+                    "Un like réciproque créera un match."
+                )
             ),
             "target_path": "/discovery",
             "metadata": {
                 "interaction_id": str(interaction_id),
+                "is_super_like": is_super_like,
             },
         },
     )

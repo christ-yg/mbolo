@@ -7,6 +7,7 @@ export type NotificationKind =
   | "message"
   | "match"
   | "like"
+  | "super_like"
   | "security"
   | "system";
 

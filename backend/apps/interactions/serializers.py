@@ -40,6 +40,18 @@ class InteractionCreateSerializer(serializers.Serializer):
         required=True,
     )
 
+    is_super_like = serializers.BooleanField(
+        required=False,
+        default=False,
+    )
+
+    def validate(self, attrs):
+        if attrs.get("is_super_like") and attrs.get("decision") != "like":
+            raise serializers.ValidationError(
+                {"is_super_like": "Un Super Like doit être un like."}
+            )
+        return attrs
+
 
 class InteractionResponseSerializer(serializers.Serializer):
     """
@@ -54,6 +66,8 @@ class InteractionResponseSerializer(serializers.Serializer):
         choices=InteractionDecision.choices,
         read_only=True,
     )
+
+    is_super_like = serializers.BooleanField(read_only=True)
 
     interaction_created = serializers.BooleanField(
         read_only=True,
@@ -81,6 +95,12 @@ class RewindStateSerializer(serializers.Serializer):
     entitled = serializers.BooleanField(read_only=True)
     available = serializers.BooleanField(read_only=True)
     reason = serializers.CharField(read_only=True)
+
+
+class SuperLikeStateSerializer(serializers.Serializer):
+    entitled = serializers.BooleanField(read_only=True)
+    daily_limit = serializers.IntegerField(read_only=True, min_value=0)
+    remaining_today = serializers.IntegerField(read_only=True, min_value=0)
 
 
 class RewindResponseSerializer(serializers.Serializer):
@@ -180,6 +200,7 @@ class ReceivedLikeSerializer(serializers.Serializer):
     )
 
     is_identity_revealed = serializers.SerializerMethodField()
+    is_super_like = serializers.BooleanField(read_only=True)
 
     def get_city(self, interaction) -> str:
         return (

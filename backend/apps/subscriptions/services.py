@@ -44,6 +44,7 @@ PLAN_CATALOG = (
             "Filtres de découverte avancés",
             "Retour sur le dernier profil ignoré",
             "1 Boost de 30 minutes tous les 7 jours",
+            "1 Super Like par jour",
             "Accusés de lecture",
         ),
     ),
@@ -56,6 +57,7 @@ PLAN_CATALOG = (
             "Profil prioritaire dans Découvrir",
             "Mode navigation discrète",
             "2 Boosts de 30 minutes tous les 7 jours",
+            "3 Super Likes par jour",
             "Support prioritaire",
         ),
     ),
@@ -72,6 +74,8 @@ FREE_ENTITLEMENTS = {
     "priority_support": False,
     "profile_boost": False,
     "boosts_per_window": 0,
+    "super_like": False,
+    "super_likes_per_day": 0,
 }
 
 PLUS_ENTITLEMENTS = {
@@ -83,6 +87,8 @@ PLUS_ENTITLEMENTS = {
     "read_receipts": True,
     "profile_boost": True,
     "boosts_per_window": 1,
+    "super_like": True,
+    "super_likes_per_day": 1,
 }
 
 PRESTIGE_ENTITLEMENTS = {
@@ -91,6 +97,7 @@ PRESTIGE_ENTITLEMENTS = {
     "incognito_mode": True,
     "priority_support": True,
     "boosts_per_window": 2,
+    "super_likes_per_day": 3,
 }
 
 

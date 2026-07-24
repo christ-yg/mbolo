@@ -28,6 +28,7 @@ import {
 import {
   createInteraction,
   getRewindState,
+  getSuperLikeState,
   rewindLastPass,
 } from "../../api/interactionService";
 import { MatchModal } from "../../components/discovery/MatchModal";
@@ -42,6 +43,7 @@ import type {
   InteractionDecision,
   MatchCelebrationData,
   RewindState,
+  SuperLikeState,
 } from "../../types/interactions";
 
 type DiscoveryStatus =
@@ -95,6 +97,11 @@ export function DiscoveryPage() {
   });
 
   const [isRewindPending, setIsRewindPending] = useState(false);
+  const [superLikeState, setSuperLikeState] = useState<SuperLikeState>({
+    entitled: false,
+    daily_limit: 0,
+    remaining_today: 0,
+  });
 
   const profiles = useMemo<DiscoveryProfile[]>(
     () => discoveryData?.results ?? [],
@@ -148,6 +155,11 @@ export function DiscoveryPage() {
       .catch(() => {
         // L'échec de ce bonus ne doit jamais bloquer Découvrir.
       });
+    void getSuperLikeState()
+      .then(setSuperLikeState)
+      .catch(() => {
+        // Le moteur principal reste disponible si cet état bonus échoue.
+      });
   }, [loadDiscoveryPage]);
 
   /**
@@ -181,6 +193,7 @@ export function DiscoveryPage() {
    */
   async function submitInteraction(
     decision: InteractionDecision,
+    isSuperLike = false,
   ): Promise<void> {
     if (
       isActionPending ||
@@ -196,7 +209,15 @@ export function DiscoveryPage() {
       const response = await createInteraction({
         target_profile_id: currentProfile.id,
         decision,
+        is_super_like: isSuperLike,
       });
+
+      if (response.is_super_like) {
+        setSuperLikeState((current) => ({
+          ...current,
+          remaining_today: Math.max(current.remaining_today - 1, 0),
+        }));
+      }
 
       setRewindState((current) => ({
         ...current,
@@ -250,6 +271,14 @@ export function DiscoveryPage() {
 
   function handleLike(): void {
     void submitInteraction("like");
+  }
+
+  function handleSuperLike(): void {
+    if (!superLikeState.entitled) {
+      navigate("/premium");
+      return;
+    }
+    void submitInteraction("like", true);
   }
 
   async function handleRewind(): Promise<void> {
@@ -567,6 +596,16 @@ export function DiscoveryPage() {
           isActionPending={isActionPending}
           onPass={handlePass}
           onLike={handleLike}
+          onSuperLike={handleSuperLike}
+          superLikeLabel={
+            superLikeState.entitled
+              ? `Super Like · ${superLikeState.remaining_today}`
+              : "Super Like · Premium"
+          }
+          isSuperLikeDisabled={
+            superLikeState.entitled &&
+            superLikeState.remaining_today <= 0
+          }
         />
 
         <button
