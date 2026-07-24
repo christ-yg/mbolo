@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import PremiumOverviewView, PremiumPrivacyView
+from .views import ProfileBoostView, PremiumOverviewView, PremiumPrivacyView
 
 
 app_name = "subscriptions"
@@ -15,5 +15,10 @@ urlpatterns = [
         "privacy/",
         PremiumPrivacyView.as_view(),
         name="premium-privacy",
+    ),
+    path(
+        "boost/",
+        ProfileBoostView.as_view(),
+        name="premium-boost",
     ),
 ]

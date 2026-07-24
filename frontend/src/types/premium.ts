@@ -7,6 +7,8 @@ export interface PremiumEntitlements {
   priority_profile: boolean;
   incognito_mode: boolean;
   priority_support: boolean;
+  profile_boost: boolean;
+  boosts_per_window: number;
 }
 
 export interface SubscriptionState {
@@ -44,10 +46,21 @@ export interface PremiumOverview {
   currency: "XAF";
   payment_notice: string;
   privacy: PremiumPrivacyState;
+  boost: ProfileBoostState;
 }
 
 export interface PremiumPrivacyState {
   incognito_enabled: boolean;
   incognito_available: boolean;
   effective_incognito: boolean;
+}
+
+export interface ProfileBoostState {
+  entitled: boolean;
+  active: boolean;
+  active_until: string | null;
+  duration_minutes: number;
+  allowance_per_7_days: number;
+  remaining: number;
+  next_available_at: string | null;
 }

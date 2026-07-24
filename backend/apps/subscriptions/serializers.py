@@ -10,6 +10,18 @@ class EntitlementsSerializer(serializers.Serializer):
     priority_profile = serializers.BooleanField()
     incognito_mode = serializers.BooleanField()
     priority_support = serializers.BooleanField()
+    profile_boost = serializers.BooleanField()
+    boosts_per_window = serializers.IntegerField(min_value=0)
+
+
+class ProfileBoostStateSerializer(serializers.Serializer):
+    entitled = serializers.BooleanField()
+    active = serializers.BooleanField()
+    active_until = serializers.DateTimeField(allow_null=True)
+    duration_minutes = serializers.IntegerField(min_value=1)
+    allowance_per_7_days = serializers.IntegerField(min_value=0)
+    remaining = serializers.IntegerField(min_value=0)
+    next_available_at = serializers.DateTimeField(allow_null=True)
 
 
 class SubscriptionStateSerializer(serializers.Serializer):

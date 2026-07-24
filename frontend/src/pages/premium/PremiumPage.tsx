@@ -4,6 +4,7 @@ import { normalizeApiError } from "../../api/apiError";
 import {
   getPremiumOverview,
   updatePremiumPrivacy,
+  activateProfileBoost,
 } from "../../api/premiumService";
 import type { PremiumOverview } from "../../types/premium";
 
@@ -12,6 +13,21 @@ export function PremiumPage() {
   const [overview, setOverview] = useState<PremiumOverview | null>(null);
   const [error, setError] = useState("");
   const [isUpdatingPrivacy, setIsUpdatingPrivacy] = useState(false);
+  const [isActivatingBoost, setIsActivatingBoost] = useState(false);
+
+  async function handleActivateBoost(): Promise<void> {
+    if (!overview || isActivatingBoost) return;
+    setIsActivatingBoost(true);
+    setError("");
+    try {
+      const boost = await activateProfileBoost();
+      setOverview((current) => current ? { ...current, boost } : current);
+    } catch (caught: unknown) {
+      setError(normalizeApiError(caught).message);
+    } finally {
+      setIsActivatingBoost(false);
+    }
+  }
 
   async function handleIncognitoChange(enabled: boolean): Promise<void> {
     if (!overview || isUpdatingPrivacy) return;
@@ -117,6 +133,44 @@ export function PremiumPage() {
               </article>
             );
           })}
+        </section>
+      ) : null}
+
+      {overview ? (
+        <section className="premium-boost">
+          <div>
+            <p className="section-heading__eyebrow">Visibilité Premium</p>
+            <h2>Boost de profil pendant {overview.boost.duration_minutes} minutes</h2>
+            <p>
+              Ton profil remonte temporairement dans Découvrir auprès des
+              membres compatibles. Le Boost ne contourne jamais leurs filtres,
+              les blocages, la vérification du compte ou la confidentialité.
+            </p>
+            <small>
+              {overview.boost.allowance_per_7_days} activation(s) par période
+              de 7 jours · {overview.boost.remaining} restante(s).
+            </small>
+          </div>
+          <button
+            type="button"
+            className="premium-boost__button"
+            disabled={
+              isActivatingBoost ||
+              overview.boost.active ||
+              overview.boost.remaining <= 0
+            }
+            onClick={() => { void handleActivateBoost(); }}
+          >
+            {overview.boost.active
+              ? `Boost actif jusqu’à ${new Date(overview.boost.active_until ?? "").toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
+              : !overview.boost.entitled
+                ? "Disponible avec Plus ou Prestige"
+                : overview.boost.remaining <= 0
+                  ? "Quota temporairement épuisé"
+                  : isActivatingBoost
+                    ? "Activation sécurisée…"
+                    : "Activer mon Boost"}
+          </button>
         </section>
       ) : null}
 

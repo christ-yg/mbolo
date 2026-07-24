@@ -7,10 +7,13 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 from apps.subscriptions.models import (
+    ProfileBoost,
     Subscription,
     SubscriptionPlan,
     SubscriptionStatus,
 )
+from django.utils import timezone
+from datetime import timedelta
 
 from .models import (
     Profile,
@@ -561,6 +564,30 @@ class DiscoveryEndpointTests(TestCase):
             result_ids.index(str(prestige_profile.id)),
             result_ids.index(str(free_profile.id)),
         )
+
+    def test_active_boost_is_ranked_before_prestige_without_bypassing_filters(self):
+        boosted = self.create_candidate(
+            email="boosted-ranking@example.com",
+            display_name="Boost actif",
+        )
+        prestige = self.create_candidate(
+            email="prestige-ranking@example.com",
+            display_name="Prestige",
+        )
+        Subscription.objects.create(
+            user=prestige.user,
+            plan=SubscriptionPlan.PRESTIGE,
+        )
+        ProfileBoost.objects.create(
+            user=boosted.user,
+            starts_at=timezone.now(),
+            ends_at=timezone.now() + timedelta(minutes=30),
+        )
+        self.authenticate()
+        response = self.client.get(self.discovery_url)
+        self.assertEqual(response.status_code, 200)
+        ids = [item["id"] for item in response.data["results"]]
+        self.assertLess(ids.index(str(boosted.id)), ids.index(str(prestige.id)))
 
     def test_page_size_cannot_exceed_fifty(
         self,

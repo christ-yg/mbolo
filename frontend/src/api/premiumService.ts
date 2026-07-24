@@ -1,6 +1,7 @@
 import type {
   PremiumOverview,
   PremiumPrivacyState,
+  ProfileBoostState,
 } from "../types/premium";
 
 import { httpClient } from "./httpClient";
@@ -11,6 +12,14 @@ export async function getPremiumOverview(): Promise<PremiumOverview> {
     data: PremiumOverview;
   }>("/v1/premium/overview/");
 
+  return response.data.data;
+}
+
+export async function activateProfileBoost(): Promise<ProfileBoostState> {
+  const response = await httpClient.post<{ data: ProfileBoostState }>(
+    "/v1/premium/boost/",
+    {},
+  );
   return response.data.data;
 }
 

@@ -38,11 +38,14 @@ from django.db.models import (
     QuerySet,
     Value,
     When,
+    Exists,
+    OuterRef,
 )
 from django.utils import timezone
 
 from apps.safety.models import Block
 from apps.subscriptions.services import get_subscription_state
+from apps.subscriptions.models import ProfileBoost
 
 from .models import (
     Profile,
@@ -343,7 +346,17 @@ def build_discovery_queryset(
     # Seul un abonnement Prestige actif ou en essai, non expiré, reçoit le
     # rang prioritaire. Tous les contrôles de sécurité et préférences restent
     # appliqués avant ce classement.
+    active_boosts = ProfileBoost.objects.filter(
+        user_id=OuterRef("user_id"),
+        starts_at__lte=timezone.now(),
+        ends_at__gt=timezone.now(),
+    )
     queryset = queryset.annotate(
+        boost_priority=Case(
+            When(Exists(active_boosts), then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField(),
+        ),
         premium_priority=Case(
             When(
                 Q(user__subscription__plan="prestige")
@@ -364,6 +377,7 @@ def build_discovery_queryset(
     # L'UUID départage les profils qui auraient exactement
     # la même date de création.
     return queryset.order_by(
+        "-boost_priority",
         "-premium_priority",
         "-created_at",
         "id",

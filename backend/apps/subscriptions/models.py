@@ -154,3 +154,40 @@ class PremiumPrivacyPreference(models.Model):
 
     def __str__(self) -> str:
         return f"PremiumPrivacyPreference<{self.user_id}>"
+
+
+class ProfileBoost(models.Model):
+    """
+    Activation serveur d'une mise en avant temporaire.
+
+    Une ligne constitue une preuve d'activation. Le client ne choisit jamais
+    la durée, la priorité ni le propriétaire du boost.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="profile_boosts",
+    )
+    starts_at = models.DateTimeField(default=timezone.now, db_index=True)
+    ends_at = models.DateTimeField(db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "subscriptions_profile_boost"
+        ordering = ("-starts_at",)
+        indexes = [
+            models.Index(
+                fields=("user", "starts_at"),
+                name="sub_boost_user_started_idx",
+            ),
+        ]
+
+    @property
+    def is_active(self) -> bool:
+        now = timezone.now()
+        return self.starts_at <= now < self.ends_at
+
+    def __str__(self) -> str:
+        return f"ProfileBoost<{self.id}:{self.user_id}>"

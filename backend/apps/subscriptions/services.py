@@ -1,9 +1,14 @@
 from dataclasses import dataclass
+from datetime import timedelta
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.db import transaction
+from django.utils import timezone
 
 from .models import (
     PremiumPrivacyPreference,
+    ProfileBoost,
     Subscription,
     SubscriptionPlan,
 )
@@ -38,6 +43,7 @@ PLAN_CATALOG = (
             "Voir les personnes qui t'ont liké",
             "Filtres de découverte avancés",
             "Retour sur le dernier profil ignoré",
+            "1 Boost de 30 minutes tous les 7 jours",
             "Accusés de lecture",
         ),
     ),
@@ -49,6 +55,7 @@ PLAN_CATALOG = (
             "Tous les avantages Mbolo Plus",
             "Profil prioritaire dans Découvrir",
             "Mode navigation discrète",
+            "2 Boosts de 30 minutes tous les 7 jours",
             "Support prioritaire",
         ),
     ),
@@ -63,6 +70,8 @@ FREE_ENTITLEMENTS = {
     "priority_profile": False,
     "incognito_mode": False,
     "priority_support": False,
+    "profile_boost": False,
+    "boosts_per_window": 0,
 }
 
 PLUS_ENTITLEMENTS = {
@@ -72,6 +81,8 @@ PLUS_ENTITLEMENTS = {
     "advanced_filters": True,
     "rewind_pass": True,
     "read_receipts": True,
+    "profile_boost": True,
+    "boosts_per_window": 1,
 }
 
 PRESTIGE_ENTITLEMENTS = {
@@ -79,6 +90,7 @@ PRESTIGE_ENTITLEMENTS = {
     "priority_profile": True,
     "incognito_mode": True,
     "priority_support": True,
+    "boosts_per_window": 2,
 }
 
 
@@ -224,3 +236,82 @@ def update_incognito_preference(*, user, enabled: bool) -> dict:
     preference.incognito_enabled = enabled
     preference.save(update_fields=("incognito_enabled", "updated_at"))
     return get_privacy_state(user)
+
+
+BOOST_DURATION = timedelta(minutes=30)
+BOOST_WINDOW = timedelta(days=7)
+
+
+def get_boost_state(user, *, now=None) -> dict:
+    """Calcule l'état depuis la base, sans faire confiance au navigateur."""
+
+    now = now or timezone.now()
+    subscription = get_subscription_state(user)
+    entitlements = subscription["entitlements"]
+    entitled = bool(entitlements["profile_boost"])
+    allowance = int(entitlements["boosts_per_window"])
+    window_start = now - BOOST_WINDOW
+    used = ProfileBoost.objects.filter(
+        user=user,
+        starts_at__gte=window_start,
+    ).count()
+    active = (
+        ProfileBoost.objects.filter(
+            user=user,
+            starts_at__lte=now,
+            ends_at__gt=now,
+        )
+        .order_by("-ends_at")
+        .first()
+    )
+    remaining = max(allowance - used, 0) if entitled else 0
+    next_available_at = None
+    if entitled and remaining == 0:
+        oldest = (
+            ProfileBoost.objects.filter(
+                user=user,
+                starts_at__gte=window_start,
+            )
+            .order_by("starts_at")
+            .first()
+        )
+        if oldest:
+            next_available_at = oldest.starts_at + BOOST_WINDOW
+
+    return {
+        "entitled": entitled,
+        "active": active is not None,
+        "active_until": active.ends_at if active else None,
+        "duration_minutes": int(BOOST_DURATION.total_seconds() // 60),
+        "allowance_per_7_days": allowance,
+        "remaining": remaining,
+        "next_available_at": next_available_at,
+    }
+
+
+@transaction.atomic
+def activate_profile_boost(*, user) -> dict:
+    """
+    Active un Boost après verrouillage du compte.
+
+    Le verrou empêche deux clics simultanés de consommer ou créer plusieurs
+    activations au-delà du quota.
+    """
+
+    user_model = get_user_model()
+    locked_user = user_model.objects.select_for_update().get(pk=user.pk)
+    state = get_boost_state(locked_user)
+    if not state["entitled"]:
+        raise PermissionError("Un abonnement Mbolo Plus ou Prestige actif est requis.")
+    if state["active"]:
+        raise ValueError("Un Boost est déjà actif sur ce profil.")
+    if state["remaining"] <= 0:
+        raise ValueError("Ton quota de Boost est épuisé pour cette période.")
+
+    now = timezone.now()
+    ProfileBoost.objects.create(
+        user=locked_user,
+        starts_at=now,
+        ends_at=now + BOOST_DURATION,
+    )
+    return get_boost_state(locked_user, now=now)

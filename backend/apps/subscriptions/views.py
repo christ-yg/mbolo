@@ -10,6 +10,7 @@ from .serializers import (
     PlanSerializer,
     PremiumPrivacySerializer,
     PremiumPrivacyUpdateSerializer,
+    ProfileBoostStateSerializer,
     SubscriptionStateSerializer,
 )
 from .services import (
@@ -18,6 +19,8 @@ from .services import (
     get_privacy_state,
     get_subscription_state,
     update_incognito_preference,
+    get_boost_state,
+    activate_profile_boost,
 )
 
 
@@ -46,6 +49,9 @@ class PremiumOverviewView(APIView):
                     ),
                     "privacy": PremiumPrivacySerializer(
                         get_privacy_state(request.user)
+                    ).data,
+                    "boost": ProfileBoostStateSerializer(
+                        get_boost_state(request.user)
                     ).data,
                 }
             }
@@ -92,4 +98,58 @@ class PremiumPrivacyView(APIView):
         )
         return Response(
             {"data": PremiumPrivacySerializer(state).data}
+        )
+
+
+class ProfileBoostView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request: Request) -> Response:
+        return Response({
+            "data": ProfileBoostStateSerializer(
+                get_boost_state(request.user)
+            ).data
+        })
+
+    def post(self, request: Request) -> Response:
+        try:
+            state = activate_profile_boost(user=request.user)
+        except PermissionError as exc:
+            log_security_event(
+                request=request,
+                event="premium.boost.activate",
+                outcome="failure",
+                reason="premium_required",
+                user=request.user,
+                email=request.user.email,
+            )
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        except ValueError as exc:
+            log_security_event(
+                request=request,
+                event="premium.boost.activate",
+                outcome="failure",
+                reason="unavailable",
+                user=request.user,
+                email=request.user.email,
+            )
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        log_security_event(
+            request=request,
+            event="premium.boost.activate",
+            outcome="success",
+            reason="boost_activated",
+            user=request.user,
+            email=request.user.email,
+        )
+        return Response(
+            {"data": ProfileBoostStateSerializer(state).data},
+            status=status.HTTP_201_CREATED,
         )
