@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     InteractionCreateView,
+    InteractionRewindView,
     MatchDeactivateView,
     MatchListView,
     ReceivedLikeListView,
@@ -16,6 +17,11 @@ urlpatterns = [
         "interactions/",
         InteractionCreateView.as_view(),
         name="interaction-create",
+    ),
+    path(
+        "interactions/rewind/",
+        InteractionRewindView.as_view(),
+        name="interaction-rewind",
     ),
     path(
         "matches/",

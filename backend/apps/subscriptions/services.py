@@ -37,6 +37,7 @@ PLAN_CATALOG = (
             "Likes quotidiens illimités",
             "Voir les personnes qui t'ont liké",
             "Filtres de découverte avancés",
+            "Retour sur le dernier profil ignoré",
             "Accusés de lecture",
         ),
     ),
@@ -57,6 +58,7 @@ FREE_ENTITLEMENTS = {
     "unlimited_likes": False,
     "see_likers": False,
     "advanced_filters": False,
+    "rewind_pass": False,
     "read_receipts": False,
     "priority_profile": False,
     "incognito_mode": False,
@@ -68,6 +70,7 @@ PLUS_ENTITLEMENTS = {
     "unlimited_likes": True,
     "see_likers": True,
     "advanced_filters": True,
+    "rewind_pass": True,
     "read_receipts": True,
 }
 

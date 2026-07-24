@@ -73,6 +73,25 @@ class InteractionResponseSerializer(serializers.Serializer):
     )
 
 
+class RewindStateSerializer(serializers.Serializer):
+    """
+    État minimal du Rewind, sans exposer l'historique privé.
+    """
+
+    entitled = serializers.BooleanField(read_only=True)
+    available = serializers.BooleanField(read_only=True)
+    reason = serializers.CharField(read_only=True)
+
+
+class RewindResponseSerializer(serializers.Serializer):
+    """
+    Résultat du retour arrière : le profil restauré est public uniquement.
+    """
+
+    rewound = serializers.BooleanField(read_only=True)
+    profile = DiscoveryProfileSerializer(read_only=True)
+
+
 class MatchSerializer(serializers.ModelSerializer):
     """
     Sérialiseur sécurisé d'un match.

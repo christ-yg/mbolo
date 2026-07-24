@@ -5,6 +5,7 @@ class EntitlementsSerializer(serializers.Serializer):
     unlimited_likes = serializers.BooleanField()
     see_likers = serializers.BooleanField()
     advanced_filters = serializers.BooleanField()
+    rewind_pass = serializers.BooleanField()
     read_receipts = serializers.BooleanField()
     priority_profile = serializers.BooleanField()
     incognito_mode = serializers.BooleanField()

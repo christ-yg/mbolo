@@ -25,7 +25,11 @@ import {
   DEFAULT_DISCOVERY_PAGE_SIZE,
   getDiscoveryProfiles,
 } from "../../api/discoveryService";
-import { createInteraction } from "../../api/interactionService";
+import {
+  createInteraction,
+  getRewindState,
+  rewindLastPass,
+} from "../../api/interactionService";
 import { MatchModal } from "../../components/discovery/MatchModal";
 import { ProfileCard } from "../../components/discovery/ProfileCard";
 import { useAuth } from "../../hooks/useAuth";
@@ -37,6 +41,7 @@ import type {
 import type {
   InteractionDecision,
   MatchCelebrationData,
+  RewindState,
 } from "../../types/interactions";
 
 type DiscoveryStatus =
@@ -82,6 +87,14 @@ export function DiscoveryPage() {
    */
   const [matchCelebration, setMatchCelebration] =
     useState<MatchCelebrationData | null>(null);
+
+  const [rewindState, setRewindState] = useState<RewindState>({
+    entitled: false,
+    available: false,
+    reason: "premium_required",
+  });
+
+  const [isRewindPending, setIsRewindPending] = useState(false);
 
   const profiles = useMemo<DiscoveryProfile[]>(
     () => discoveryData?.results ?? [],
@@ -130,6 +143,11 @@ export function DiscoveryPage() {
 
   useEffect(() => {
     void loadDiscoveryPage(1);
+    void getRewindState()
+      .then(setRewindState)
+      .catch(() => {
+        // L'échec de ce bonus ne doit jamais bloquer Découvrir.
+      });
   }, [loadDiscoveryPage]);
 
   /**
@@ -180,6 +198,17 @@ export function DiscoveryPage() {
         decision,
       });
 
+      setRewindState((current) => ({
+        ...current,
+        available: decision === "pass" && current.entitled,
+        reason:
+          decision === "pass" && current.entitled
+            ? "available"
+            : current.entitled
+              ? "no_pass_to_rewind"
+              : "premium_required",
+      }));
+
       /**
        * Un like réciproque crée ou réactive un match.
        *
@@ -221,6 +250,53 @@ export function DiscoveryPage() {
 
   function handleLike(): void {
     void submitInteraction("like");
+  }
+
+  async function handleRewind(): Promise<void> {
+    if (!rewindState.entitled) {
+      navigate("/premium");
+      return;
+    }
+
+    if (!rewindState.available || isRewindPending) {
+      return;
+    }
+
+    setIsRewindPending(true);
+    setActionError(null);
+
+    try {
+      const response = await rewindLastPass();
+
+      setDiscoveryData((current) => {
+        if (current === null) {
+          return {
+            count: 1,
+            next: null,
+            previous: null,
+            results: [response.profile],
+          };
+        }
+
+        const results = [...current.results];
+        results.splice(currentProfileIndex, 0, response.profile);
+        return {
+          ...current,
+          results,
+        };
+      });
+
+      setStatus("success");
+      setRewindState({
+        entitled: true,
+        available: false,
+        reason: "no_pass_to_rewind",
+      });
+    } catch (error: unknown) {
+      setActionError(normalizeApiError(error).message);
+    } finally {
+      setIsRewindPending(false);
+    }
   }
 
   /**
@@ -352,6 +428,12 @@ export function DiscoveryPage() {
             sont exclus par le moteur côté serveur.
           </p>
 
+          {actionError ? (
+            <p className="discovery-rewind-error" role="alert">
+              {actionError}
+            </p>
+          ) : null}
+
           <button
             type="button"
             onClick={() => {
@@ -359,6 +441,24 @@ export function DiscoveryPage() {
             }}
           >
             Actualiser la sélection
+          </button>
+
+          <button
+            type="button"
+            className="discovery-rewind-button"
+            disabled={
+              rewindState.entitled &&
+              (!rewindState.available || isRewindPending)
+            }
+            onClick={() => {
+              void handleRewind();
+            }}
+          >
+            {rewindState.entitled
+              ? isRewindPending
+                ? "Restauration…"
+                : "↶ Revenir au dernier profil"
+              : "↶ Rewind avec Mbolo Plus"}
           </button>
         </section>
       </main>
@@ -477,6 +577,24 @@ export function DiscoveryPage() {
           }}
         >
           Voir le profil complet
+        </button>
+
+        <button
+          type="button"
+          className="discovery-rewind-button"
+          disabled={
+            rewindState.entitled &&
+            (!rewindState.available || isRewindPending)
+          }
+          onClick={() => {
+            void handleRewind();
+          }}
+        >
+          {rewindState.entitled
+            ? isRewindPending
+              ? "Restauration…"
+              : "↶ Revenir au dernier profil ignoré"
+            : "↶ Rewind · Mbolo Plus"}
         </button>
       </section>
 

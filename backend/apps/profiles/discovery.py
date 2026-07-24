@@ -256,6 +256,14 @@ def build_discovery_queryset(
             user_id__in=blocked_user_ids,
         )
 
+        # Un profil déjà évalué ne doit pas revenir à chaque chargement.
+        #
+        # Le Rewind Premium supprime uniquement le dernier PASS autorisé :
+        # ce profil redevient alors naturellement éligible à cette requête.
+        .exclude(
+            received_interactions__actor=user,
+        )
+
         # Le propriétaire du profil doit avoir volontairement
         # rendu son profil découvrable.
         .filter(

@@ -74,6 +74,107 @@ class InteractionResult:
     decision_changed: bool
 
 
+def get_rewind_state(*, actor) -> dict:
+    """
+    Indique si le dernier geste peut être annulé.
+
+    La décision est calculée côté serveur : React ne peut pas fabriquer
+    un abonnement ni choisir une interaction plus ancienne.
+    """
+
+    entitled = bool(
+        get_subscription_state(actor)["entitlements"]["rewind_pass"]
+    )
+
+    if not entitled:
+        return {
+            "entitled": False,
+            "available": False,
+            "reason": "premium_required",
+        }
+
+    last_interaction = (
+        Interaction.objects.filter(actor=actor)
+        .order_by("-updated_at", "-created_at", "-id")
+        .only("decision")
+        .first()
+    )
+    available = bool(
+        last_interaction is not None
+        and last_interaction.decision == InteractionDecision.PASS
+    )
+
+    return {
+        "entitled": True,
+        "available": available,
+        "reason": "available" if available else "no_pass_to_rewind",
+    }
+
+
+@transaction.atomic
+def rewind_last_pass(*, actor) -> Profile:
+    """
+    Annule exclusivement la dernière interaction si elle est un PASS.
+
+    Protections :
+    - droit Plus/Prestige vérifié depuis l'abonnement en base ;
+    - verrou SQL sur le compte puis sur la dernière interaction ;
+    - aucune interaction choisie par le navigateur ;
+    - refus si une action plus récente est un LIKE ;
+    - validation complète du profil avant sa réapparition.
+    """
+
+    User.objects.select_for_update().get(pk=actor.pk)
+
+    if not get_subscription_state(actor)["entitlements"]["rewind_pass"]:
+        raise PermissionError(
+            "Le retour en arrière nécessite un abonnement "
+            "Mbolo Plus ou Prestige actif."
+        )
+
+    interaction = (
+        Interaction.objects.select_for_update()
+        .select_related("target_profile", "target_profile__user")
+        .filter(actor=actor)
+        .order_by("-updated_at", "-created_at", "-id")
+        .first()
+    )
+
+    if (
+        interaction is None
+        or interaction.decision != InteractionDecision.PASS
+    ):
+        raise ValidationError(
+            {
+                "detail": (
+                    "Aucun profil récemment ignoré ne peut être restauré."
+                )
+            }
+        )
+
+    target_profile = interaction.target_profile
+    interaction.delete()
+
+    # La requête centrale réapplique l'âge, le genre, les filtres Premium,
+    # les blocages et l'état du compte après suppression du PASS.
+    from apps.profiles.discovery import build_discovery_queryset
+
+    is_still_eligible = build_discovery_queryset(user=actor).filter(
+        pk=target_profile.pk
+    ).exists()
+
+    if not is_still_eligible:
+        raise ValidationError(
+            {
+                "detail": (
+                    "Ce profil n'est plus disponible dans Découvrir."
+                )
+            }
+        )
+
+    return target_profile
+
+
 def enforce_daily_like_entitlement(*, actor) -> None:
     """
     Applique le quota quotidien du compte gratuit côté serveur.

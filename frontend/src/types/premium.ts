@@ -2,6 +2,7 @@ export interface PremiumEntitlements {
   unlimited_likes: boolean;
   see_likers: boolean;
   advanced_filters: boolean;
+  rewind_pass: boolean;
   read_receipts: boolean;
   priority_profile: boolean;
   incognito_mode: boolean;

@@ -20,6 +20,8 @@ from .pagination_received_likes import ReceivedLikePagination
 from .serializers import (
     InteractionCreateSerializer,
     InteractionResponseSerializer,
+    RewindResponseSerializer,
+    RewindStateSerializer,
     MatchSerializer,
     UnmatchResponseSerializer,
     ReceivedLikeActionResultSerializer,
@@ -30,6 +32,8 @@ from .services import (
     deactivate_match,
     get_pending_received_likes,
     record_interaction,
+    get_rewind_state,
+    rewind_last_pass,
     respond_to_received_like,
 )
 
@@ -235,6 +239,62 @@ class InteractionCreateView(APIView):
             response_serializer.data,
             status=response_status,
         )
+
+
+class InteractionRewindView(APIView):
+    """
+    Consulte ou exécute le retour sur le dernier PASS.
+
+    Aucun UUID n'est accepté : le serveur choisit lui-même la seule
+    interaction pouvant être annulée, ce qui évite les attaques IDOR.
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request: Request) -> Response:
+        serializer = RewindStateSerializer(
+            get_rewind_state(actor=request.user)
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request: Request) -> Response:
+        try:
+            profile = rewind_last_pass(actor=request.user)
+        except PermissionError as exc:
+            log_security_event(
+                request=request,
+                event="interaction.rewind",
+                outcome="failure",
+                reason="premium_required",
+                user=request.user,
+                email=request.user.email,
+            )
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        except DjangoValidationError as exc:
+            detail = (
+                exc.message_dict
+                if hasattr(exc, "message_dict")
+                else {"detail": exc.messages}
+            )
+            return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+
+        log_security_event(
+            request=request,
+            event="interaction.rewind",
+            outcome="success",
+            reason="last_pass_restored",
+            user=request.user,
+            email=request.user.email,
+        )
+
+        serializer = RewindResponseSerializer(
+            {"rewound": True, "profile": profile},
+            context={"request": request},
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class MatchListView(ListAPIView):

@@ -5,6 +5,8 @@
  * par l'application Django "interactions".
  */
 
+import type { DiscoveryProfile } from "./discovery";
+
 /**
  * Décisions autorisées par le backend.
  */
@@ -49,6 +51,20 @@ export interface InteractionResponse {
    * Identifiant du match lorsqu'un match existe.
    */
   match_id: string | null;
+}
+
+export interface RewindState {
+  entitled: boolean;
+  available: boolean;
+  reason:
+    | "available"
+    | "premium_required"
+    | "no_pass_to_rewind";
+}
+
+export interface RewindResponse {
+  rewound: boolean;
+  profile: DiscoveryProfile;
 }
 
 /**

@@ -19,6 +19,8 @@ import type {
   ReceivedLikeActionResult,
   ReceivedLikesPaginatedResponse,
   RespondToReceivedLikePayload,
+  RewindResponse,
+  RewindState,
   UnmatchResponse,
 } from "../types/interactions";
 
@@ -43,6 +45,27 @@ export async function createInteraction(
     },
   );
 
+  return response.data;
+}
+
+export async function getRewindState(): Promise<RewindState> {
+  const response = await httpClient.get<RewindState>(
+    "/v1/interactions/rewind/",
+  );
+  return response.data;
+}
+
+export async function rewindLastPass(): Promise<RewindResponse> {
+  const csrfToken = await ensureCsrfToken();
+  const response = await httpClient.post<RewindResponse>(
+    "/v1/interactions/rewind/",
+    {},
+    {
+      headers: {
+        "X-CSRFToken": csrfToken,
+      },
+    },
+  );
   return response.data;
 }
 
