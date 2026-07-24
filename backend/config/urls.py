@@ -21,6 +21,13 @@ from django.urls import include, path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
+from django.contrib.staticfiles.views import serve as serve_static
+
+
+# Identité textuelle de l'espace d'administration.
+admin.site.site_header = "Administration Mbolo"
+admin.site.site_title = "Mbolo Admin"
+admin.site.index_title = "Pilotage sécurisé de la plateforme"
 
 urlpatterns = [
     path(
@@ -64,6 +71,10 @@ urlpatterns = [
     	"api/v1/profiles/photos/",
     	include("apps.photos.urls"),
     ),
+    path(
+        "api/v1/premium/",
+        include("apps.subscriptions.urls"),
+    ),
 
 ]
 
@@ -89,5 +100,14 @@ elif settings.SERVE_MEDIA_LOCALLY:
             {
                 "document_root": settings.MEDIA_ROOT,
             },
+        ),
+        # APP_DEBUG reste volontairement désactivé. Cette route locale sert
+        # néanmoins les ressources CSS/JS de Django et notre thème Mbolo.
+        # Elle n'est active que lorsque SERVE_MEDIA_LOCALLY=True et devra être
+        # remplacée en production par Nginx/WhiteNoise/CDN.
+        re_path(
+            r"^static/(?P<path>.*)$",
+            serve_static,
+            {"insecure": True},
         ),
     ]

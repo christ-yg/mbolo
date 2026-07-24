@@ -88,17 +88,24 @@ class ProfileVerificationAdmin(admin.ModelAdmin):
     """
 
     list_display = (
-        "id",
-        "profile",
-        "status",
+        "member",
+        "status_badge",
         "submitted_at",
         "reviewed_at",
     )
     list_filter = ("status", "submitted_at", "reviewed_at")
+    search_fields = (
+        "profile__display_name",
+        "profile__user__email",
+    )
+    list_select_related = ("profile", "profile__user")
+    ordering = ("-submitted_at",)
+    date_hierarchy = "submitted_at"
+    list_per_page = 30
     readonly_fields = (
         "id",
         "profile",
-        "selfie_preview",
+        "comparison_preview",
         "submitted_at",
         "reviewed_at",
         "created_at",
@@ -108,7 +115,7 @@ class ProfileVerificationAdmin(admin.ModelAdmin):
         "id",
         "profile",
         "status",
-        "selfie_preview",
+        "comparison_preview",
         "rejection_reason",
         "submitted_at",
         "reviewed_at",
@@ -117,25 +124,88 @@ class ProfileVerificationAdmin(admin.ModelAdmin):
     )
     actions = ("approve_requests", "reject_requests")
 
-    @admin.display(description="Selfie privé")
-    def selfie_preview(self, verification):
-        if not verification.selfie:
-            return "Aucun selfie"
+    @admin.display(description="Membre", ordering="profile__display_name")
+    def member(self, verification):
+        return format_html(
+            "<strong>{}</strong><br><small>{}</small>",
+            verification.profile.display_name or "Profil sans nom",
+            verification.profile.user.email,
+        )
 
+    @admin.display(description="Statut", ordering="status")
+    def status_badge(self, verification):
+        labels = {
+            ProfileVerification.Status.NOT_SUBMITTED: ("Non demandée", "neutral"),
+            ProfileVerification.Status.PENDING: ("En attente", "pending"),
+            ProfileVerification.Status.APPROVED: ("Approuvée", "approved"),
+            ProfileVerification.Status.REJECTED: ("Refusée", "rejected"),
+        }
+        label, css_class = labels.get(
+            verification.status,
+            (verification.status, "neutral"),
+        )
+        return format_html(
+            '<span class="mbolo-status mbolo-status--{}">{}</span>',
+            css_class,
+            label,
+        )
+
+    @staticmethod
+    def _private_image_data_uri(image_field):
+        """Lit une image côté serveur sans créer d'URL publique."""
+        if not image_field:
+            return ""
         try:
-            verification.selfie.open("rb")
+            image_field.open("rb")
             encoded = base64.b64encode(
-                verification.selfie.read()
+                image_field.read()
             ).decode("ascii")
+        except (FileNotFoundError, OSError, ValueError):
+            return ""
         finally:
-            verification.selfie.close()
+            try:
+                image_field.close()
+            except (AttributeError, ValueError):
+                pass
+        return f"data:image/webp;base64,{encoded}"
+
+    @admin.display(description="Comparaison humaine sécurisée")
+    def comparison_preview(self, verification):
+        selfie_uri = self._private_image_data_uri(verification.selfie)
+        primary = verification.profile.photos.filter(
+            is_primary=True,
+        ).first()
+        primary_uri = self._private_image_data_uri(
+            primary.image if primary else None
+        )
+
+        if not selfie_uri:
+            return "Le selfie privé est introuvable."
 
         return format_html(
-            '<img src="data:image/webp;base64,{}" '
-            'style="max-width:420px;max-height:520px;object-fit:contain" '
-            'alt="Selfie privé de vérification">',
-            encoded,
+            '<div class="mbolo-comparison">'
+            '<figure><figcaption>Photo principale</figcaption>{}</figure>'
+            '<figure><figcaption>Selfie privé envoyé</figcaption>'
+            '<img src="{}" alt="Selfie privé de vérification"></figure>'
+            "</div>",
+            (
+                format_html(
+                    '<img src="{}" alt="Photo principale du profil">',
+                    primary_uri,
+                )
+                if primary_uri
+                else format_html(
+                    '<div class="mbolo-image-missing">'
+                    "Aucune photo principale disponible</div>"
+                )
+            ),
+            selfie_uri,
         )
+
+    class Media:
+        css = {
+            "all": ("admin/css/mbolo_admin.css",),
+        }
 
     @staticmethod
     def _notify(verification, approved: bool) -> None:

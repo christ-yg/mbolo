@@ -1,0 +1,21 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | Administration Mbolo{% endblock %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/css/mbolo_admin.css' %}">
+{% endblock %}
+
+{% block branding %}
+  <div class="mbolo-brand">
+    <span class="mbolo-brand__mark">M</span>
+    <span>
+      <strong>Administration Mbolo</strong>
+      <small>Confiance, sécurité et modération</small>
+    </span>
+  </div>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
