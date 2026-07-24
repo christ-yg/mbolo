@@ -3,6 +3,9 @@ from django.urls import path
 from .security_alert_preferences import (
     LoginAlertEmailPreferenceView,
 )
+from .security_event_api import (
+    AccountSecurityEventListView,
+)
 from .views import (
     ActivityHeartbeatView,
     ChangePasswordView,
@@ -56,6 +59,11 @@ urlpatterns = [
         "security/login-activity/",
         LoginActivityListView.as_view(),
         name="login-activity",
+    ),
+    path(
+        "security/events/",
+        AccountSecurityEventListView.as_view(),
+        name="security-events",
     ),
     path(
         "security/login-alert-emails/",

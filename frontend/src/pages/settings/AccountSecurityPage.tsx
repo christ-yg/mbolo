@@ -13,8 +13,10 @@ import {
   getLoginAlertEmailPreference,
   updateLoginAlertEmailPreference,
 } from "../../api/securityAlertService";
+import { getAccountSecurityEvents } from "../../api/securityEventService";
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginActivity } from "../../types/auth";
+import type { AccountSecurityEvent } from "../../types/securityEvents";
 
 type ActionName =
   | "password"
@@ -23,6 +25,15 @@ type ActionName =
   | "loginAlerts"
   | "deactivate"
   | null;
+
+const securityEventLabels: Record<string, string> = {
+  "auth.password_change": "Mot de passe modifié",
+  "auth.sessions_revoke": "Autres sessions fermées",
+  "auth.email_2fa_settings": "Double authentification mise à jour",
+  "auth.login_alert_email_preference": "Alertes par e-mail mises à jour",
+  "auth.password_reset_confirm": "Mot de passe réinitialisé",
+  "auth.account_deactivate": "Compte désactivé",
+};
 
 export function AccountSecurityPage() {
   const { user, refreshCurrentUser } = useAuth();
@@ -44,6 +55,16 @@ export function AccountSecurityPage() {
   const [error, setError] = useState("");
   const [loginActivities, setLoginActivities] =
     useState<LoginActivity[]>([]);
+  const [securityEvents, setSecurityEvents] =
+    useState<AccountSecurityEvent[]>([]);
+
+  async function refreshSecurityEvents() {
+    try {
+      setSecurityEvents(await getAccountSecurityEvents());
+    } catch {
+      // La page reste utilisable si ce journal secondaire échoue.
+    }
+  }
 
   useEffect(() => {
     void getLoginActivity()
@@ -51,6 +72,8 @@ export function AccountSecurityPage() {
       .catch(() => {
         // La page de sécurité reste utilisable si l'historique échoue.
       });
+
+    void refreshSecurityEvents();
 
     void getLoginAlertEmailPreference()
       .then((preference) => {
@@ -94,6 +117,7 @@ export function AccountSecurityPage() {
       setCurrentPassword("");
       setNewPassword("");
       setNewPasswordConfirmation("");
+      await refreshSecurityEvents();
       setMessage(
         "Mot de passe modifié. Toutes les autres sessions ont été fermées.",
       );
@@ -110,6 +134,7 @@ export function AccountSecurityPage() {
     try {
       await revokeOtherSessions({ current_password: sessionPassword });
       setSessionPassword("");
+      await refreshSecurityEvents();
       setMessage("Les autres appareils ont été déconnectés.");
     } catch (caught: unknown) {
       setError(normalizeApiError(caught).message);
@@ -128,6 +153,7 @@ export function AccountSecurityPage() {
       });
       setTwoFactorPassword("");
       await refreshCurrentUser();
+      await refreshSecurityEvents();
       setMessage(
         enabled
           ? "Double authentification activée. Un code sera demandé à la prochaine connexion."
@@ -156,6 +182,7 @@ export function AccountSecurityPage() {
       setLoginAlertEmailsEnabled(
         preference.loginAlertEmailsEnabled,
       );
+      await refreshSecurityEvents();
       setMessage(
         preference.loginAlertEmailsEnabled
           ? "Les alertes de connexion par e-mail sont activées."
@@ -246,6 +273,39 @@ export function AccountSecurityPage() {
             </ul>
           ) : (
             <p>Aucune connexion récente enregistrée.</p>
+          )}
+        </section>
+
+        <section className="security-action-card">
+          <p className="section-heading__eyebrow">Journal de sécurité</p>
+          <h2>Actions sensibles du compte</h2>
+          <p>
+            Mbolo conserve ici uniquement le type d’action, son résultat et
+            sa date. Aucune adresse IP ni information complète sur l’appareil.
+          </p>
+          {securityEvents.length ? (
+            <ul className="security-activity-list">
+              {securityEvents.slice(0, 12).map((securityEvent) => (
+                <li key={securityEvent.id}>
+                  <strong>
+                    {securityEventLabels[securityEvent.event] ??
+                      "Action de sécurité"}
+                  </strong>
+                  <span>
+                    {securityEvent.outcome === "success"
+                      ? "Réussie"
+                      : "Échec"}
+                    {" · "}
+                    {new Intl.DateTimeFormat("fr-FR", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }).format(new Date(securityEvent.createdAt))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Aucune action sensible enregistrée pour le moment.</p>
           )}
         </section>
 

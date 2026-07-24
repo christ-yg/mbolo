@@ -12,29 +12,14 @@ from rest_framework.request import Request
 
 SECURITY_LOGGER_NAME = "mbolo.security"
 
-# Les noms d'événements et les raisons doivent rester simples.
-# Cette expression interdit notamment les retours à la ligne,
-# afin de limiter les risques d'injection dans les journaux.
 SAFE_LABEL_PATTERN = re.compile(
     r"^[a-z0-9_.-]{1,64}$"
 )
-
 
 security_logger = logging.getLogger(
     SECURITY_LOGGER_NAME,
 )
 
-# Configuration locale autonome.
-#
-# Plus tard, en production, ce logger sera envoyé vers :
-# - CloudWatch ;
-# - un SIEM ;
-# - OpenSearch ;
-# - Grafana Loki ;
-# - ou une autre plateforme centralisée.
-#
-# Nous évitons d'ajouter plusieurs handlers si Django recharge
-# automatiquement le module pendant le développement.
 if not security_logger.handlers:
     console_handler = logging.StreamHandler()
 
@@ -52,9 +37,20 @@ security_logger.setLevel(
     logging.INFO,
 )
 
-# Empêche l'événement d'être affiché une deuxième fois
-# par le logger racine de Python ou Django.
 security_logger.propagate = False
+
+
+# Seuls les événements directement utiles au membre sont recopiés dans
+# l'historique visible du compte. Les événements techniques, de découverte,
+# de modération ou d'administration restent exclusivement dans les logs SIEM.
+USER_VISIBLE_SECURITY_EVENTS = {
+    "auth.password_change",
+    "auth.sessions_revoke",
+    "auth.email_2fa_settings",
+    "auth.login_alert_email_preference",
+    "auth.account_deactivate",
+    "auth.password_reset_confirm",
+}
 
 
 def _sanitize_label(
@@ -63,16 +59,6 @@ def _sanitize_label(
 ) -> str:
     """
     Valide un libellé destiné aux journaux.
-
-    Les valeurs doivent contenir uniquement :
-    - lettres minuscules ;
-    - chiffres ;
-    - points ;
-    - tirets ;
-    - underscores.
-
-    Cette validation évite qu'une valeur contrôlée par un client
-    puisse injecter des caractères spéciaux dans les journaux.
     """
 
     if not isinstance(value, str):
@@ -93,9 +79,6 @@ def _sanitize_path(
 ) -> str:
     """
     Nettoie le chemin HTTP avant journalisation.
-
-    Les retours chariot et sauts de ligne sont supprimés afin
-    de conserver un événement sur une seule ligne.
     """
 
     sanitized_value = (
@@ -112,17 +95,6 @@ def pseudonymize_identifier(
 ) -> str | None:
     """
     Transforme une donnée personnelle en pseudonyme HMAC-SHA256.
-
-    Exemples de données concernées :
-    - adresse e-mail ;
-    - adresse IP.
-
-    Le HMAC utilise la clé secrète Django. La valeur originale
-    n'est jamais écrite dans le journal.
-
-    La pseudonymisation reste déterministe :
-    la même valeur produira le même hachage dans cet environnement,
-    ce qui permet de corréler plusieurs événements de sécurité.
     """
 
     if not isinstance(value, str):
@@ -148,15 +120,7 @@ def get_client_ip(
     request: Request,
 ) -> str:
     """
-    Récupère l'adresse IP utilisée pour la journalisation locale.
-
-    Nous utilisons uniquement REMOTE_ADDR.
-
-    Nous ne faisons pas encore confiance à X-Forwarded-For,
-    car cet en-tête peut être falsifié lorsqu'aucun reverse proxy
-    de confiance n'est chargé de le remplacer.
-
-    La valeur retournée sera ensuite pseudonymisée.
+    Récupère REMOTE_ADDR avant pseudonymisation.
     """
 
     client_ip = request.META.get(
@@ -168,6 +132,55 @@ def get_client_ip(
         return ""
 
     return client_ip.strip()
+
+
+def _persist_user_visible_security_event(
+    *,
+    event: str,
+    outcome: str,
+    reason: str,
+    user: Any | None,
+) -> None:
+    """
+    Copie un événement autorisé dans l'historique du membre.
+
+    L'import local évite une dépendance circulaire au démarrage de Django.
+    Une erreur de persistance ne doit jamais bloquer l'action principale.
+    """
+
+    if event not in USER_VISIBLE_SECURITY_EVENTS:
+        return
+
+    if (
+        user is None
+        or not getattr(user, "is_authenticated", False)
+        or not getattr(user, "pk", None)
+    ):
+        return
+
+    try:
+        from apps.accounts.models import AccountSecurityEvent
+
+        AccountSecurityEvent.objects.create(
+            user=user,
+            event=event,
+            outcome=outcome,
+            reason=reason,
+        )
+
+        retained_ids = list(
+            AccountSecurityEvent.objects.filter(user=user)
+            .values_list("id", flat=True)[:100]
+        )
+
+        AccountSecurityEvent.objects.filter(user=user).exclude(
+            id__in=retained_ids,
+        ).delete()
+    except Exception:
+        # Le logger technique reste fonctionnel même si la base est indisponible.
+        security_logger.exception(
+            "Impossible de persister l'événement de sécurité utilisateur."
+        )
 
 
 def log_security_event(
@@ -182,15 +195,8 @@ def log_security_event(
     """
     Écrit un événement de sécurité JSON sur une seule ligne.
 
-    Paramètres :
-    - request : requête HTTP concernée ;
-    - event : catégorie d'événement ;
-    - outcome : résultat, par exemple success ou failure ;
-    - reason : raison technique contrôlée ;
-    - user : utilisateur Django si disponible ;
-    - email : e-mail utilisé, pseudonymisé avant journalisation.
-
-    Aucune donnée d'authentification sensible n'est acceptée.
+    Après la journalisation SIEM, certains événements sensibles sont aussi
+    enregistrés dans un historique minimal visible par l'utilisateur.
     """
 
     safe_event = _sanitize_label(
@@ -242,8 +248,6 @@ def log_security_event(
         "user_id": user_id,
     }
 
-    # separators réduit les espaces inutiles et produit
-    # un événement JSON compact adapté à l'ingestion SIEM.
     serialized_payload = json.dumps(
         payload,
         ensure_ascii=False,
@@ -253,4 +257,11 @@ def log_security_event(
 
     security_logger.info(
         serialized_payload
+    )
+
+    _persist_user_visible_security_event(
+        event=safe_event,
+        outcome=safe_outcome,
+        reason=safe_reason,
+        user=user,
     )

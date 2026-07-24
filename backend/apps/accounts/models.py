@@ -168,3 +168,47 @@ class LoginActivity(models.Model):
                 name="account_login_user_created_idx",
             ),
         ]
+
+
+class AccountSecurityEvent(models.Model):
+    """
+    Historique utilisateur des actions sensibles du compte.
+
+    Ce modèle ne conserve volontairement ni adresse IP, ni User-Agent,
+    ni chemin HTTP, ni adresse e-mail. Les journaux techniques SIEM restent
+    séparés de cet historique lisible par le membre.
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="security_events",
+    )
+    event = models.CharField(
+        max_length=64,
+    )
+    outcome = models.CharField(
+        max_length=32,
+    )
+    reason = models.CharField(
+        max_length=64,
+        default="not_applicable",
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+    )
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=("user", "-created_at"),
+                name="acct_sec_user_created_idx",
+            ),
+        ]
