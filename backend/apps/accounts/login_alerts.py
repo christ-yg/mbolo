@@ -1,10 +1,11 @@
 """
 Alertes de nouvelle connexion pour Mbolo.
 
-Ce module crée deux canaux complémentaires :
+Ce module crée trois canaux complémentaires :
 
 1. une notification durable dans le centre de notifications ;
-2. un e-mail de sécurité envoyé à l'adresse du compte.
+2. une diffusion privée en temps réel par WebSocket ;
+3. un e-mail de sécurité envoyé à l'adresse du compte.
 
 Principes de sécurité :
 
@@ -94,6 +95,11 @@ def notify_unrecognized_login(
 
     La clé de source contient uniquement l'UUID aléatoire de l'activité.
     Elle évite la duplication si la fonction est appelée deux fois.
+
+    Le nom d'événement WebSocket doit rester ``security.notification`` :
+    c'est le contrat déjà écouté par le centre de notifications React.
+    Ainsi, si la page est ouverte, elle se resynchronise immédiatement sans
+    rechargement manuel.
     """
 
     notification, created = Notification.objects.get_or_create(
@@ -118,7 +124,7 @@ def notify_unrecognized_login(
     if created:
         broadcast_notification_created(
             notification=notification,
-            event_name="security.login_detected",
+            event_name="security.notification",
             extra_payload={
                 "security_event": "unrecognized_login",
             },

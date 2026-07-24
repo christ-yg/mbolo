@@ -109,7 +109,18 @@ class NewLoginAlertTests(APITestCase):
         )
         self.assertEqual(len(mail.outbox), 0)
 
-    def test_new_device_creates_notification_and_email(self) -> None:
+    @patch(
+        "apps.accounts.login_alerts.broadcast_notification_created"
+    )
+    def test_new_device_creates_notification_email_and_realtime_event(
+        self,
+        mocked_broadcast,
+    ) -> None:
+        """
+        Le centre React écoute précisément ``security.notification``.
+        Ce test protège le contrat temps réel contre toute régression.
+        """
+
         first_response = self._login(
             user_agent=self.chrome_windows,
             remote_addr="203.0.113.10",
@@ -137,6 +148,14 @@ class NewLoginAlertTests(APITestCase):
         self.assertNotIn("198.51.100.25", str(alert.metadata))
         self.assertNotIn("198.51.100.25", alert.body)
         self.assertNotIn(" à ", alert.body)
+
+        mocked_broadcast.assert_called_once_with(
+            notification=alert,
+            event_name="security.notification",
+            extra_payload={
+                "security_event": "unrecognized_login",
+            },
+        )
 
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(
