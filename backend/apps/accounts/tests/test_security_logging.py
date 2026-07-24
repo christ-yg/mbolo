@@ -248,6 +248,8 @@ class SecurityLoggingTests(TestCase):
                     "password_confirmation": (
                         registration_password
                     ),
+                    "accept_terms": True,
+                    "confirm_adult": True,
                 },
                 format="json",
                 HTTP_X_CSRFTOKEN=csrf_token,

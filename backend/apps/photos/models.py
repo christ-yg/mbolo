@@ -29,6 +29,7 @@ from django.core.validators import (
 )
 from django.db import models
 from django.db.models import Q
+from django.conf import settings
 
 
 def profile_photo_upload_path(
@@ -73,6 +74,11 @@ class ProfilePhoto(models.Model):
     un utilisateur ordinaire ne pourra modifier ou supprimer
     que les photos appartenant à son propre profil.
     """
+
+    class ModerationStatus(models.TextChoices):
+        PENDING = "pending", "En attente"
+        APPROVED = "approved", "Approuvée"
+        REJECTED = "rejected", "Refusée"
 
     # UUID exposable dans les routes API.
     #
@@ -122,6 +128,32 @@ class ProfilePhoto(models.Model):
     # ne possède jamais deux photos principales simultanément.
     is_primary = models.BooleanField(
         default=False,
+    )
+
+    moderation_status = models.CharField(
+        max_length=16,
+        choices=ModerationStatus.choices,
+        default=ModerationStatus.PENDING,
+        db_index=True,
+    )
+
+    moderation_note = models.TextField(
+        blank=True,
+        default="",
+        help_text="Note interne, jamais exposée aux membres.",
+    )
+
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_profile_photos",
+    )
+
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
     )
 
     # Date de création de la photo.

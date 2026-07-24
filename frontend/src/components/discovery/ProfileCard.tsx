@@ -376,6 +376,12 @@ export function ProfileCard({
               profile.dating_intent,
             )}
           </span>
+
+          {profile.distance_label ? (
+            <span title="Distance approximative entre les centres des villes déclarées">
+              ◉ {profile.distance_label}
+            </span>
+          ) : null}
         </div>
 
         {profile.common_interest_labels.length > 0 ? (

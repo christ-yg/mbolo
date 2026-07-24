@@ -21,6 +21,11 @@ from apps.core.security_logging import log_security_event
 from .email_verification import (
     send_email_verification_message,
 )
+from .email_2fa import (
+    InvalidTwoFactorChallenge,
+    consume_email_two_factor_challenge,
+    create_email_two_factor_challenge,
+)
 from .password_reset import send_password_reset_message
 from .privacy import (
     build_personal_data_export,
@@ -28,6 +33,7 @@ from .privacy import (
 )
 from .session_security import revoke_other_sessions
 from .models import User
+from .login_activity import record_login_activity
 from .presence import (
     mark_user_offline,
     touch_user_presence,
@@ -40,6 +46,8 @@ from .serializers import (
     DeleteAccountSerializer,
     EmailVerificationConfirmSerializer,
     EmailVerificationRequestSerializer,
+    EmailTwoFactorConfirmSerializer,
+    EmailTwoFactorSettingsSerializer,
     LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
@@ -153,8 +161,39 @@ class LoginView(APIView):
 
         user = serializer.validated_data["user"]
 
+        if user.email_2fa_enabled:
+            challenge_token, masked_email = (
+                create_email_two_factor_challenge(user)
+            )
+            log_security_event(
+                request=request,
+                event="auth.login_2fa_challenge",
+                outcome="success",
+                reason="code_sent",
+                user=user,
+                email=user.email,
+            )
+            return Response(
+                {
+                    "data": {
+                        "requiresTwoFactor": True,
+                        "challengeToken": challenge_token,
+                        "maskedEmail": masked_email,
+                    },
+                    "message": (
+                        "Un code temporaire a été envoyé par e-mail."
+                    ),
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+
         login(request, user)
         touch_user_presence(user)
+        record_login_activity(
+            request=request,
+            user=user,
+            method="password",
+        )
 
         log_security_event(
             request=request,
@@ -198,6 +237,59 @@ class LoginView(APIView):
         )
 
         return super().throttled(request, wait)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class EmailTwoFactorConfirmView(APIView):
+    authentication_classes: tuple = ()
+    permission_classes = (AllowAny,)
+
+    def post(self, request: Request) -> Response:
+        serializer = EmailTwoFactorConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            user = consume_email_two_factor_challenge(
+                challenge_token=serializer.validated_data["challenge_token"],
+                code=serializer.validated_data["code"],
+            )
+        except InvalidTwoFactorChallenge as exc:
+            log_security_event(
+                request=request,
+                event="auth.login_2fa_confirm",
+                outcome="failure",
+                reason="invalid_or_expired_code",
+            )
+            raise ValidationError(
+                {"code": "Ce code est invalide ou a expiré."}
+            ) from exc
+
+        login(request, user)
+        touch_user_presence(user)
+        record_login_activity(
+            request=request,
+            user=user,
+            method="email_2fa",
+        )
+        log_security_event(
+            request=request,
+            event="auth.login_2fa_confirm",
+            outcome="success",
+            reason="authenticated",
+            user=user,
+            email=user.email,
+        )
+        return Response(
+            {
+                "data": {
+                    "id": str(user.id),
+                    "email": user.email,
+                    "isEmailVerified": user.is_email_verified,
+                    "emailTwoFactorEnabled": user.email_2fa_enabled,
+                },
+                "message": "Connexion confirmée.",
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -383,6 +475,30 @@ class ActivityHeartbeatView(APIView):
         )
 
 
+class LoginActivityListView(APIView):
+    """Retourne uniquement l'historique du membre authentifié."""
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request: Request) -> Response:
+        activities = request.user.login_activities.all()[:20]
+        return Response(
+            {
+                "data": [
+                    {
+                        "id": str(activity.id),
+                        "method": activity.method,
+                        "device": activity.device,
+                        "ipFingerprint": activity.ip_fingerprint,
+                        "createdAt": activity.created_at.isoformat(),
+                    }
+                    for activity in activities
+                ]
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class CurrentUserView(RetrieveAPIView):
     serializer_class = CurrentUserSerializer
     permission_classes = (IsAuthenticated,)
@@ -540,6 +656,50 @@ class RevokeOtherSessionsView(APIView):
             {
                 "message": "Les autres sessions ont été déconnectées.",
                 "data": {"revokedSessions": revoked},
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class EmailTwoFactorSettingsView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def patch(self, request: Request) -> Response:
+        serializer = EmailTwoFactorSettingsSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        enabled = serializer.validated_data["enabled"]
+        if enabled and not user.is_email_verified:
+            raise ValidationError(
+                {
+                    "enabled": (
+                        "Vérifie d’abord ton adresse e-mail avant "
+                        "d’activer la double authentification."
+                    )
+                }
+            )
+        user.email_2fa_enabled = enabled
+        user.save(update_fields=["email_2fa_enabled", "updated_at"])
+        log_security_event(
+            request=request,
+            event="auth.email_2fa_settings",
+            outcome="success",
+            reason="enabled" if enabled else "disabled",
+            user=user,
+            email=user.email,
+        )
+        return Response(
+            {
+                "data": {"emailTwoFactorEnabled": enabled},
+                "message": (
+                    "Double authentification activée."
+                    if enabled
+                    else "Double authentification désactivée."
+                ),
             },
             status=status.HTTP_200_OK,
         )

@@ -31,6 +31,7 @@ import { normalizeApiError } from "../api/apiError";
 import { accountRealtimeHub } from "../api/accountRealtime";
 import {
   getCurrentUser,
+  confirmEmailTwoFactor,
   loginUser,
   logoutUser,
   sendActivityHeartbeat,
@@ -38,7 +39,9 @@ import {
 
 import type {
   AuthenticatedUser,
+  EmailTwoFactorConfirmPayload,
   LoginPayload,
+  LoginResult,
 } from "../types/auth";
 
 /**
@@ -68,6 +71,10 @@ export interface AuthContextValue {
    */
   login: (
     payload: LoginPayload,
+  ) => Promise<LoginResult>;
+
+  confirmTwoFactor: (
+    payload: EmailTwoFactorConfirmPayload,
   ) => Promise<AuthenticatedUser>;
 
   /**
@@ -252,11 +259,23 @@ export function AuthProvider({
   const login = useCallback(
     async (
       payload: LoginPayload,
+    ): Promise<LoginResult> => {
+      const result = await loginUser(payload);
+      if (!result.requiresTwoFactor) {
+        setUser(result.user);
+      }
+      return result;
+    },
+    [],
+  );
+
+  const confirmTwoFactor = useCallback(
+    async (
+      payload: EmailTwoFactorConfirmPayload,
     ): Promise<AuthenticatedUser> => {
-      const authenticatedUser = await loginUser(payload);
-
+      const authenticatedUser =
+        await confirmEmailTwoFactor(payload);
       setUser(authenticatedUser);
-
       return authenticatedUser;
     },
     [],
@@ -284,6 +303,7 @@ export function AuthProvider({
       isInitializing,
       isAuthenticated: user !== null,
       login,
+      confirmTwoFactor,
       logout,
       refreshCurrentUser,
     }),
@@ -291,6 +311,7 @@ export function AuthProvider({
       user,
       isInitializing,
       login,
+      confirmTwoFactor,
       logout,
       refreshCurrentUser,
     ],

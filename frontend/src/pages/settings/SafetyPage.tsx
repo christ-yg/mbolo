@@ -254,6 +254,22 @@ export function SafetyPage() {
         </Link>
       </section>
 
+      <section className="safety-account-controls">
+        <div>
+          <p className="safety-settings__eyebrow">
+            Suivi transparent
+          </p>
+          <h2>Mes signalements</h2>
+          <p>
+            Retrouve les signalements que tu as envoyés et suis leur
+            état sans exposer les notes privées de la modération.
+          </p>
+        </div>
+        <Link to="/reports">
+          Suivre mes signalements
+        </Link>
+      </section>
+
       <section className="safety-principles">
         <article>
           <span aria-hidden="true">01</span>

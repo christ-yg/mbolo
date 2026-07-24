@@ -6,8 +6,11 @@ from .views import (
     CurrentUserView,
     EmailVerificationConfirmView,
     EmailVerificationRequestView,
+    EmailTwoFactorConfirmView,
+    EmailTwoFactorSettingsView,
     DeactivateAccountView,
     LoginView,
+    LoginActivityListView,
     LogoutView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
@@ -32,6 +35,11 @@ urlpatterns = [
         name="login",
     ),
     path(
+        "login/2fa/confirm/",
+        EmailTwoFactorConfirmView.as_view(),
+        name="login-2fa-confirm",
+    ),
+    path(
         "logout/",
         LogoutView.as_view(),
         name="logout",
@@ -40,6 +48,11 @@ urlpatterns = [
         "activity/",
         ActivityHeartbeatView.as_view(),
         name="activity-heartbeat",
+    ),
+    path(
+        "security/login-activity/",
+        LoginActivityListView.as_view(),
+        name="login-activity",
     ),
     path(
         "me/",
@@ -75,6 +88,11 @@ urlpatterns = [
         "security/revoke-sessions/",
         RevokeOtherSessionsView.as_view(),
         name="revoke-other-sessions",
+    ),
+    path(
+        "security/email-2fa/",
+        EmailTwoFactorSettingsView.as_view(),
+        name="email-2fa-settings",
     ),
     path(
         "security/deactivate/",

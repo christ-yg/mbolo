@@ -13,6 +13,7 @@ En production, les comptes administratifs devront respecter :
 """
 
 from django.contrib import admin
+from django.utils import timezone
 
 from .models import ProfilePhoto
 
@@ -28,12 +29,15 @@ class ProfilePhotoAdmin(admin.ModelAdmin):
         "profile_id",
         "position",
         "is_primary",
+        "moderation_status",
+        "reviewed_at",
         "created_at",
         "updated_at",
     )
 
     list_filter = (
         "is_primary",
+        "moderation_status",
         "position",
         "created_at",
     )
@@ -48,6 +52,8 @@ class ProfilePhotoAdmin(admin.ModelAdmin):
         "id",
         "profile",
         "image",
+        "reviewed_by",
+        "reviewed_at",
         "created_at",
         "updated_at",
     )
@@ -60,6 +66,25 @@ class ProfilePhotoAdmin(admin.ModelAdmin):
         "profile",
         "profile__user",
     )
+
+    actions = ("approve_photos", "reject_photos")
+
+    @admin.action(description="Approuver les photos sélectionnées")
+    def approve_photos(self, request, queryset):
+        queryset.update(
+            moderation_status=ProfilePhoto.ModerationStatus.APPROVED,
+            reviewed_by=request.user,
+            reviewed_at=timezone.now(),
+        )
+
+    @admin.action(description="Refuser les photos sélectionnées")
+    def reject_photos(self, request, queryset):
+        queryset.update(
+            moderation_status=ProfilePhoto.ModerationStatus.REJECTED,
+            is_primary=False,
+            reviewed_by=request.user,
+            reviewed_at=timezone.now(),
+        )
 
     def get_queryset(self, request):
         """

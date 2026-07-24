@@ -3,6 +3,7 @@ import type {
   BlockedUsersPaginatedResponse,
   ProfileReportPayload,
   ProfileSafetyActionResponse,
+  UserReportsPaginatedResponse,
 } from "../types/safety";
 
 function readCookie(name: string): string {
@@ -132,4 +133,29 @@ export async function unblockUser(
   if (!response.ok) {
     throw new Error(await readError(response));
   }
+}
+
+export async function getMyReports(
+  page = 1,
+  pageSize = 20,
+): Promise<UserReportsPaginatedResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+
+  const response = await fetch(
+    `/api/v1/safety/reports/?${params.toString()}`,
+    {
+      method: "GET",
+      credentials: "include",
+      headers: {Accept: "application/json"},
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+
+  return response.json() as Promise<UserReportsPaginatedResponse>;
 }

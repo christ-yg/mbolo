@@ -550,3 +550,153 @@ class Report(models.Model):
             *args,
             **kwargs,
         )
+
+
+class ModerationSanctionType(models.TextChoices):
+    """Mesures applicables par les modérateurs autorisés."""
+
+    WARNING = "warning", "Avertissement"
+    SUSPENSION_7_DAYS = "suspension_7_days", "Suspension de 7 jours"
+    SUSPENSION_30_DAYS = "suspension_30_days", "Suspension de 30 jours"
+    PERMANENT_SUSPENSION = (
+        "permanent_suspension",
+        "Suspension sans échéance",
+    )
+
+
+class ModerationSanction(models.Model):
+    """
+    Journal immuable des mesures prises à la suite d'un signalement.
+
+    Le membre concerné ne reçoit jamais l'identité du modérateur, la note
+    interne ni l'identité de la personne ayant effectué le signalement.
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid4,
+        editable=False,
+    )
+    report = models.ForeignKey(
+        Report,
+        on_delete=models.PROTECT,
+        related_name="sanctions",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="moderation_sanctions",
+    )
+    sanction_type = models.CharField(
+        max_length=32,
+        choices=ModerationSanctionType.choices,
+        db_index=True,
+    )
+    moderator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="issued_moderation_sanctions",
+    )
+    internal_note = models.TextField(
+        blank=True,
+        default="",
+        max_length=2000,
+    )
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+    )
+
+    class Meta:
+        db_table = "safety_moderation_sanction"
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=("user", "-created_at"),
+                name="sanction_user_created_idx",
+            ),
+            models.Index(
+                fields=("report", "-created_at"),
+                name="sanction_report_created_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"ModerationSanction<{self.id}>"
+
+
+class SanctionAppealStatus(models.TextChoices):
+    """États contrôlés d'une demande de révision."""
+
+    PENDING = "pending", "En attente"
+    ACCEPTED = "accepted", "Acceptée"
+    REJECTED = "rejected", "Refusée"
+
+
+class SanctionAppeal(models.Model):
+    """
+    Contestation envoyée par le membre sanctionné.
+
+    Une sanction ne peut recevoir qu'une seule contestation. Le membre ne
+    choisit jamais lui-même la sanction liée : le serveur sélectionne sa
+    sanction active après vérification de ses identifiants.
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid4,
+        editable=False,
+    )
+    sanction = models.OneToOneField(
+        ModerationSanction,
+        on_delete=models.PROTECT,
+        related_name="appeal",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="sanction_appeals",
+    )
+    message = models.TextField(max_length=2000)
+    status = models.CharField(
+        max_length=16,
+        choices=SanctionAppealStatus.choices,
+        default=SanctionAppealStatus.PENDING,
+        db_index=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="reviewed_sanction_appeals",
+    )
+    moderator_note = models.TextField(
+        blank=True,
+        default="",
+        max_length=2000,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "safety_sanction_appeal"
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=("status", "-created_at"),
+                name="appeal_status_created_idx",
+            ),
+            models.Index(
+                fields=("user", "-created_at"),
+                name="appeal_user_created_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"SanctionAppeal<{self.id}>"

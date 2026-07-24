@@ -37,6 +37,7 @@ export interface AuthenticatedUser {
    * Indique si l'adresse e-mail a été confirmée.
    */
   isEmailVerified: boolean;
+  emailTwoFactorEnabled: boolean;
 }
 
 /**
@@ -50,6 +51,8 @@ export interface RegisterPayload {
    * Ce nom correspond exactement au champ attendu par Django.
    */
   password_confirmation: string;
+  accept_terms: boolean;
+  confirm_adult: boolean;
 }
 
 /**
@@ -93,6 +96,38 @@ export interface LoginResponseData {
   id: string;
   email: string;
   isEmailVerified: boolean;
+  emailTwoFactorEnabled?: boolean;
+}
+
+export interface EmailTwoFactorChallenge {
+  requiresTwoFactor: true;
+  challengeToken: string;
+  maskedEmail: string;
+}
+
+export type LoginResult =
+  | {
+      requiresTwoFactor: false;
+      user: AuthenticatedUser;
+    }
+  | EmailTwoFactorChallenge;
+
+export interface EmailTwoFactorConfirmPayload {
+  challenge_token: string;
+  code: string;
+}
+
+export interface EmailTwoFactorSettingsPayload {
+  current_password: string;
+  enabled: boolean;
+}
+
+export interface LoginActivity {
+  id: string;
+  method: "password" | "email_2fa";
+  device: string;
+  ipFingerprint: string;
+  createdAt: string;
 }
 
 /**

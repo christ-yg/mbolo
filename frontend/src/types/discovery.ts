@@ -86,6 +86,13 @@ export interface DiscoveryProfile {
   common_interests: string[];
   common_interest_labels: string[];
   compatibility_score: number;
+
+  /**
+   * Distance volontairement arrondie par le serveur.
+   *
+   * Aucun GPS, aucune latitude et aucune longitude ne sont transmis.
+   */
+  distance_label: string | null;
 }
 
 /**

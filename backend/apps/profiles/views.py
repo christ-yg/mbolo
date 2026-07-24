@@ -161,7 +161,10 @@ class CurrentProfileVerificationView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not profile.photos.filter(is_primary=True).exists():
+        if not profile.photos.filter(
+            is_primary=True,
+            moderation_status="approved",
+        ).exists():
             return Response(
                 {
                     "detail": (
@@ -360,7 +363,7 @@ class DiscoveryProfileListView(ListAPIView):
             and preferences.only_profiles_with_photos
         ):
             queryset = queryset.filter(
-                photos__isnull=False,
+                photos__moderation_status="approved",
             ).distinct()
 
         # Les photos sont préchargées en une seule requête supplémentaire.

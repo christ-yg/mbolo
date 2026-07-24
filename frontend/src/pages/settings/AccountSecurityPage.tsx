@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { normalizeApiError } from "../../api/apiError";
@@ -6,11 +6,16 @@ import {
   changePassword,
   deactivateAccount,
   revokeOtherSessions,
+  setEmailTwoFactor,
+  getLoginActivity,
 } from "../../api/authService";
+import { useAuth } from "../../hooks/useAuth";
+import type { LoginActivity } from "../../types/auth";
 
-type ActionName = "password" | "sessions" | "deactivate" | null;
+type ActionName = "password" | "sessions" | "twoFactor" | "deactivate" | null;
 
 export function AccountSecurityPage() {
+  const { user, refreshCurrentUser } = useAuth();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirmation, setNewPasswordConfirmation] =
@@ -18,9 +23,20 @@ export function AccountSecurityPage() {
   const [sessionPassword, setSessionPassword] = useState("");
   const [deactivationPassword, setDeactivationPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [twoFactorPassword, setTwoFactorPassword] = useState("");
   const [activeAction, setActiveAction] = useState<ActionName>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [loginActivities, setLoginActivities] =
+    useState<LoginActivity[]>([]);
+
+  useEffect(() => {
+    void getLoginActivity()
+      .then(setLoginActivities)
+      .catch(() => {
+        // La page de sécurité reste utilisable si l'historique échoue.
+      });
+  }, []);
 
   function begin(action: ActionName) {
     setActiveAction(action);
@@ -65,6 +81,28 @@ export function AccountSecurityPage() {
       await revokeOtherSessions({ current_password: sessionPassword });
       setSessionPassword("");
       setMessage("Les autres appareils ont été déconnectés.");
+    } catch (caught: unknown) {
+      setError(normalizeApiError(caught).message);
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function submitTwoFactor(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    begin("twoFactor");
+    try {
+      const enabled = await setEmailTwoFactor({
+        current_password: twoFactorPassword,
+        enabled: !user?.emailTwoFactorEnabled,
+      });
+      setTwoFactorPassword("");
+      await refreshCurrentUser();
+      setMessage(
+        enabled
+          ? "Double authentification activée. Un code sera demandé à la prochaine connexion."
+          : "Double authentification désactivée.",
+      );
     } catch (caught: unknown) {
       setError(normalizeApiError(caught).message);
     } finally {
@@ -119,6 +157,65 @@ export function AccountSecurityPage() {
       ) : null}
 
       <div className="account-security-grid">
+        <section className="security-action-card">
+          <p className="section-heading__eyebrow">Activité récente</p>
+          <h2>Connexions à mon compte</h2>
+          <p>
+            L’adresse IP exacte n’est jamais affichée ni conservée ici.
+            L’empreinte permet seulement de comparer deux connexions.
+          </p>
+          {loginActivities.length ? (
+            <ul className="security-activity-list">
+              {loginActivities.map((activity) => (
+                <li key={activity.id}>
+                  <strong>{activity.device}</strong>
+                  <span>
+                    {activity.method === "email_2fa"
+                      ? "Code e-mail confirmé"
+                      : "Mot de passe"}
+                    {" · "}
+                    {new Intl.DateTimeFormat("fr-FR", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }).format(new Date(activity.createdAt))}
+                  </span>
+                  <small>Empreinte réseau : {activity.ipFingerprint || "indisponible"}</small>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Aucune connexion récente enregistrée.</p>
+          )}
+        </section>
+
+        <form className="security-action-card" onSubmit={submitTwoFactor}>
+          <p className="section-heading__eyebrow">Connexion renforcée</p>
+          <h2>Double authentification par e-mail</h2>
+          <p>
+            Statut : <strong>
+              {user?.emailTwoFactorEnabled ? "activée" : "désactivée"}
+            </strong>. Après le mot de passe, Mbolo envoie un code temporaire
+            à ton adresse e-mail vérifiée.
+          </p>
+          <label>
+            Mot de passe actuel
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
+              value={twoFactorPassword}
+              onChange={(event) => setTwoFactorPassword(event.target.value)}
+            />
+          </label>
+          <button disabled={activeAction !== null}>
+            {activeAction === "twoFactor"
+              ? "Mise à jour…"
+              : user?.emailTwoFactorEnabled
+                ? "Désactiver la double authentification"
+                : "Activer la double authentification"}
+          </button>
+        </form>
+
         <section className="security-action-card">
           <p className="section-heading__eyebrow">Confiance</p>
           <h2>Badge Profil vérifié</h2>

@@ -51,6 +51,10 @@ from .models import (
     Profile,
     SearchPreferences,
 )
+from .locations import (
+    GABON_CITY_CENTROIDS,
+    approximate_city_distance_km,
+)
 
 
 # Récupère le modèle User réellement configuré dans Django.
@@ -329,6 +333,48 @@ def build_discovery_queryset(
     if advanced_filters_enabled and preferences.preferred_cities:
         queryset = queryset.filter(
             city__in=preferences.preferred_cities,
+        )
+
+    # Proximité géographique approximative et respectueuse de la vie privée.
+    #
+    # Aucune latitude/longitude d'utilisateur n'est stockée. PostgreSQL reçoit
+    # uniquement une table CASE contenant la distance arrondie entre la ville
+    # déclarée du membre connecté et chaque ville connue.
+    current_profile = getattr(user, "profile", None)
+    current_city = getattr(current_profile, "city", "")
+    if (
+        advanced_filters_enabled
+        and current_city in GABON_CITY_CENTROIDS
+    ):
+        distance_cases = [
+            When(
+                city=candidate_city,
+                then=Value(
+                    approximate_city_distance_km(
+                        current_city,
+                        candidate_city,
+                    )
+                ),
+            )
+            for candidate_city in GABON_CITY_CENTROIDS
+        ]
+        queryset = queryset.annotate(
+            distance_km=Case(
+                *distance_cases,
+                default=Value(None),
+                output_field=IntegerField(),
+            )
+        ).filter(
+            distance_km__lte=preferences.maximum_distance_km,
+        )
+    else:
+        # Le sérialiseur peut ainsi distinguer clairement une distance
+        # indisponible d'une distance nulle.
+        queryset = queryset.annotate(
+            distance_km=Value(
+                None,
+                output_field=IntegerField(),
+            )
         )
 
     if (

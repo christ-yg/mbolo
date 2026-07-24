@@ -21,8 +21,13 @@ import type {
   CurrentPasswordPayload,
   DeactivateAccountPayload,
   DeleteAccountPayload,
+  EmailTwoFactorConfirmPayload,
+  EmailTwoFactorSettingsPayload,
+  EmailTwoFactorChallenge,
   LoginPayload,
   LoginResponseData,
+  LoginResult,
+  LoginActivity,
   PasswordResetConfirmPayload,
   PasswordResetRequestPayload,
   RegisterPayload,
@@ -148,6 +153,12 @@ function mapAuthenticatedUser(
       : typeof record.is_email_verified === "boolean"
         ? record.is_email_verified
         : false;
+  const emailTwoFactorEnabled =
+    typeof record.emailTwoFactorEnabled === "boolean"
+      ? record.emailTwoFactorEnabled
+      : typeof record.email_2fa_enabled === "boolean"
+        ? record.email_2fa_enabled
+        : false;
 
   if (!id || !email) {
     throw new Error(
@@ -159,6 +170,7 @@ function mapAuthenticatedUser(
     id,
     email,
     isEmailVerified,
+    emailTwoFactorEnabled,
   };
 }
 
@@ -222,12 +234,14 @@ export async function verifyEmailAddress(
  */
 export async function loginUser(
   payload: LoginPayload,
-): Promise<AuthenticatedUser> {
+): Promise<LoginResult> {
   const csrfToken =
     await ensureCsrfToken();
 
   const response = await httpClient.post<
-    AuthenticationApiResponse<LoginResponseData>
+    AuthenticationApiResponse<
+      LoginResponseData | EmailTwoFactorChallenge
+    >
   >(
     "/v1/auth/login/",
     payload,
@@ -248,7 +262,42 @@ export async function loginUser(
   const responseData =
     unwrapResponseData(response.data);
 
-  return mapAuthenticatedUser(responseData);
+  if (
+    isRecord(responseData) &&
+    responseData.requiresTwoFactor === true &&
+    typeof responseData.challengeToken === "string" &&
+    typeof responseData.maskedEmail === "string"
+  ) {
+    return {
+      requiresTwoFactor: true,
+      challengeToken: responseData.challengeToken,
+      maskedEmail: responseData.maskedEmail,
+    };
+  }
+
+  return {
+    requiresTwoFactor: false,
+    user: mapAuthenticatedUser(
+      responseData as LoginResponseData,
+    ),
+  };
+}
+
+export async function confirmEmailTwoFactor(
+  payload: EmailTwoFactorConfirmPayload,
+): Promise<AuthenticatedUser> {
+  const csrfToken = await ensureCsrfToken();
+  const response = await httpClient.post<
+    AuthenticationApiResponse<LoginResponseData>
+  >(
+    "/v1/auth/login/2fa/confirm/",
+    payload,
+    { headers: { "X-CSRFToken": csrfToken } },
+  );
+  clearInMemoryCsrfToken();
+  return mapAuthenticatedUser(
+    unwrapResponseData(response.data),
+  );
 }
 
 
@@ -372,6 +421,30 @@ export async function revokeOtherSessions(
     payload,
     { headers: { "X-CSRFToken": csrfToken } },
   );
+}
+
+export async function setEmailTwoFactor(
+  payload: EmailTwoFactorSettingsPayload,
+): Promise<boolean> {
+  const csrfToken = await ensureCsrfToken();
+  const response = await httpClient.patch<
+    AuthenticationApiResponse<{
+      emailTwoFactorEnabled: boolean;
+    }>
+  >(
+    "/v1/auth/security/email-2fa/",
+    payload,
+    { headers: { "X-CSRFToken": csrfToken } },
+  );
+  return unwrapResponseData(response.data)
+    .emailTwoFactorEnabled;
+}
+
+export async function getLoginActivity(): Promise<LoginActivity[]> {
+  const response = await httpClient.get<
+    AuthenticationApiResponse<LoginActivity[]>
+  >("/v1/auth/security/login-activity/");
+  return unwrapResponseData(response.data);
 }
 
 export async function deactivateAccount(

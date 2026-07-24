@@ -89,11 +89,18 @@ class ProfilePhotoSerializer(
             "image_url",
             "position",
             "is_primary",
+            "moderation_status",
+            "moderation_status_label",
             "created_at",
             "updated_at",
         )
 
         read_only_fields = fields
+
+    moderation_status_label = serializers.CharField(
+        source="get_moderation_status_display",
+        read_only=True,
+    )
 
     def get_image_url(
         self,

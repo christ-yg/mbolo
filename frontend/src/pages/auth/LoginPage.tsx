@@ -70,7 +70,7 @@ export function LoginPage() {
   /**
    * Fonction login fournie par AuthProvider.
    */
-  const { login } = useAuth();
+  const { login, confirmTwoFactor } = useAuth();
 
   const locationState =
     location.state as LoginLocationState | null;
@@ -97,6 +97,9 @@ export function LoginPage() {
 
   const [isPasswordVisible, setIsPasswordVisible] =
     useState(false);
+  const [challengeToken, setChallengeToken] = useState("");
+  const [maskedEmail, setMaskedEmail] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
 
   function handleInputChange(
     event: ChangeEvent<HTMLInputElement>,
@@ -162,11 +165,16 @@ export function LoginPage() {
     setFormErrors({});
 
     try {
-      await login({
+      const result = await login({
         email:
           formValues.email.trim().toLowerCase(),
         password: formValues.password,
       });
+      if (result.requiresTwoFactor) {
+        setChallengeToken(result.challengeToken);
+        setMaskedEmail(result.maskedEmail);
+        return;
+      }
 
       /**
        * Si l'utilisateur avait demandé une route privée,
@@ -190,6 +198,34 @@ export function LoginPage() {
       setFormErrors({
         general: normalizedError.message,
       });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleTwoFactorSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> {
+    event.preventDefault();
+    if (!/^\d{6}$/.test(twoFactorCode)) {
+      setFormErrors({ general: "Saisis le code à six chiffres reçu par e-mail." });
+      return;
+    }
+    setIsSubmitting(true);
+    setFormErrors({});
+    try {
+      await confirmTwoFactor({
+        challenge_token: challengeToken,
+        code: twoFactorCode,
+      });
+      const destination =
+        typeof locationState?.from === "string" &&
+        locationState.from.startsWith("/")
+          ? locationState.from
+          : "/discovery";
+      navigate(destination, { replace: true });
+    } catch (error: unknown) {
+      setFormErrors({ general: normalizeApiError(error).message });
     } finally {
       setIsSubmitting(false);
     }
@@ -306,6 +342,54 @@ export function LoginPage() {
             </div>
           ) : null}
 
+          {challengeToken ? (
+          <form
+            className="auth-form"
+            noValidate
+            onSubmit={handleTwoFactorSubmit}
+          >
+            <div className="form-field">
+              <label htmlFor="login-two-factor-code">
+                Code temporaire
+              </label>
+              <p>
+                Saisis le code envoyé à {maskedEmail}. Il expire dans 10 minutes.
+              </p>
+              <input
+                id="login-two-factor-code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={twoFactorCode}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  setTwoFactorCode(
+                    event.target.value.replace(/\D/g, "").slice(0, 6),
+                  )
+                }
+              />
+            </div>
+            <button
+              className="auth-form__submit"
+              type="submit"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Vérification…" : "Confirmer la connexion"}
+            </button>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => {
+                setChallengeToken("");
+                setTwoFactorCode("");
+                setFormErrors({});
+              }}
+            >
+              Revenir à la connexion
+            </button>
+          </form>
+          ) : (
           <form
             className="auth-form"
             noValidate
@@ -440,7 +524,15 @@ export function LoginPage() {
               Django. Aucun mot de passe n’est enregistré
               dans le navigateur.
             </p>
+
+            <p className="auth-form__security-note">
+              Ton compte fait l’objet d’une sanction ?{" "}
+              <Link to="/sanction-appeal">
+                Demander une révision
+              </Link>
+            </p>
           </form>
+          )}
         </div>
       </section>
     </main>

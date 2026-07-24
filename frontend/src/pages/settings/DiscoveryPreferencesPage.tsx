@@ -137,6 +137,7 @@ export function DiscoveryPreferencesPage() {
         preferences.advanced_filters_effective
           ? preferences.preferred_cities.length +
             preferences.preferred_dating_intents.length +
+            Number(preferences.maximum_distance_km < 500) +
             Number(preferences.only_verified_profiles) +
             Number(preferences.only_profiles_with_photos)
           : 0
@@ -412,6 +413,42 @@ export function DiscoveryPreferencesPage() {
               </label>
             ))}
           </div>
+        </section>
+
+        <section className="discovery-preferences-section discovery-preferences-section--advanced">
+          <div>
+            <p className="section-heading__eyebrow">
+              Proximité · Mbolo Plus
+            </p>
+            <h2>Distance maximale approximative</h2>
+            <p>
+              Mbolo compare uniquement les centres des villes déclarées.
+              Ta position GPS exacte n’est ni demandée ni affichée.
+            </p>
+          </div>
+
+          <label className="discovery-distance-control">
+            <strong>
+              Jusqu’à {preferences.maximum_distance_km} km
+            </strong>
+            <input
+              type="range"
+              min={10}
+              max={500}
+              step={10}
+              disabled={!preferences.advanced_filters_available}
+              value={preferences.maximum_distance_km}
+              onChange={(event) => {
+                setPreferences({
+                  ...preferences,
+                  maximum_distance_km: Number(event.target.value),
+                });
+              }}
+            />
+            <small>
+              Distance indicative à vol d’oiseau, pas un trajet routier.
+            </small>
+          </label>
         </section>
 
         <section className="discovery-preferences-section discovery-preferences-section--advanced">

@@ -14,6 +14,7 @@ import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "../pages/auth/ResetPasswordPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
+import { SanctionAppealPage } from "../pages/auth/SanctionAppealPage";
 import { DiscoveryPage } from "../pages/discovery/DiscoveryPage";
 import { HomePage } from "../pages/home/HomePage";
 import { ReceivedLikesPage } from "../pages/likes/ReceivedLikesPage";
@@ -32,6 +33,8 @@ import { AccountSecurityPage } from "../pages/settings/AccountSecurityPage";
 import { PrivacyCenterPage } from "../pages/settings/PrivacyCenterPage";
 import { BlockedUsersPage } from "../pages/settings/BlockedUsersPage";
 import { DiscoveryPreferencesPage } from "../pages/settings/DiscoveryPreferencesPage";
+import { ReportsPage } from "../pages/settings/ReportsPage";
+import { LegalPage } from "../pages/legal/LegalPage";
 
 export const appRouter = createBrowserRouter([
   {
@@ -68,6 +71,14 @@ export const appRouter = createBrowserRouter([
       {
         path: "/safety",
         element: <SafetyPage />,
+      },
+      {
+        path: "/sanction-appeal",
+        element: <SanctionAppealPage />,
+      },
+      {
+        path: "/legal/:document",
+        element: <LegalPage />,
       },
 
       /**
@@ -162,6 +173,14 @@ export const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <BlockedUsersPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/reports",
+        element: (
+          <ProtectedRoute>
+            <ReportsPage />
           </ProtectedRoute>
         ),
       },

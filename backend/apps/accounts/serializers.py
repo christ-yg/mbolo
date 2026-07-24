@@ -5,6 +5,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.contrib.auth.tokens import default_token_generator
+from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
@@ -15,6 +16,10 @@ from .email_verification import (
     read_email_verification_token,
 )
 from .models import User
+from .legal import (
+    CURRENT_PRIVACY_VERSION,
+    CURRENT_TERMS_VERSION,
+)
 
 
 class CurrentUserSerializer(serializers.ModelSerializer):
@@ -27,6 +32,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "id",
             "email",
             "is_email_verified",
+            "email_2fa_enabled",
             "is_phone_verified",
             "created_at",
         )
@@ -58,6 +64,14 @@ class RegistrationSerializer(serializers.Serializer):
         style={"input_type": "password"},
     )
 
+    accept_terms = serializers.BooleanField(
+        write_only=True,
+    )
+
+    confirm_adult = serializers.BooleanField(
+        write_only=True,
+    )
+
     def validate_email(
         self,
         value: str,
@@ -73,6 +87,16 @@ class RegistrationSerializer(serializers.Serializer):
         attrs: dict[str, Any],
     ) -> dict[str, Any]:
         password = attrs["password"]
+
+        if not attrs["accept_terms"]:
+            raise serializers.ValidationError(
+                {"accept_terms": "Tu dois accepter les documents légaux."}
+            )
+
+        if not attrs["confirm_adult"]:
+            raise serializers.ValidationError(
+                {"confirm_adult": "Mbolo est réservé aux personnes majeures."}
+            )
 
         if password != attrs["password_confirmation"]:
             raise serializers.ValidationError(
@@ -108,6 +132,8 @@ class RegistrationSerializer(serializers.Serializer):
         validated_data.pop(
             "password_confirmation",
         )
+        validated_data.pop("accept_terms")
+        validated_data.pop("confirm_adult")
 
         try:
             return User.objects.create_user(
@@ -115,6 +141,9 @@ class RegistrationSerializer(serializers.Serializer):
                 password=validated_data["password"],
                 is_email_verified=False,
                 is_phone_verified=False,
+                terms_accepted_at=timezone.now(),
+                terms_version=CURRENT_TERMS_VERSION,
+                privacy_version=CURRENT_PRIVACY_VERSION,
             )
         except IntegrityError as exc:
             raise serializers.ValidationError(
@@ -185,6 +214,21 @@ class LoginSerializer(serializers.Serializer):
                         "Ce compte ne peut pas être utilisé."
                     )
                 }
+            )
+
+        if (
+            user.is_suspended
+            and user.suspension_until is not None
+            and user.suspension_until <= timezone.now()
+        ):
+            user.is_suspended = False
+            user.suspension_until = None
+            user.save(
+                update_fields=(
+                    "is_suspended",
+                    "suspension_until",
+                    "updated_at",
+                )
             )
 
         if user.is_suspended:
@@ -440,3 +484,21 @@ class DeleteAccountSerializer(CurrentPasswordSerializer):
                 "Écris exactement SUPPRIMER DEFINITIVEMENT."
             )
         return value
+
+
+class EmailTwoFactorConfirmSerializer(serializers.Serializer):
+    challenge_token = serializers.CharField(
+        max_length=1000,
+        write_only=True,
+    )
+    code = serializers.RegexField(
+        regex=r"^\d{6}$",
+        write_only=True,
+        error_messages={
+            "invalid": "Saisis le code à six chiffres reçu par e-mail.",
+        },
+    )
+
+
+class EmailTwoFactorSettingsSerializer(CurrentPasswordSerializer):
+    enabled = serializers.BooleanField()

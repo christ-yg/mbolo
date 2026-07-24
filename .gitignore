@@ -41,6 +41,26 @@ staticfiles/
 media/
 
 # ==========================================================
+# MÉDIAS DJANGO ET DONNÉES UTILISATEURS
+# ==========================================================
+
+# Médias publics téléversés localement.
+backend/media/
+
+# Médias privés : documents de vérification, photos privées, etc.
+# Ils ne doivent jamais être envoyés sur GitHub.
+backend/private_media/
+private_media/
+
+# Fichiers temporaires créés pendant le traitement des images.
+backend/tmp/
+
+# Autoriser uniquement d'éventuels fichiers .gitkeep servant
+# à conserver une arborescence vide dans Git.
+!backend/media/.gitkeep
+!backend/private_media/.gitkeep
+
+# ==========================================================
 # NODE.JS / REACT
 # ==========================================================
 
@@ -109,22 +129,27 @@ temp/
 .cache/
 
 # ==========================================================
-# SAUVEGARDES
+# SAUVEGARDES LOCALES
 # ==========================================================
 
 *.bak
 *.backup
 *.old
 
-# Fichiers médias téléversés localement.
-backend/media/
+# Toutes les sauvegardes créées par les installateurs Mbolo.
+# Exemple : .super_like_backup_20260724_090824/
+.*_backup_*/
 
-# Fichiers temporaires créés pendant le traitement des images.
-backend/tmp/
+# Variante de sécurité pour d'autres noms contenant "backup".
+.*backup*/
 
-# Sauvegardes locales des installateurs Mbolo
-.profile_edit_backup_*/
-.profile_edit_ui_fix_backup_*/
-
-# Archives locales de transfert de contexte
+# Archives locales de transfert ou d'installation.
 mbolo_*_context.zip
+mbolo_*_ready.zip
+mbolo_*_installer.zip
+
+# ==========================================================
+# FICHIERS DE DÉVELOPPEMENT LOCAUX
+# ==========================================================
+
+*.local

@@ -479,12 +479,14 @@ class DiscoveryEndpointTests(TestCase):
         self.preferences.preferred_genders = []
         self.preferences.preferred_cities = []
         self.preferences.preferred_dating_intents = []
+        self.preferences.maximum_distance_km = 500
 
         self.preferences.save(
             update_fields=[
                 "preferred_genders",
                 "preferred_cities",
                 "preferred_dating_intents",
+                "maximum_distance_km",
                 "updated_at",
             ]
         )

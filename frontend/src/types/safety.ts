@@ -48,3 +48,34 @@ export interface BlockedUsersPaginatedResponse {
   previous: string | null;
   results: BlockedUserItem[];
 }
+
+export type ReportStatus =
+  | "pending"
+  | "under_review"
+  | "resolved"
+  | "rejected";
+
+export interface ReportedProfileSummary {
+  id: string;
+  display_name: string;
+  age: number | null;
+  city: string;
+  photos?: BlockedProfilePhoto[];
+}
+
+export interface UserReportItem {
+  id: string;
+  reported_profile: ReportedProfileSummary | null;
+  reason: ReportReason;
+  description: string;
+  status: ReportStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserReportsPaginatedResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: UserReportItem[];
+}

@@ -85,7 +85,7 @@ export function ProfilePhotosPage() {
     try {
       const result = await uploadProfilePhoto(selectedFile, photos.length === 0);
       setPhotos((current) => sortProfilePhotos([...current, result.data]));
-      setSuccessMessage("Photo ajoutée et sécurisée avec succès.");
+      setSuccessMessage("Photo ajoutée. Elle sera visible après validation par la modération.");
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setSelectedFile(null);
       setPreviewUrl(null);
@@ -147,7 +147,7 @@ export function ProfilePhotosPage() {
         <div>
           <p className="section-heading__eyebrow">Ton image sur Mbolo</p>
           <h1>Mes photos</h1>
-          <p>Ajoute jusqu’à six photos authentiques. Mbolo vérifie, nettoie et réencode chaque image en WebP.</p>
+          <p>Ajoute jusqu’à six photos authentiques. Après le contrôle technique, chaque nouvelle photo est examinée avant d’être affichée aux autres membres.</p>
         </div>
         <div className="profile-photos-page__counter">
           <strong>{photos.length}/{MAX_PHOTOS}</strong>
@@ -191,6 +191,9 @@ export function ProfilePhotosPage() {
             <div className="profile-photo-card__image">
               {photo.image_url ? <img src={photo.image_url} alt={`Photo ${photo.position + 1} du profil`} /> : <span>Image indisponible</span>}
               {photo.is_primary ? <strong>Principale</strong> : null}
+              <span className={`profile-photo-card__status profile-photo-card__status--${photo.moderation_status}`}>
+                {photo.moderation_status_label}
+              </span>
             </div>
             <div className="profile-photo-card__actions">
               <button type="button" disabled={photo.is_primary || isWorking} onClick={() => void handlePrimary(photo)}>

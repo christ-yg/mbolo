@@ -5,6 +5,8 @@ export interface ProfilePhoto {
   image_url: string | null;
   position: number;
   is_primary: boolean;
+  moderation_status: "pending" | "approved" | "rejected";
+  moderation_status_label: string;
   created_at: string;
   updated_at: string;
 }

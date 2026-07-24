@@ -8,6 +8,7 @@ Préfixe défini dans config/urls.py :
 
 from django.urls import path
 
+from .appeal_api import SanctionAppealCreateView
 from .report_views import ReportListCreateView
 from .views import (
     BlockDeleteView,
@@ -21,6 +22,11 @@ app_name = "safety"
 
 
 urlpatterns = [
+    path(
+        "sanction-appeals/",
+        SanctionAppealCreateView.as_view(),
+        name="sanction-appeal-create",
+    ),
     # ---------------------------------------------------------
     # Blocages
     # ---------------------------------------------------------

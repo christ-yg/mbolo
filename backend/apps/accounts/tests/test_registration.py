@@ -30,6 +30,8 @@ class RegistrationEndpointTests(TestCase):
             "password_confirmation": (
                 "A-Very-Strong-Test-Password-2026!"
             ),
+            "accept_terms": True,
+            "confirm_adult": True,
         }
 
     def get_csrf_token(self) -> str:
@@ -119,6 +121,29 @@ class RegistrationEndpointTests(TestCase):
             User.objects.count(),
             0,
         )
+
+    def test_legal_consent_is_required_and_recorded(self) -> None:
+        csrf_token = self.get_csrf_token()
+        refused = self.client.post(
+            self.registration_url,
+            {**self.valid_payload, "accept_terms": False},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+        self.assertEqual(refused.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(User.objects.count(), 0)
+
+        accepted = self.client.post(
+            self.registration_url,
+            self.valid_payload,
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+        self.assertEqual(accepted.status_code, status.HTTP_201_CREATED)
+        user = User.objects.get()
+        self.assertIsNotNone(user.terms_accepted_at)
+        self.assertTrue(user.terms_version)
+        self.assertTrue(user.privacy_version)
 
     def test_weak_password_is_rejected(self) -> None:
         csrf_token = self.get_csrf_token()

@@ -6,7 +6,9 @@
  *
  * - message.notification ;
  * - like.notification ;
- * - match.notification.
+ * - match.notification ;
+ * - report.notification ;
+ * - security.notification.
  *
  * Le toast interne peut afficher un aperçu autorisé.
  * La notification native reste plus discrète lorsque l'application
@@ -33,7 +35,7 @@ import { useAccountRealtime } from "../hooks/useAccountRealtime";
 
 export interface RealtimeNotification {
   id: string;
-  kind: "message" | "like" | "match";
+  kind: "message" | "like" | "match" | "system" | "security";
   title: string;
   body: string;
   targetPath: string;
@@ -153,7 +155,9 @@ function normalizeRealtimeNotification(
   if (
     eventName !== "message.notification" &&
     eventName !== "like.notification" &&
-    eventName !== "match.notification"
+    eventName !== "match.notification" &&
+    eventName !== "report.notification" &&
+    eventName !== "security.notification"
   ) {
     return null;
   }
@@ -195,7 +199,11 @@ function normalizeRealtimeNotification(
       ? "message"
       : eventName === "like.notification"
         ? "like"
-        : "match";
+        : eventName === "match.notification"
+          ? "match"
+          : eventName === "security.notification"
+            ? "security"
+            : "system";
 
   const senderDisplayName =
     readString(event.sender_display_name);
@@ -206,7 +214,7 @@ function normalizeRealtimeNotification(
   const displayName =
     senderDisplayName ??
     otherDisplayName ??
-    (kind === "like" ? "Mbolo" : "Nouveau match");
+    (kind === "match" ? "Nouveau match" : "Mbolo");
 
   return {
     id: notificationId,

@@ -157,6 +157,7 @@ class AdvancedDiscoveryPreferencesTests(APITestCase):
                 "preferred_dating_intents": [],
                 "only_verified_profiles": True,
                 "only_profiles_with_photos": True,
+                "maximum_distance_km": 500,
             },
         )
 

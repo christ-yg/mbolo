@@ -1,6 +1,6 @@
 
 /**
- * Toast global pour les messages, likes et nouveaux matchs.
+ * Toast global pour les messages, likes, matchs et informations Mbolo.
  */
 
 import { useCallback } from "react";
@@ -20,7 +20,7 @@ function getInitial(displayName: string): string {
 
 
 function getKindLabel(
-  kind: "message" | "like" | "match",
+  kind: "message" | "like" | "match" | "system" | "security",
 ): string {
   switch (kind) {
     case "message":
@@ -29,6 +29,10 @@ function getKindLabel(
       return "Nouveau like";
     case "match":
       return "Nouveau match";
+    case "system":
+      return "Information Mbolo";
+    case "security":
+      return "Sécurité du compte";
   }
 }
 

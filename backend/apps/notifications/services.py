@@ -222,6 +222,120 @@ def create_match_notification(
 
 
 @transaction.atomic
+def create_report_status_notification(
+    *,
+    recipient,
+    report_id,
+    status: str,
+) -> NotificationCreationResult:
+    """
+    Informe l'auteur d'un signalement de son avancement.
+
+    Le contenu est volontairement générique : aucune identité de
+    modérateur, note interne ou information sur le compte signalé
+    n'est enregistrée dans la notification publique.
+    """
+
+    content_by_status = {
+        "under_review": (
+            "Ton signalement est en cours d’examen",
+            "L’équipe Mbolo a pris en charge ton dossier.",
+        ),
+        "resolved": (
+            "Ton signalement a été traité",
+            "L’examen de ton dossier est terminé. Merci d’avoir contribué à la sécurité de Mbolo.",
+        ),
+        "rejected": (
+            "Ton signalement a été classé",
+            "L’examen de ton dossier est terminé. Aucun détail confidentiel de modération n’est communiqué.",
+        ),
+    }
+
+    try:
+        title, body = content_by_status[status]
+    except KeyError as exc:
+        raise ValueError(
+            "Statut de signalement non notifiable."
+        ) from exc
+
+    notification, created = Notification.objects.get_or_create(
+        recipient=recipient,
+        source_key=f"report:{report_id}:{status}",
+        defaults={
+            "kind": Notification.Kind.SYSTEM,
+            "title": title,
+            "body": body,
+            "target_path": "/reports",
+            "metadata": {
+                "report_id": str(report_id),
+                "status": status,
+            },
+        },
+    )
+
+    return NotificationCreationResult(
+        notification=notification,
+        created=created,
+    )
+
+
+@transaction.atomic
+def create_moderation_sanction_notification(
+    *,
+    recipient,
+    sanction_id,
+    sanction_type: str,
+) -> NotificationCreationResult:
+    """
+    Notifie une mesure de sécurité sans exposer le dossier interne.
+    """
+
+    content_by_type = {
+        "warning": (
+            "Avertissement de sécurité Mbolo",
+            "Ton compte a reçu un avertissement. Consulte les règles de sécurité avant de continuer.",
+        ),
+        "suspension_7_days": (
+            "Compte temporairement suspendu",
+            "L’accès à ton compte est suspendu pendant 7 jours pour des raisons de sécurité.",
+        ),
+        "suspension_30_days": (
+            "Compte temporairement suspendu",
+            "L’accès à ton compte est suspendu pendant 30 jours pour des raisons de sécurité.",
+        ),
+        "permanent_suspension": (
+            "Compte suspendu",
+            "L’accès à ton compte a été suspendu sans échéance pour des raisons de sécurité.",
+        ),
+    }
+
+    try:
+        title, body = content_by_type[sanction_type]
+    except KeyError as exc:
+        raise ValueError("Type de sanction non notifiable.") from exc
+
+    notification, created = Notification.objects.get_or_create(
+        recipient=recipient,
+        source_key=f"moderation-sanction:{sanction_id}",
+        defaults={
+            "kind": Notification.Kind.SECURITY,
+            "title": title,
+            "body": body,
+            "target_path": "/security",
+            "metadata": {
+                "sanction_id": str(sanction_id),
+                "sanction_type": sanction_type,
+            },
+        },
+    )
+
+    return NotificationCreationResult(
+        notification=notification,
+        created=created,
+    )
+
+
+@transaction.atomic
 def mark_notification_as_read(*, actor, notification_id):
     notification = (
         Notification.objects

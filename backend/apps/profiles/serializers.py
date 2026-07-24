@@ -17,6 +17,7 @@ from .models import (
     ProfileVerification,
     SearchPreferences,
 )
+from .locations import public_distance_label
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -512,10 +513,8 @@ class DiscoveryProfileSerializer(
     common_interests = serializers.SerializerMethodField()
     common_interest_labels = serializers.SerializerMethodField()
     compatibility_score = serializers.SerializerMethodField()
-    photos = ProfilePhotoSerializer(
-        many=True,
-        read_only=True,
-    )
+    distance_label = serializers.SerializerMethodField()
+    photos = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
@@ -535,9 +534,27 @@ class DiscoveryProfileSerializer(
             "common_interests",
             "common_interest_labels",
             "compatibility_score",
+            "distance_label",
         )
 
         read_only_fields = fields
+
+    def get_distance_label(self, profile: Profile) -> str | None:
+        """
+        Expose uniquement une tranche arrondie, jamais des coordonnées.
+        """
+
+        return public_distance_label(
+            getattr(profile, "distance_km", None)
+        )
+
+    def get_photos(self, profile: Profile):
+        photos = profile.photos.filter(
+            moderation_status="approved",
+        ).order_by("position", "created_at")
+        return ProfilePhotoSerializer(
+            photos, many=True, context=self.context
+        ).data
 
     def get_is_verified(
         self,
@@ -628,7 +645,7 @@ class PublicProfileDetailSerializer(serializers.ModelSerializer):
 
     age = serializers.IntegerField(read_only=True)
     is_verified = serializers.SerializerMethodField()
-    photos = ProfilePhotoSerializer(many=True, read_only=True)
+    photos = serializers.SerializerMethodField()
     relationship = serializers.SerializerMethodField()
 
     gender_label = serializers.CharField(
@@ -670,6 +687,14 @@ class PublicProfileDetailSerializer(serializers.ModelSerializer):
 
     def get_is_verified(self, profile: Profile) -> bool:
         return profile.is_identity_verified
+
+    def get_photos(self, profile: Profile):
+        photos = profile.photos.filter(
+            moderation_status="approved",
+        ).order_by("position", "created_at")
+        return ProfilePhotoSerializer(
+            photos, many=True, context=self.context
+        ).data
 
     def get_relationship(self, profile: Profile) -> str:
         """

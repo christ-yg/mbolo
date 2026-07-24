@@ -33,6 +33,7 @@ interface RegisterFormValues {
   email: string;
   password: string;
   passwordConfirmation: string;
+  legalConfirmation: boolean;
 }
 
 /**
@@ -42,6 +43,7 @@ interface RegisterFormErrors {
   email?: string;
   password?: string;
   passwordConfirmation?: string;
+  legalConfirmation?: string;
   general?: string;
 }
 
@@ -54,6 +56,7 @@ const INITIAL_FORM_VALUES: RegisterFormValues = {
   email: "",
   password: "",
   passwordConfirmation: "",
+  legalConfirmation: false,
 };
 
 /**
@@ -166,11 +169,11 @@ export function RegisterPage() {
   function handleInputChange(
     event: ChangeEvent<HTMLInputElement>,
   ): void {
-    const { name, value } = event.target;
+    const { name, value, checked, type } = event.target;
 
     setFormValues((currentValues) => ({
       ...currentValues,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     }));
 
     setFormErrors((currentErrors) => ({
@@ -218,6 +221,11 @@ export function RegisterPage() {
         "Les deux mots de passe ne correspondent pas.";
     }
 
+    if (!formValues.legalConfirmation) {
+      errors.legalConfirmation =
+        "Confirme ta majorité et accepte les documents légaux.";
+    }
+
     return errors;
   }
 
@@ -256,6 +264,8 @@ export function RegisterPage() {
          */
         password_confirmation:
           formValues.passwordConfirmation,
+        accept_terms: formValues.legalConfirmation,
+        confirm_adult: formValues.legalConfirmation,
       });
 
       /**
@@ -291,6 +301,9 @@ export function RegisterPage() {
 
         passwordConfirmation:
           backendFieldErrors.password_confirmation?.[0],
+        legalConfirmation:
+          backendFieldErrors.accept_terms?.[0] ??
+          backendFieldErrors.confirm_adult?.[0],
 
         general: normalizedError.message,
       });
@@ -542,15 +555,29 @@ export function RegisterPage() {
                 name="legalConfirmation"
                 type="checkbox"
                 required
+                checked={formValues.legalConfirmation}
+                aria-invalid={Boolean(formErrors.legalConfirmation)}
                 disabled={isSubmitting}
+                onChange={handleInputChange}
               />
 
               <span>
-                Je confirme avoir au moins 18 ans et accepter
-                les futures conditions d’utilisation ainsi que
-                la politique de confidentialité.
+                Je confirme avoir au moins 18 ans et accepter les{" "}
+                <Link to="/legal/terms" target="_blank">
+                  Conditions d’utilisation
+                </Link>{" "}
+                ainsi que la{" "}
+                <Link to="/legal/privacy" target="_blank">
+                  Politique de confidentialité
+                </Link>.
               </span>
             </label>
+
+            {formErrors.legalConfirmation ? (
+              <p className="form-field__error" role="alert">
+                {formErrors.legalConfirmation}
+              </p>
+            ) : null}
 
             <button
               className="auth-form__submit"

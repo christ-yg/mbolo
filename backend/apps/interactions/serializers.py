@@ -228,7 +228,9 @@ class ReceivedLikeSerializer(serializers.Serializer):
 
     def get_has_photo(self, interaction) -> bool:
         return bool(
-            interaction.actor.profile.photos.exists()
+            interaction.actor.profile.photos.filter(
+                moderation_status="approved",
+            ).exists()
         )
 
     def get_is_identity_revealed(self, interaction) -> bool:
@@ -257,7 +259,9 @@ class ReceivedLikeSerializer(serializers.Serializer):
         if not self._can_reveal_identity():
             return None
 
-        photo = interaction.actor.profile.photos.order_by(
+        photo = interaction.actor.profile.photos.filter(
+            moderation_status="approved",
+        ).order_by(
             "position", "created_at"
         ).first()
 
