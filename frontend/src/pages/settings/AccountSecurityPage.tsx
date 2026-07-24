@@ -9,10 +9,20 @@ import {
   setEmailTwoFactor,
   getLoginActivity,
 } from "../../api/authService";
+import {
+  getLoginAlertEmailPreference,
+  updateLoginAlertEmailPreference,
+} from "../../api/securityAlertService";
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginActivity } from "../../types/auth";
 
-type ActionName = "password" | "sessions" | "twoFactor" | "deactivate" | null;
+type ActionName =
+  | "password"
+  | "sessions"
+  | "twoFactor"
+  | "loginAlerts"
+  | "deactivate"
+  | null;
 
 export function AccountSecurityPage() {
   const { user, refreshCurrentUser } = useAuth();
@@ -24,6 +34,11 @@ export function AccountSecurityPage() {
   const [deactivationPassword, setDeactivationPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [twoFactorPassword, setTwoFactorPassword] = useState("");
+  const [loginAlertPassword, setLoginAlertPassword] = useState("");
+  const [loginAlertEmailsEnabled, setLoginAlertEmailsEnabled] =
+    useState(true);
+  const [isLoadingLoginAlertPreference, setIsLoadingLoginAlertPreference] =
+    useState(true);
   const [activeAction, setActiveAction] = useState<ActionName>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -35,6 +50,21 @@ export function AccountSecurityPage() {
       .then(setLoginActivities)
       .catch(() => {
         // La page de sécurité reste utilisable si l'historique échoue.
+      });
+
+    void getLoginAlertEmailPreference()
+      .then((preference) => {
+        setLoginAlertEmailsEnabled(
+          preference.loginAlertEmailsEnabled,
+        );
+      })
+      .catch(() => {
+        setError(
+          "Impossible de charger la préférence des alertes par e-mail.",
+        );
+      })
+      .finally(() => {
+        setIsLoadingLoginAlertPreference(false);
       });
   }, []);
 
@@ -102,6 +132,37 @@ export function AccountSecurityPage() {
         enabled
           ? "Double authentification activée. Un code sera demandé à la prochaine connexion."
           : "Double authentification désactivée.",
+      );
+    } catch (caught: unknown) {
+      setError(normalizeApiError(caught).message);
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function submitLoginAlerts(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    begin("loginAlerts");
+
+    try {
+      const preference = await updateLoginAlertEmailPreference({
+        current_password: loginAlertPassword,
+        enabled: !loginAlertEmailsEnabled,
+      });
+
+      setLoginAlertPassword("");
+      setLoginAlertEmailsEnabled(
+        preference.loginAlertEmailsEnabled,
+      );
+      setMessage(
+        preference.loginAlertEmailsEnabled
+          ? "Les alertes de connexion par e-mail sont activées."
+          : (
+              "Les alertes par e-mail sont désactivées. " +
+              "Les notifications internes restent actives."
+            ),
       );
     } catch (caught: unknown) {
       setError(normalizeApiError(caught).message);
@@ -213,6 +274,48 @@ export function AccountSecurityPage() {
               : user?.emailTwoFactorEnabled
                 ? "Désactiver la double authentification"
                 : "Activer la double authentification"}
+          </button>
+        </form>
+
+        <form
+          className="security-action-card"
+          onSubmit={submitLoginAlerts}
+        >
+          <p className="section-heading__eyebrow">Alertes de sécurité</p>
+          <h2>Nouvelles connexions par e-mail</h2>
+          <p>
+            Statut : <strong>
+              {isLoadingLoginAlertPreference
+                ? "chargement…"
+                : loginAlertEmailsEnabled
+                  ? "activées"
+                  : "désactivées"}
+            </strong>. Les notifications internes de sécurité restent
+            toujours actives, même si tu désactives les e-mails.
+          </p>
+          <label>
+            Mot de passe actuel
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
+              value={loginAlertPassword}
+              onChange={(event) =>
+                setLoginAlertPassword(event.target.value)
+              }
+            />
+          </label>
+          <button
+            disabled={
+              activeAction !== null ||
+              isLoadingLoginAlertPreference
+            }
+          >
+            {activeAction === "loginAlerts"
+              ? "Mise à jour…"
+              : loginAlertEmailsEnabled
+                ? "Désactiver les e-mails d’alerte"
+                : "Activer les e-mails d’alerte"}
           </button>
         </form>
 

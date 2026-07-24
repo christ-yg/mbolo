@@ -52,6 +52,15 @@ class User(AbstractUser):
         ),
     )
 
+    login_alert_emails_enabled = models.BooleanField(
+        default=True,
+        help_text=(
+            "Autorise l'envoi d'un e-mail lorsqu'une connexion "
+            "inhabituelle est détectée. Les notifications internes "
+            "de sécurité restent toujours actives."
+        ),
+    )
+
     is_phone_verified = models.BooleanField(
         default=False,
     )

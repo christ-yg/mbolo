@@ -5,7 +5,7 @@ Ce module crée trois canaux complémentaires :
 
 1. une notification durable dans le centre de notifications ;
 2. une diffusion privée en temps réel par WebSocket ;
-3. un e-mail de sécurité envoyé à l'adresse du compte.
+3. un e-mail de sécurité, lorsque le membre conserve ce canal actif.
 
 Principes de sécurité :
 
@@ -13,6 +13,7 @@ Principes de sécurité :
 - aucun User-Agent complet ;
 - aucun cookie ni jeton ;
 - aucune donnée de session ;
+- notification interne toujours active ;
 - création idempotente grâce à l'identifiant de l'activité ;
 - échec d'e-mail non bloquant ;
 - destination interne fixe vers la page de sécurité.
@@ -36,12 +37,6 @@ logger = logging.getLogger(__name__)
 def _format_login_date_utc(activity: LoginActivity) -> str:
     """
     Formate explicitement la date en UTC pour les e-mails.
-
-    Mbolo ne connaît pas encore le fuseau horaire préféré de chaque membre.
-    L'e-mail précise donc clairement UTC au lieu d'afficher une heure ambiguë.
-
-    Le frontend, lui, reçoit la date ISO de la notification et le navigateur
-    l'affiche automatiquement dans le fuseau horaire local de l'utilisateur.
     """
 
     utc_created_at = activity.created_at.astimezone(datetime_timezone.utc)
@@ -56,9 +51,6 @@ def _send_new_login_email(
 ) -> None:
     """
     Envoie l'e-mail d'alerte sans exposer de donnée sensible.
-
-    ``fail_silently=True`` évite qu'une panne temporaire du fournisseur
-    d'e-mail empêche la connexion de l'utilisateur.
     """
 
     subject = "Nouvelle connexion détectée sur votre compte Mbolo"
@@ -93,13 +85,8 @@ def notify_unrecognized_login(
     """
     Crée et diffuse une alerte idempotente pour une activité inhabituelle.
 
-    La clé de source contient uniquement l'UUID aléatoire de l'activité.
-    Elle évite la duplication si la fonction est appelée deux fois.
-
-    Le nom d'événement WebSocket doit rester ``security.notification`` :
-    c'est le contrat déjà écouté par le centre de notifications React.
-    Ainsi, si la page est ouverte, elle se resynchronise immédiatement sans
-    rechargement manuel.
+    Le canal interne est obligatoire. Le choix du membre ne concerne que
+    l'e-mail complémentaire.
     """
 
     notification, created = Notification.objects.get_or_create(
@@ -130,16 +117,15 @@ def notify_unrecognized_login(
             },
         )
 
-        try:
-            _send_new_login_email(
-                user=user,
-                activity=activity,
-            )
-        except Exception:
-            # Le backend d'e-mail peut être remplacé ou simulé en test.
-            # Une exception ne doit jamais annuler la connexion.
-            logger.exception(
-                "Impossible d'envoyer l'e-mail d'alerte de connexion."
-            )
+        if user.login_alert_emails_enabled:
+            try:
+                _send_new_login_email(
+                    user=user,
+                    activity=activity,
+                )
+            except Exception:
+                logger.exception(
+                    "Impossible d'envoyer l'e-mail d'alerte de connexion."
+                )
 
     return notification
