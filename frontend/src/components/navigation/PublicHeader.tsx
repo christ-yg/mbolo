@@ -1,34 +1,13 @@
-/**
- * En-tête principal de l'application Mbolo.
- *
- * Le contenu de la navigation dépend de la session Django :
- *
- * Utilisateur anonyme :
- *
- * - Accueil ;
- * - Sécurité ;
- * - Se connecter ;
- * - Créer un compte.
- *
- * Utilisateur authentifié :
- *
- * - Accueil ;
- * - Découvrir ;
- * - Mes matchs ;
- * - Messages ;
- * - Sécurité ;
- * - identité du compte ;
- * - bouton de déconnexion.
- */
-
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import {
   Link,
   NavLink,
+  useLocation,
   useNavigate,
 } from "react-router-dom";
 
@@ -40,29 +19,35 @@ import { useAccountRealtime } from "../../hooks/useAccountRealtime";
 
 import { BrandLogo } from "../common/BrandLogo";
 
+import "./PublicHeader.css";
 
-/**
- * Retourne la classe CSS d'un lien de navigation.
- *
- * React Router transmet automatiquement `isActive`
- * selon l'adresse actuellement affichée.
- */
-function getNavigationLinkClass({
-  isActive,
-}: {
+
+interface NavigationClassArguments {
   isActive: boolean;
-}): string {
-  return isActive
-    ? "public-header__nav-link public-header__nav-link--active"
-    : "public-header__nav-link";
 }
 
 
-/**
- * En-tête global de Mbolo.
- */
+function getNavigationLinkClass({
+  isActive,
+}: NavigationClassArguments): string {
+  return isActive
+    ? "premium-nav__link premium-nav__link--active"
+    : "premium-nav__link";
+}
+
+
+function getMobileNavigationLinkClass({
+  isActive,
+}: NavigationClassArguments): string {
+  return isActive
+    ? "premium-mobile-nav__link premium-mobile-nav__link--active"
+    : "premium-mobile-nav__link";
+}
+
+
 export function PublicHeader() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const {
     user,
@@ -78,19 +63,82 @@ export function PublicHeader() {
       realtimeNotificationUnreadCount,
   } = useAccountRealtime();
 
-  const [isLoggingOut, setIsLoggingOut] =
-    useState(false);
-
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] =
     useState<string | null>(null);
-
   const [unreadMessageCount, setUnreadMessageCount] =
     useState(0);
-
   const [
     unreadNotificationCount,
     setUnreadNotificationCount,
   ] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] =
+    useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] =
+    useState(false);
+
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const accountRoutes = [
+    "/discovery-preferences",
+    "/profile/edit",
+    "/profile/photos",
+    "/profile/verification",
+    "/premium",
+    "/likes-received",
+    "/account/privacy",
+    "/blocked-users",
+    "/reports",
+  ];
+
+  const isAccountSectionActive = accountRoutes.some(
+    (route) => location.pathname.startsWith(route),
+  );
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setIsAccountMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    function closeAccountMenuOnOutsideClick(
+      event: MouseEvent,
+    ): void {
+      if (
+        accountMenuRef.current &&
+        !accountMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsAccountMenuOpen(false);
+      }
+    }
+
+    function closeMenusOnEscape(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setIsAccountMenuOpen(false);
+        setIsMobileMenuOpen(false);
+      }
+    }
+
+    document.addEventListener(
+      "mousedown",
+      closeAccountMenuOnOutsideClick,
+    );
+    document.addEventListener(
+      "keydown",
+      closeMenusOnEscape,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        closeAccountMenuOnOutsideClick,
+      );
+      document.removeEventListener(
+        "keydown",
+        closeMenusOnEscape,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     if (accountRealtimeState === "open") {
@@ -114,19 +162,13 @@ export function PublicHeader() {
 
       try {
         const result = await getUnreadMessageCount();
-
         setUnreadMessageCount(
           Math.max(0, result.unread_count),
         );
       } catch {
-        /**
-         * Le compteur ne doit jamais bloquer la navigation.
-         *
-         * Une panne momentanée du compteur reste donc silencieuse.
-         */
+        // Le compteur ne doit jamais bloquer l'en-tête.
       }
     }, [isAuthenticated]);
-
 
   const loadUnreadNotificationCount =
     useCallback(async (): Promise<void> => {
@@ -138,23 +180,16 @@ export function PublicHeader() {
       try {
         const result =
           await getNotificationUnreadCount();
-
         setUnreadNotificationCount(
           Math.max(0, result.unread_count),
         );
       } catch {
-        /**
-         * Le centre de notifications ne doit jamais bloquer
-         * l'affichage de l'en-tête.
-         */
+        // Le compteur ne doit jamais bloquer l'en-tête.
       }
     }, [isAuthenticated]);
 
   useEffect(() => {
-    if (
-      isInitializing ||
-      !isAuthenticated
-    ) {
+    if (isInitializing || !isAuthenticated) {
       setUnreadMessageCount(0);
       setUnreadNotificationCount(0);
       return undefined;
@@ -178,14 +213,11 @@ export function PublicHeader() {
 
     function handleVisibilityChange(): void {
       if (document.visibilityState === "visible") {
-        void loadUnreadMessageCount();
+        handleCounterRefresh();
       }
     }
 
-    window.addEventListener(
-      "focus",
-      handleCounterRefresh,
-    );
+    window.addEventListener("focus", handleCounterRefresh);
     window.addEventListener(
       "mbolo:unread-count-changed",
       handleCounterRefresh,
@@ -211,17 +243,13 @@ export function PublicHeader() {
       );
     };
   }, [
+    accountRealtimeState,
     isAuthenticated,
     isInitializing,
     loadUnreadMessageCount,
     loadUnreadNotificationCount,
-    accountRealtimeState,
   ]);
 
-
-  /**
-   * Ferme la session Django puis redirige vers l'accueil.
-   */
   async function handleLogout(): Promise<void> {
     if (isLoggingOut) {
       return;
@@ -232,29 +260,63 @@ export function PublicHeader() {
 
     try {
       await logout();
-
-      navigate("/", {
-        replace: true,
-      });
+      navigate("/", { replace: true });
     } catch (error: unknown) {
-      const normalizedError =
-        normalizeApiError(error);
-
-      setLogoutError(normalizedError.message);
+      setLogoutError(
+        normalizeApiError(error).message,
+      );
     } finally {
       setIsLoggingOut(false);
     }
   }
 
+  function renderUnreadBadge(
+    count: number,
+    singularLabel: string,
+  ) {
+    if (count <= 0) {
+      return null;
+    }
+
+    return (
+      <span
+        className="premium-nav__badge"
+        aria-label={`${count} ${singularLabel}${count > 1 ? "s" : ""} non lu${count > 1 ? "s" : ""}`}
+      >
+        {count > 99 ? "99+" : count}
+      </span>
+    );
+  }
 
   return (
     <>
-      <header className="public-header">
-        <div className="public-header__inner">
-          <BrandLogo />
+      <header className="premium-header">
+        <div className="premium-header__inner">
+          <div className="premium-header__brand">
+            <BrandLogo />
+          </div>
+
+          <button
+            type="button"
+            className="premium-header__mobile-toggle"
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="mbolo-mobile-navigation"
+            aria-label={
+              isMobileMenuOpen
+                ? "Fermer le menu"
+                : "Ouvrir le menu"
+            }
+            onClick={() => {
+              setIsMobileMenuOpen((current) => !current);
+            }}
+          >
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+          </button>
 
           <nav
-            className="public-header__navigation"
+            className="premium-nav"
             aria-label="Navigation principale"
           >
             <NavLink
@@ -273,137 +335,162 @@ export function PublicHeader() {
                 >
                   Découvrir
                 </NavLink>
-
-                <NavLink
-                  className={getNavigationLinkClass}
-                  to="/discovery-preferences"
-                >
-                  Préférences
-                </NavLink>
-
-                <NavLink
-                  className={getNavigationLinkClass}
-                  to="/profile/edit"
-                >
-                  Mon profil
-                </NavLink>
-
-                <NavLink
-                  className={getNavigationLinkClass}
-                  to="/profile/photos"
-                >
-                  Mes photos
-                </NavLink>
-
-                <NavLink
-                  className={getNavigationLinkClass}
-                  to="/premium"
-                >
-                  Premium
-                </NavLink>
-
                 <NavLink
                   className={getNavigationLinkClass}
                   to="/matches"
                 >
                   Mes matchs
                 </NavLink>
-
-
-                <NavLink
-                  className={getNavigationLinkClass}
-                  to="/likes-received"
-                >
-                  Qui m’a liké
-                </NavLink>
-
                 <NavLink
                   className={getNavigationLinkClass}
                   to="/messages"
                 >
                   <span>Messages</span>
-
-                  {unreadMessageCount > 0 ? (
-                    <span
-                      className="public-header__unread-badge"
-                      aria-label={`${unreadMessageCount} message${unreadMessageCount > 1 ? "s" : ""} non lu${unreadMessageCount > 1 ? "s" : ""}`}
-                    >
-                      {unreadMessageCount > 99
-                        ? "99+"
-                        : unreadMessageCount}
-                    </span>
-                  ) : null}
+                  {renderUnreadBadge(
+                    unreadMessageCount,
+                    "message",
+                  )}
                 </NavLink>
-
-
                 <NavLink
                   className={getNavigationLinkClass}
                   to="/notifications"
                 >
                   <span>Notifications</span>
-
-                  {unreadNotificationCount > 0 ? (
-                    <span
-                      className="public-header__unread-badge"
-                      aria-label={`${unreadNotificationCount} notification${unreadNotificationCount > 1 ? "s" : ""} non lue${unreadNotificationCount > 1 ? "s" : ""}`}
-                    >
-                      {unreadNotificationCount > 99
-                        ? "99+"
-                        : unreadNotificationCount}
-                    </span>
-                  ) : null}
+                  {renderUnreadBadge(
+                    unreadNotificationCount,
+                    "notification",
+                  )}
                 </NavLink>
-              </>
-            ) : null}
+                <NavLink
+                  className={getNavigationLinkClass}
+                  to="/account/security"
+                >
+                  Sécurité
+                </NavLink>
 
-            <NavLink
-              className={getNavigationLinkClass}
-              to={
-                isAuthenticated
-                  ? "/account/security"
-                  : "/safety"
-              }
-            >
-              Sécurité
-            </NavLink>
+                <div
+                  className="premium-account-menu"
+                  ref={accountMenuRef}
+                >
+                  <button
+                    type="button"
+                    className={[
+                      "premium-account-menu__trigger",
+                      isAccountSectionActive
+                        ? "premium-account-menu__trigger--active"
+                        : "",
+                    ].join(" ")}
+                    aria-expanded={isAccountMenuOpen}
+                    aria-haspopup="menu"
+                    onClick={() => {
+                      setIsAccountMenuOpen(
+                        (current) => !current,
+                      );
+                    }}
+                  >
+                    Mon espace
+                    <span
+                      className="premium-account-menu__chevron"
+                      aria-hidden="true"
+                    >
+                      ▾
+                    </span>
+                  </button>
+
+                  {isAccountMenuOpen ? (
+                    <div
+                      className="premium-account-menu__panel"
+                      role="menu"
+                    >
+                      <div className="premium-account-menu__heading">
+                        <span>Personnaliser</span>
+                        <small>Profil et préférences</small>
+                      </div>
+
+                      <NavLink to="/profile/edit" role="menuitem">
+                        Mon profil
+                      </NavLink>
+                      <NavLink to="/profile/photos" role="menuitem">
+                        Mes photos
+                      </NavLink>
+                      <NavLink
+                        to="/profile/verification"
+                        role="menuitem"
+                      >
+                        Vérification
+                      </NavLink>
+                      <NavLink
+                        to="/discovery-preferences"
+                        role="menuitem"
+                      >
+                        Préférences
+                      </NavLink>
+                      <NavLink to="/premium" role="menuitem">
+                        Premium
+                      </NavLink>
+                      <NavLink
+                        to="/likes-received"
+                        role="menuitem"
+                      >
+                        Qui m’a liké
+                      </NavLink>
+
+                      <div className="premium-account-menu__separator" />
+
+                      <NavLink
+                        to="/account/privacy"
+                        role="menuitem"
+                      >
+                        Confidentialité
+                      </NavLink>
+                      <NavLink
+                        to="/blocked-users"
+                        role="menuitem"
+                      >
+                        Utilisateurs bloqués
+                      </NavLink>
+                      <NavLink to="/reports" role="menuitem">
+                        Mes signalements
+                      </NavLink>
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <NavLink
+                className={getNavigationLinkClass}
+                to="/safety"
+              >
+                Sécurité
+              </NavLink>
+            )}
           </nav>
 
-          <div className="public-header__actions">
+          <div className="premium-header__actions">
             {isInitializing ? (
-              /**
-               * Pendant GET /auth/me/, nous évitons
-               * d'afficher brièvement les mauvais boutons.
-               */
               <span
-                className="public-header__session-loading"
+                className="premium-header__loading"
                 role="status"
               >
                 Vérification…
               </span>
             ) : isAuthenticated && user ? (
-              <div className="public-header__account">
-                <div className="public-header__identity">
-                  <span
-                    className="public-header__avatar"
-                    aria-hidden="true"
-                  >
-                    {user.email
-                      .charAt(0)
-                      .toUpperCase()}
-                  </span>
-
-                  <div className="public-header__identity-text">
-                    <small>Compte connecté</small>
-
-                    <span title={user.email}>
-                      {user.email}
-                    </span>
-                  </div>
+              <div className="premium-header__session">
+                <div
+                  className="premium-header__avatar"
+                  aria-hidden="true"
+                >
+                  {user.email.charAt(0).toUpperCase()}
                 </div>
-
+                <div className="premium-header__identity">
+                  <small>Compte connecté</small>
+                  <span title={user.email}>
+                    {user.email}
+                  </span>
+                </div>
                 <button
                   type="button"
-                  className="public-header__logout-button"
+                  className="premium-header__logout"
                   disabled={isLoggingOut}
                   onClick={() => {
                     void handleLogout();
@@ -415,35 +502,166 @@ export function PublicHeader() {
                 </button>
               </div>
             ) : (
-              <>
+              <div className="premium-header__anonymous-actions">
                 <Link
-                  className="public-header__login-link"
+                  className="premium-header__login"
                   to="/login"
                 >
                   Se connecter
                 </Link>
-
                 <Link
-                  className="public-header__register-link"
+                  className="premium-header__register"
                   to="/register"
                 >
                   Créer un compte
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </div>
+
+        <nav
+          id="mbolo-mobile-navigation"
+          className={[
+            "premium-mobile-nav",
+            isMobileMenuOpen
+              ? "premium-mobile-nav--open"
+              : "",
+          ].join(" ")}
+          aria-label="Navigation mobile"
+        >
+          <NavLink
+            className={getMobileNavigationLinkClass}
+            to="/"
+            end
+          >
+            Accueil
+          </NavLink>
+
+          {isAuthenticated ? (
+            <>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/discovery"
+              >
+                Découvrir
+              </NavLink>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/matches"
+              >
+                Mes matchs
+              </NavLink>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/messages"
+              >
+                Messages
+                {renderUnreadBadge(
+                  unreadMessageCount,
+                  "message",
+                )}
+              </NavLink>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/notifications"
+              >
+                Notifications
+                {renderUnreadBadge(
+                  unreadNotificationCount,
+                  "notification",
+                )}
+              </NavLink>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/account/security"
+              >
+                Sécurité
+              </NavLink>
+
+              <p className="premium-mobile-nav__section-label">
+                Mon espace
+              </p>
+
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/profile/edit"
+              >
+                Mon profil
+              </NavLink>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/profile/photos"
+              >
+                Mes photos
+              </NavLink>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/discovery-preferences"
+              >
+                Préférences
+              </NavLink>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/premium"
+              >
+                Premium
+              </NavLink>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/likes-received"
+              >
+                Qui m’a liké
+              </NavLink>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/account/privacy"
+              >
+                Confidentialité
+              </NavLink>
+
+              <button
+                type="button"
+                className="premium-mobile-nav__logout"
+                disabled={isLoggingOut}
+                onClick={() => {
+                  void handleLogout();
+                }}
+              >
+                {isLoggingOut
+                  ? "Déconnexion…"
+                  : "Se déconnecter"}
+              </button>
+            </>
+          ) : (
+            <>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/safety"
+              >
+                Sécurité
+              </NavLink>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/login"
+              >
+                Se connecter
+              </NavLink>
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/register"
+              >
+                Créer un compte
+              </NavLink>
+            </>
+          )}
+        </nav>
       </header>
 
       {logoutError ? (
-        <div
-          className="global-session-alert"
-          role="alert"
-        >
+        <div className="global-session-alert" role="alert">
           <span aria-hidden="true">!</span>
-
           <p>{logoutError}</p>
-
           <button
             type="button"
             aria-label="Fermer le message"
