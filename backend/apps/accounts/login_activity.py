@@ -1,17 +1,5 @@
 """
-Historique minimal et alertes de connexion du compte Mbolo.
-
-Ce module ne conserve jamais l'adresse IP exacte ni le User-Agent complet.
-Il dérive seulement :
-
-- un libellé général de l'appareil ;
-- une empreinte réseau pseudonymisée et courte ;
-- la méthode d'authentification ;
-- la date de connexion.
-
-Lorsqu'un compte possède déjà un historique et qu'une nouvelle combinaison
-appareil/empreinte apparaît, une alerte de sécurité est créée. La première
-connexion sert de référence et ne déclenche donc pas d'alerte.
+Historique minimal, alertes et registre des connexions Mbolo.
 """
 
 import logging
@@ -24,6 +12,7 @@ from apps.core.security_logging import (
 )
 
 from .models import LoginActivity, User
+from .session_registry import register_current_session
 
 
 logger = logging.getLogger(__name__)
@@ -31,11 +20,7 @@ logger = logging.getLogger(__name__)
 
 def _device_label(request: Request) -> str:
     """
-    Déduit une description générale sans conserver le User-Agent complet.
-
-    Le User-Agent brut est utilisé uniquement en mémoire pendant la requête,
-    puis abandonné. Seul un libellé court comme « Chrome · Windows » est
-    enregistré.
+    Déduit un libellé général sans conserver le User-Agent complet.
     """
 
     agent = str(request.META.get("HTTP_USER_AGENT", "")).lower()
@@ -76,17 +61,7 @@ def record_login_activity(
     method: str,
 ) -> LoginActivity:
     """
-    Enregistre une connexion puis déclenche éventuellement une alerte.
-
-    Une connexion est considérée comme reconnue lorsqu'une activité précédente
-    du même compte possède à la fois :
-
-    - le même libellé général d'appareil ;
-    - la même empreinte réseau pseudonymisée.
-
-    La première connexion du compte est une référence initiale et ne déclenche
-    pas d'alerte. Une erreur d'alerte ne doit jamais empêcher une connexion
-    légitime : elle est donc journalisée côté serveur, sans donnée sensible.
+    Enregistre la connexion, le registre de session et l'alerte éventuelle.
     """
 
     device = _device_label(request)
@@ -108,10 +83,15 @@ def record_login_activity(
         ip_fingerprint=fingerprint,
     )
 
+    register_current_session(
+        request=request,
+        user=user,
+        device=device,
+        ip_fingerprint=fingerprint,
+    )
+
     if has_previous_activity and not is_recognized_connection:
         try:
-            # Import local pour éviter une dépendance circulaire au chargement
-            # des modules Django.
             from .login_alerts import notify_unrecognized_login
 
             notify_unrecognized_login(
@@ -119,8 +99,6 @@ def record_login_activity(
                 activity=activity,
             )
         except Exception:
-            # Aucune adresse IP, aucun e-mail et aucun User-Agent ne sont
-            # ajoutés au log. La connexion reste valide même si l'alerte échoue.
             logger.exception(
                 "Impossible de créer l'alerte de nouvelle connexion."
             )

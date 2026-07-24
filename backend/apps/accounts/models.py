@@ -212,3 +212,55 @@ class AccountSecurityEvent(models.Model):
                 name="acct_sec_user_created_idx",
             ),
         ]
+
+
+
+class AccountSession(models.Model):
+    """
+    Registre minimal des sessions connues d'un membre.
+
+    La clé de session Django n'est jamais enregistrée en clair. Seule une
+    empreinte HMAC déterministe est conservée afin de retrouver et révoquer
+    la session correspondante dans django_session.
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="account_sessions",
+    )
+    session_key_hash = models.CharField(
+        max_length=64,
+        unique=True,
+        editable=False,
+    )
+    device = models.CharField(
+        max_length=120,
+        default="Appareil inconnu",
+    )
+    ip_fingerprint = models.CharField(
+        max_length=16,
+        blank=True,
+        default="",
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+    last_seen_at = models.DateTimeField(
+        auto_now=True,
+        db_index=True,
+    )
+
+    class Meta:
+        ordering = ("-last_seen_at",)
+        indexes = [
+            models.Index(
+                fields=("user", "-last_seen_at"),
+                name="acct_sess_user_seen_idx",
+            ),
+        ]

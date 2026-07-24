@@ -6,6 +6,10 @@ from .security_alert_preferences import (
 from .security_event_api import (
     AccountSecurityEventListView,
 )
+from .session_api import (
+    AccountSessionListView,
+    AccountSessionRevokeView,
+)
 from .views import (
     ActivityHeartbeatView,
     ChangePasswordView,
@@ -30,26 +34,14 @@ from .views import (
 app_name = "accounts"
 
 urlpatterns = [
-    path(
-        "register/",
-        RegisterView.as_view(),
-        name="register",
-    ),
-    path(
-        "login/",
-        LoginView.as_view(),
-        name="login",
-    ),
+    path("register/", RegisterView.as_view(), name="register"),
+    path("login/", LoginView.as_view(), name="login"),
     path(
         "login/2fa/confirm/",
         EmailTwoFactorConfirmView.as_view(),
         name="login-2fa-confirm",
     ),
-    path(
-        "logout/",
-        LogoutView.as_view(),
-        name="logout",
-    ),
+    path("logout/", LogoutView.as_view(), name="logout"),
     path(
         "activity/",
         ActivityHeartbeatView.as_view(),
@@ -66,15 +58,21 @@ urlpatterns = [
         name="security-events",
     ),
     path(
+        "security/sessions/",
+        AccountSessionListView.as_view(),
+        name="security-sessions",
+    ),
+    path(
+        "security/sessions/<uuid:session_id>/revoke/",
+        AccountSessionRevokeView.as_view(),
+        name="security-session-revoke",
+    ),
+    path(
         "security/login-alert-emails/",
         LoginAlertEmailPreferenceView.as_view(),
         name="login-alert-email-preference",
     ),
-    path(
-        "me/",
-        CurrentUserView.as_view(),
-        name="current-user",
-    ),
+    path("me/", CurrentUserView.as_view(), name="current-user"),
     path(
         "email-verification/request/",
         EmailVerificationRequestView.as_view(),

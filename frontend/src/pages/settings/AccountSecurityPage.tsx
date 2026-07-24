@@ -14,6 +14,7 @@ import {
   updateLoginAlertEmailPreference,
 } from "../../api/securityAlertService";
 import { getAccountSecurityEvents } from "../../api/securityEventService";
+import { ConnectedDevicesCard } from "../../components/security/ConnectedDevicesCard";
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginActivity } from "../../types/auth";
 import type { AccountSecurityEvent } from "../../types/securityEvents";
@@ -308,6 +309,8 @@ export function AccountSecurityPage() {
             <p>Aucune action sensible enregistrée pour le moment.</p>
           )}
         </section>
+
+        <ConnectedDevicesCard />
 
         <form className="security-action-card" onSubmit={submitTwoFactor}>
           <p className="section-heading__eyebrow">Connexion renforcée</p>
