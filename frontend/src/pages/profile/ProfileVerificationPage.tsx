@@ -1,3 +1,17 @@
+/**
+ * Page premium de vérification du profil Mbolo.
+ *
+ * Cette page conserve toute la logique métier existante :
+ * - récupération sécurisée du statut de vérification ;
+ * - validation locale du fichier choisi ;
+ * - aperçu local du selfie sans envoi automatique ;
+ * - soumission uniquement lorsque l'API l'autorise ;
+ * - gestion des états non envoyé, en attente, approuvé et refusé.
+ *
+ * La refonte améliore la hiérarchie visuelle, la confidentialité,
+ * l'accessibilité et le responsive mobile.
+ */
+
 import {
   type ChangeEvent,
   type FormEvent,
@@ -12,31 +26,109 @@ import {
   getProfileVerification,
   submitProfileVerification,
 } from "../../api/profileVerificationService";
-import type { ProfileVerificationState } from "../../types/profileVerification";
+import type {
+  ProfileVerificationState,
+} from "../../types/profileVerification";
+
+import "./ProfileVerificationPage.css";
+
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
+type VerificationStatus =
+  | "not_submitted"
+  | "pending"
+  | "approved"
+  | "rejected";
+
+
+const STATUS_CONTENT: Record<
+  VerificationStatus,
+  {
+    eyebrow: string;
+    title: string;
+    description: string;
+    icon: string;
+  }
+> = {
+  not_submitted: {
+    eyebrow: "Vérification disponible",
+    title: "Profil non vérifié",
+    description:
+      "Envoie un selfie récent pour demander le badge Profil vérifié.",
+    icon: "◇",
+  },
+  pending: {
+    eyebrow: "Examen en cours",
+    title: "Demande reçue",
+    description:
+      "L’équipe Mbolo compare ton selfie privé avec ta photo principale.",
+    icon: "⌛",
+  },
+  approved: {
+    eyebrow: "Identité confirmée",
+    title: "Profil vérifié",
+    description:
+      "Ton badge Profil vérifié est maintenant visible sur Mbolo.",
+    icon: "✓",
+  },
+  rejected: {
+    eyebrow: "Nouvel envoi possible",
+    title: "Selfie à reprendre",
+    description:
+      "Corrige le point indiqué puis envoie une nouvelle photo.",
+    icon: "!",
+  },
+};
+
+
 function formatDate(value: string | null): string {
   if (!value) {
-    return "—";
+    return "Non disponible";
   }
-  return new Intl.DateTimeFormat("fr-FR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Date indisponible";
+  }
+
+  return new Intl.DateTimeFormat(
+    "fr-FR",
+    {
+      dateStyle: "long",
+      timeStyle: "short",
+    },
+  ).format(date);
 }
 
+
+function formatFileSize(bytes: number): string {
+  const megabytes = bytes / (1024 * 1024);
+  return `${megabytes.toFixed(megabytes >= 1 ? 1 : 2)} Mio`;
+}
+
+
 export function ProfileVerificationPage() {
-  const [state, setState] = useState<ProfileVerificationState | null>(null);
-  const [selfie, setSelfie] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [state, setState] =
+    useState<ProfileVerificationState | null>(null);
+  const [selfie, setSelfie] =
+    useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] =
+    useState("");
+  const [isLoading, setIsLoading] =
+    useState(true);
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+  const [message, setMessage] =
+    useState("");
+  const [error, setError] =
+    useState("");
+
 
   useEffect(() => {
     let active = true;
+
     void getProfileVerification()
       .then((result) => {
         if (active) {
@@ -53,10 +145,12 @@ export function ProfileVerificationPage() {
           setIsLoading(false);
         }
       });
+
     return () => {
       active = false;
     };
   }, []);
+
 
   useEffect(() => {
     return () => {
@@ -66,48 +160,99 @@ export function ProfileVerificationPage() {
     };
   }, [previewUrl]);
 
+
+  const status = (
+    state?.status ?? "not_submitted"
+  ) as VerificationStatus;
+
+  const statusContent = STATUS_CONTENT[status];
+
   const statusClass = useMemo(
-    () => `verification-status verification-status--${state?.status ?? "not_submitted"}`,
-    [state?.status],
+    () =>
+      `profile-verification-status `
+      + `profile-verification-status--${status}`,
+    [status],
   );
 
-  function selectSelfie(event: ChangeEvent<HTMLInputElement>) {
+
+  function clearSelectedSelfie(): void {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    setSelfie(null);
+    setPreviewUrl("");
+  }
+
+
+  function selectSelfie(
+    event: ChangeEvent<HTMLInputElement>,
+  ): void {
     const selected = event.target.files?.[0] ?? null;
+
     setError("");
     setMessage("");
+
     if (!selected) {
-      setSelfie(null);
-      setPreviewUrl("");
+      clearSelectedSelfie();
       return;
     }
-    if (!["image/jpeg", "image/png", "image/webp"].includes(selected.type)) {
-      setError("Choisis une image JPEG, PNG ou WebP.");
+
+    if (
+      ![
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+      ].includes(selected.type)
+    ) {
+      setError(
+        "Choisis une image au format JPEG, PNG ou WebP.",
+      );
       event.target.value = "";
       return;
     }
+
     if (selected.size > MAX_FILE_BYTES) {
       setError("Le selfie ne peut pas dépasser 8 Mio.");
       event.target.value = "";
       return;
     }
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
     setSelfie(selected);
     setPreviewUrl(URL.createObjectURL(selected));
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+
+  async function submit(
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> {
     event.preventDefault();
-    if (!selfie || isSubmitting || !state?.can_submit) {
+
+    if (
+      !selfie
+      || isSubmitting
+      || !state?.can_submit
+    ) {
       return;
     }
+
     setIsSubmitting(true);
     setError("");
     setMessage("");
+
     try {
-      const result = await submitProfileVerification(selfie);
+      const result =
+        await submitProfileVerification(selfie);
+
       setState(result);
-      setSelfie(null);
-      setPreviewUrl("");
-      setMessage("Ta demande a été transmise de manière sécurisée.");
+      clearSelectedSelfie();
+      setMessage(
+        "Ta demande a été transmise de manière sécurisée.",
+      );
     } catch (caught: unknown) {
       setError(normalizeApiError(caught).message);
     } finally {
@@ -115,98 +260,324 @@ export function ProfileVerificationPage() {
     }
   }
 
+
   return (
     <main className="profile-verification-page">
-      <section className="profile-verification-hero">
-        <p className="section-heading__eyebrow">Confiance sur Mbolo</p>
-        <h1>Vérifier mon profil</h1>
-        <p>
-          Le badge est accordé après comparaison humaine entre un selfie récent
-          et ta photo principale. La validation de l’e-mail ne donne plus ce badge.
-        </p>
+      <section
+        className="profile-verification-hero"
+        aria-labelledby="verification-page-title"
+      >
+        <div className="profile-verification-hero__content">
+          <p className="profile-verification-eyebrow">
+            Confiance sur Mbolo
+          </p>
+
+          <h1 id="verification-page-title">
+            Vérifier mon profil
+          </h1>
+
+          <p className="profile-verification-hero__description">
+            Le badge est accordé après comparaison humaine entre
+            un selfie récent et ta photo principale. La validation
+            de l’adresse e-mail ne suffit pas à obtenir ce badge.
+          </p>
+
+          <div className="profile-verification-hero__links">
+            <Link to="/profile/edit">
+              <span aria-hidden="true">←</span>
+              Retour à mon profil
+            </Link>
+
+            <Link to="/profile/photos">
+              Gérer ma photo principale
+              <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        </div>
+
+        <aside className="profile-verification-trust-card">
+          <span
+            className="profile-verification-trust-card__icon"
+            aria-hidden="true"
+          >
+            ◇
+          </span>
+
+          <div>
+            <p>Justificatif privé</p>
+            <strong>Jamais visible sur ton profil</strong>
+            <span>
+              Le selfie sert uniquement à la vérification.
+            </span>
+          </div>
+        </aside>
       </section>
 
-      {error ? <div className="form-alert form-alert--error" role="alert"><span>!</span><p>{error}</p></div> : null}
-      {message ? <div className="form-alert form-alert--success" role="status"><span>✓</span><p>{message}</p></div> : null}
+      {error ? (
+        <div
+          className="profile-verification-alert profile-verification-alert--error"
+          role="alert"
+        >
+          <span aria-hidden="true">!</span>
+          <p>{error}</p>
+        </div>
+      ) : null}
+
+      {message ? (
+        <div
+          className="profile-verification-alert profile-verification-alert--success"
+          role="status"
+        >
+          <span aria-hidden="true">✓</span>
+          <p>{message}</p>
+        </div>
+      ) : null}
 
       {isLoading ? (
-        <p className="verification-loading">Chargement du statut…</p>
+        <section
+          className="profile-verification-loading"
+          aria-busy="true"
+        >
+          <span
+            className="profile-verification-loader"
+            aria-hidden="true"
+          />
+          <p className="profile-verification-eyebrow">
+            Vérification en cours
+          </p>
+          <h2>Chargement de ton statut</h2>
+          <p>
+            Mbolo récupère les informations de vérification
+            associées à ton compte.
+          </p>
+        </section>
       ) : state ? (
         <div className="profile-verification-grid">
-          <section className="verification-card">
-            <p className="section-heading__eyebrow">Statut actuel</p>
-            <div className={statusClass}>
-              <span aria-hidden="true">
-                {state.status === "approved" ? "✓" : state.status === "rejected" ? "!" : "⌛"}
-              </span>
+          <section className="profile-verification-card">
+            <div className="profile-verification-card__heading">
               <div>
-                <h2>{state.status_label}</h2>
+                <p className="profile-verification-eyebrow">
+                  Statut actuel
+                </p>
+                <h2>Suivi de ma vérification</h2>
+              </div>
+
+              <span className="profile-verification-card__privacy">
+                Données protégées
+              </span>
+            </div>
+
+            <div className={statusClass}>
+              <span
+                className="profile-verification-status__icon"
+                aria-hidden="true"
+              >
+                {statusContent.icon}
+              </span>
+
+              <div>
+                <p>{statusContent.eyebrow}</p>
+                <h3>{statusContent.title}</h3>
+                <span>{statusContent.description}</span>
+              </div>
+            </div>
+
+            {state.rejection_reason ? (
+              <div className="profile-verification-rejection">
+                <span aria-hidden="true">!</span>
+                <div>
+                  <strong>Pourquoi recommencer ?</strong>
+                  <p>{state.rejection_reason}</p>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="profile-verification-timeline">
+              <div
+                className={
+                  state.submitted_at
+                    ? "profile-verification-timeline__item profile-verification-timeline__item--complete"
+                    : "profile-verification-timeline__item"
+                }
+              >
+                <span aria-hidden="true">
+                  {state.submitted_at ? "✓" : "1"}
+                </span>
+
+                <div>
+                  <strong>Demande envoyée</strong>
+                  <p>{formatDate(state.submitted_at)}</p>
+                </div>
+              </div>
+
+              <div
+                className={
+                  state.reviewed_at
+                    ? "profile-verification-timeline__item profile-verification-timeline__item--complete"
+                    : "profile-verification-timeline__item"
+                }
+              >
+                <span aria-hidden="true">
+                  {state.reviewed_at ? "✓" : "2"}
+                </span>
+
+                <div>
+                  <strong>Examen terminé</strong>
+                  <p>{formatDate(state.reviewed_at)}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <form
+            className="profile-verification-card"
+            onSubmit={submit}
+          >
+            <div className="profile-verification-card__heading">
+              <div>
+                <p className="profile-verification-eyebrow">
+                  Justificatif privé
+                </p>
+                <h2>Prends un selfie récent</h2>
+              </div>
+            </div>
+
+            <div className="profile-verification-guidelines">
+              <div>
+                <span aria-hidden="true">1</span>
                 <p>
-                  {state.status === "approved"
-                    ? "Ton badge Profil vérifié est visible sur Mbolo."
-                    : state.status === "pending"
-                      ? "Un administrateur doit encore examiner ta demande."
-                      : state.status === "rejected"
-                        ? "Tu peux corriger le problème et envoyer un nouveau selfie."
-                        : "Tu n’as pas encore envoyé de demande."}
+                  Visage entièrement visible et correctement
+                  éclairé.
+                </p>
+              </div>
+
+              <div>
+                <span aria-hidden="true">2</span>
+                <p>
+                  Une seule personne, sans lunettes sombres
+                  ni filtre.
+                </p>
+              </div>
+
+              <div>
+                <span aria-hidden="true">3</span>
+                <p>
+                  Le visage doit correspondre à ta photo
+                  principale.
+                </p>
+              </div>
+
+              <div>
+                <span aria-hidden="true">4</span>
+                <p>
+                  N’envoie pas de passeport ni de carte
+                  d’identité à cette étape.
                 </p>
               </div>
             </div>
-            {state.rejection_reason ? (
-              <div className="verification-rejection">
-                <strong>Pourquoi recommencer ?</strong>
-                <p>{state.rejection_reason}</p>
-              </div>
-            ) : null}
-            <dl className="verification-dates">
-              <div><dt>Envoyée</dt><dd>{formatDate(state.submitted_at)}</dd></div>
-              <div><dt>Examinée</dt><dd>{formatDate(state.reviewed_at)}</dd></div>
-            </dl>
-          </section>
 
-          <form className="verification-card" onSubmit={submit}>
-            <p className="section-heading__eyebrow">Justificatif privé</p>
-            <h2>Prends un selfie récent</h2>
-            <ul className="verification-guidelines">
-              <li>Visage entièrement visible et bien éclairé.</li>
-              <li>Une seule personne, sans lunettes sombres ni filtre.</li>
-              <li>Le visage doit correspondre à ta photo principale.</li>
-              <li>N’envoie pas de passeport ni de carte d’identité à cette étape.</li>
-            </ul>
+            <div className="profile-verification-private-note">
+              <span aria-hidden="true">◇</span>
+              <p>
+                Le selfie n’est jamais publié ni montré aux
+                autres membres. Il est utilisé uniquement pour
+                la procédure de vérification.
+              </p>
+            </div>
 
             {state.can_submit ? (
-              <>
-                <label className="verification-upload">
-                  Sélectionner mon selfie
+              <div className="profile-verification-upload-zone">
+                <label className="profile-verification-upload">
+                  <span className="profile-verification-upload__icon">
+                    +
+                  </span>
+                  <strong>Sélectionner mon selfie</strong>
+                  <small>
+                    JPEG, PNG ou WebP · 8 Mio maximum
+                  </small>
+
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     onChange={selectSelfie}
                   />
                 </label>
-                {previewUrl ? (
-                  <img className="verification-preview" src={previewUrl} alt="Aperçu local du selfie sélectionné" />
+
+                {previewUrl && selfie ? (
+                  <div className="profile-verification-preview">
+                    <img
+                      src={previewUrl}
+                      alt="Aperçu local du selfie sélectionné"
+                    />
+
+                    <div>
+                      <strong>{selfie.name}</strong>
+                      <span>{formatFileSize(selfie.size)}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={clearSelectedSelfie}
+                    >
+                      Retirer
+                    </button>
+                  </div>
                 ) : null}
-                <button type="submit" disabled={!selfie || isSubmitting}>
-                  {isSubmitting ? "Envoi sécurisé…" : "Envoyer ma demande"}
+
+                <button
+                  type="submit"
+                  className="profile-verification-submit"
+                  disabled={!selfie || isSubmitting}
+                >
+                  {isSubmitting
+                    ? "Envoi sécurisé…"
+                    : "Envoyer ma demande"}
+                  <span aria-hidden="true">→</span>
                 </button>
-              </>
+              </div>
             ) : (
-              <p className="verification-locked">
-                {state.is_verified
-                  ? "Aucun nouvel envoi n’est nécessaire."
-                  : "Tu pourras agir après la décision de l’équipe Mbolo."}
-              </p>
+              <div
+                className={
+                  state.is_verified
+                    ? "profile-verification-locked profile-verification-locked--approved"
+                    : "profile-verification-locked"
+                }
+              >
+                <span aria-hidden="true">
+                  {state.is_verified ? "✓" : "⌛"}
+                </span>
+
+                <div>
+                  <strong>
+                    {state.is_verified
+                      ? "Aucun nouvel envoi nécessaire"
+                      : "Envoi temporairement indisponible"}
+                  </strong>
+
+                  <p>
+                    {state.is_verified
+                      ? "Ton profil est déjà vérifié. Le badge reste visible tant que ton compte respecte les règles de Mbolo."
+                      : "Tu pourras envoyer un nouveau selfie après la décision de l’équipe Mbolo."}
+                  </p>
+                </div>
+              </div>
             )}
           </form>
         </div>
-      ) : null}
-
-      <nav className="verification-links" aria-label="Liens de vérification">
-        <Link to="/profile/edit">← Retour à mon profil</Link>
-        <Link to="/profile/photos">Gérer ma photo principale →</Link>
-      </nav>
+      ) : (
+        <section className="profile-verification-loading">
+          <span
+            className="profile-verification-status__icon"
+            aria-hidden="true"
+          >
+            !
+          </span>
+          <h2>Statut indisponible</h2>
+          <p>
+            Recharge la page pour récupérer les informations.
+          </p>
+        </section>
+      )}
     </main>
   );
 }
-
