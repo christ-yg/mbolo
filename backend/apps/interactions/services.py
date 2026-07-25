@@ -301,9 +301,20 @@ def canonical_profile_pair(
 def validate_actor(
     *,
     actor,
+    lock: bool = True,
 ) -> Profile:
     """
     Vérifie que l'utilisateur connecté peut effectuer une interaction.
+
+    Le paramètre ``lock`` contrôle le verrouillage SQL du profil :
+
+    - ``lock=True`` conserve ``select_for_update()`` pour les opérations
+      d'écriture exécutées dans une transaction atomique ;
+    - ``lock=False`` effectue une lecture normale pour les pages qui ne
+      modifient aucune donnée, comme « Qui m'a liké ».
+
+    Le verrou reste activé par défaut afin de préserver le comportement
+    sécurisé des opérations métier existantes.
 
     Conditions :
 
@@ -330,14 +341,17 @@ def validate_actor(
             "L'adresse e-mail doit être vérifiée."
         )
 
+    # La requête commence sans verrou. Le verrou pessimiste est ajouté
+    # uniquement lorsque l'appelant exécute une opération d'écriture dans
+    # une transaction atomique.
+    profile_queryset = Profile.objects.select_related("user")
+
+    if lock:
+        profile_queryset = profile_queryset.select_for_update()
+
     try:
-        actor_profile = (
-            Profile.objects
-            .select_for_update()
-            .select_related("user")
-            .get(
-                user=actor,
-            )
+        actor_profile = profile_queryset.get(
+            user=actor,
         )
     except Profile.DoesNotExist as exc:
         raise ValidationError(
@@ -814,8 +828,12 @@ def get_pending_received_likes(*, actor):
 
     from django.db.models import Exists, OuterRef
 
+    # Cette fonction effectue uniquement une lecture. Elle ne doit donc
+    # pas demander de verrou SELECT ... FOR UPDATE, car aucun bloc
+    # transaction.atomic() n'est ouvert par la vue de liste.
     actor_profile = validate_actor(
         actor=actor,
+        lock=False,
     )
 
     response_exists = Interaction.objects.filter(
