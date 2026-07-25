@@ -10,7 +10,12 @@ import {
   ProfileUpdateError,
   updateMyProfile,
 } from "../../api/profileService";
+import {
+  getMyProfilePhotos,
+  sortProfilePhotos,
+} from "../../api/profilePhotoService";
 import { useAuth } from "../../hooks/useAuth";
+import type { ProfilePhoto } from "../../types/profilePhotos";
 import type {
   EditableProfile,
   ProfileCity,
@@ -20,6 +25,8 @@ import type {
   ProfileInterest,
   UpdateProfilePayload,
 } from "../../types/profileEdit";
+
+import "./ProfileEditPage.css";
 
 const GENDERS: Array<{value: ProfileGender; label: string}> = [
   {value: "", label: "Sélectionner"},
@@ -119,6 +126,9 @@ function calculateAge(birthDate: string | null): number | null {
 export function ProfileEditPage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<EditableProfile | null>(null);
+  const [photos, setPhotos] = useState<ProfilePhoto[]>([]);
+  const [isPhotoLoading, setIsPhotoLoading] = useState(true);
+  const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
   const [form, setForm] = useState<UpdateProfilePayload>(EMPTY_FORM);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -166,10 +176,56 @@ export function ProfileEditPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadProfilePhotos(): Promise<void> {
+      setIsPhotoLoading(true);
+      setPhotoLoadFailed(false);
+
+      try {
+        const result = await getMyProfilePhotos();
+
+        if (isActive) {
+          setPhotos(sortProfilePhotos(result.results));
+        }
+      } catch {
+        if (isActive) {
+          setPhotos([]);
+          setPhotoLoadFailed(true);
+        }
+      } finally {
+        if (isActive) {
+          setIsPhotoLoading(false);
+        }
+      }
+    }
+
+    void loadProfilePhotos();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   const previewAge = useMemo(
     () => calculateAge(form.birth_date),
     [form.birth_date],
   );
+
+  const previewPhoto = useMemo(() => {
+    const approvedPhotos = photos.filter(
+      (photo) =>
+        photo.moderation_status === "approved" &&
+        Boolean(photo.image_url),
+    );
+
+    return (
+      approvedPhotos.find((photo) => photo.is_primary) ??
+      approvedPhotos[0] ??
+      null
+    );
+  }, [photos]);
 
   const requiredProfileIsComplete = Boolean(
     form.display_name.trim() &&
@@ -470,9 +526,40 @@ export function ProfileEditPage() {
 
         <aside className="profile-edit-preview" aria-label="Aperçu du profil">
           <p className="section-heading__eyebrow">Aperçu en direct</p>
-          <div className="profile-edit-preview__avatar" aria-hidden="true">
-            {form.display_name.trim().charAt(0).toUpperCase() || "M"}
+          <div
+            className={[
+              "profile-edit-preview__avatar",
+              previewPhoto && !photoLoadFailed
+                ? "profile-edit-preview__avatar--photo"
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            {isPhotoLoading ? (
+              <span
+                className="profile-edit-preview__avatar-loader"
+                aria-label="Chargement de la photo principale"
+              />
+            ) : previewPhoto?.image_url && !photoLoadFailed ? (
+              <img
+                src={previewPhoto.image_url}
+                alt={`Photo principale de ${form.display_name.trim() || "ce profil"}`}
+                onError={() => setPhotoLoadFailed(true)}
+              />
+            ) : (
+              <span aria-hidden="true">
+                {form.display_name.trim().charAt(0).toUpperCase() || "M"}
+              </span>
+            )}
           </div>
+
+          <Link
+            className="profile-edit-preview__photo-link"
+            to="/profile/photos"
+          >
+            Gérer mes photos
+          </Link>
           <h2>
             {form.display_name.trim() || "Ton nom"}
             {previewAge !== null ? `, ${previewAge}` : ""}
