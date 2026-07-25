@@ -1,20 +1,18 @@
 /**
- * Carte publique d'un match Mbolo.
+ * Carte publique compacte d'un match Mbolo.
  *
- * Les seules données affichées sont celles transmises
- * explicitement par MatchSerializer.
+ * Seules les données publiques explicitement transmises
+ * par MatchSerializer sont affichées.
  */
 
 import type { MatchItem } from "../../types/matches";
+
 
 interface MatchCardProps {
   match: MatchItem;
 }
 
-/**
- * Convertit certaines valeurs techniques du backend
- * en libellés lisibles.
- */
+
 function formatPublicValue(value: string): string {
   const labels: Record<string, string> = {
     man: "Homme",
@@ -42,9 +40,7 @@ function formatPublicValue(value: string): string {
   );
 }
 
-/**
- * Génère au maximum deux initiales publiques.
- */
+
 function getInitials(displayName: string): string {
   const parts = displayName
     .trim()
@@ -61,6 +57,7 @@ function getInitials(displayName: string): string {
     .join("");
 }
 
+
 function getPrimaryPhotoUrl(
   match: MatchItem,
 ): string | null {
@@ -76,9 +73,7 @@ function getPrimaryPhotoUrl(
   return photo?.image_url ?? null;
 }
 
-/**
- * Formate la date dans la langue du navigateur.
- */
+
 function formatMatchDate(createdAt: string): string {
   const date = new Date(createdAt);
 
@@ -93,6 +88,7 @@ function formatMatchDate(createdAt: string): string {
   }).format(date);
 }
 
+
 export function MatchCard({
   match,
 }: MatchCardProps) {
@@ -100,7 +96,7 @@ export function MatchCard({
   const primaryPhotoUrl = getPrimaryPhotoUrl(match);
 
   return (
-    <article className="match-card">
+    <article className="match-card match-card--premium">
       <div className="match-card__visual">
         {primaryPhotoUrl ? (
           <img
@@ -117,6 +113,12 @@ export function MatchCard({
           </div>
         )}
 
+        <div className="match-card__visual-overlay" />
+
+        <span className="match-card__connection-label">
+          Match réciproque
+        </span>
+
         {profile.is_verified ? (
           <span className="match-card__verified">
             <span aria-hidden="true">✓</span>
@@ -126,13 +128,17 @@ export function MatchCard({
       </div>
 
       <div className="match-card__content">
-        <p className="section-heading__eyebrow">
-          Connexion réciproque
-        </p>
-
         <div className="match-card__title-row">
-          <h2>{profile.display_name}</h2>
-          <span>{profile.age} ans</span>
+          <div>
+            <p className="section-heading__eyebrow">
+              Connexion réciproque
+            </p>
+
+            <h2>
+              {profile.display_name}
+              <span>{profile.age}</span>
+            </h2>
+          </div>
         </div>
 
         <div className="match-card__metadata">
@@ -162,7 +168,8 @@ export function MatchCard({
             className="match-card__privacy"
             title="Les informations privées restent protégées."
           >
-            ◇ Données privées protégées
+            <span aria-hidden="true">◇</span>
+            Données privées protégées
           </span>
         </div>
       </div>

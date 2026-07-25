@@ -99,6 +99,9 @@ export function MessageBubble({
                 : "Message envoyé"
             }
           >
+            <span aria-hidden="true">
+              {message.is_read ? "✓✓" : "✓"}
+            </span>
             {message.is_read ? "Lu" : "Envoyé"}
           </span>
         ) : message.is_mine ? (
@@ -106,6 +109,7 @@ export function MessageBubble({
             className="message-bubble__read-status"
             title="Accusés de lecture disponibles avec Mbolo Plus et Prestige"
           >
+            <span aria-hidden="true">✓</span>
             Envoyé
           </span>
         ) : null}

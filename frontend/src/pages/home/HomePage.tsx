@@ -1,17 +1,7 @@
-/**
- * Première page d'accueil publique de Mbolo.
- *
- * Cette version constitue notre première base visuelle professionnelle.
- * Elle sera enrichie progressivement avec :
- *
- * - des illustrations ;
- * - des animations légères ;
- * - des témoignages ;
- * - une section détaillée sur la sécurité ;
- * - une présentation plus complète des fonctionnalités.
- */
-
 import { LinkButton } from "../../components/common/LinkButton";
+
+import "./HomePage.css";
+
 
 const trustIndicators = [
   {
@@ -20,7 +10,7 @@ const trustIndicators = [
   },
   {
     value: "6",
-    label: "Photos sécurisées par profil",
+    label: "Photos protégées par profil",
   },
   {
     value: "24/7",
@@ -28,120 +18,131 @@ const trustIndicators = [
   },
 ];
 
-const featureCards = [
+
+const experienceCards = [
   {
     number: "01",
-    title: "Des profils authentiques",
+    eyebrow: "Authenticité",
+    title: "Des profils qui inspirent confiance",
     description:
-      "Des profils structurés, des adresses e-mail vérifiées et des photos traitées par une chaîne de sécurité dédiée.",
+      "Adresse e-mail vérifiée, photos contrôlées et outils de vérification pour réduire les faux profils.",
   },
   {
     number: "02",
-    title: "Une découverte privée",
+    eyebrow: "Confidentialité",
+    title: "Tu gardes le contrôle sur ta visibilité",
     description:
-      "Choisis qui peut te découvrir grâce à des préférences confidentielles et des contrôles d'accès stricts.",
+      "Choisis qui peut te découvrir, protège tes informations et maîtrise les interactions autour de ton profil.",
   },
   {
     number: "03",
-    title: "Des échanges plus sûrs",
+    eyebrow: "Respect",
+    title: "Des échanges pensés pour durer",
     description:
-      "Blocages bidirectionnels, signalements, limitation anti-abus et journalisation sécurisée protègent la communauté.",
+      "Blocage, signalement, limitation anti-abus et modération contribuent à une communauté plus saine.",
   },
 ];
 
+
+const safetyPoints = [
+  "Sessions sécurisées et protection CSRF",
+  "Limitation anti-force brute avec Redis",
+  "Réencodage sécurisé des photos",
+  "Journalisation et alertes de connexion",
+];
+
+
 export function HomePage() {
   return (
-    <main>
-      <section className="hero-section">
-        <div className="hero-section__glow hero-section__glow--one" />
-        <div className="hero-section__glow hero-section__glow--two" />
+    <main className="home-premium-page">
+      <section className="home-premium-hero">
+        <div className="home-premium-hero__background" />
 
-        <div className="hero-section__container">
-          <div className="hero-section__content">
-            <div className="hero-section__eyebrow">
-              <span className="hero-section__eyebrow-dot" />
-
+        <div className="home-premium-hero__container">
+          <div className="home-premium-hero__content">
+            <div className="home-premium-hero__eyebrow">
+              <span aria-hidden="true" />
               Rencontre africaine, moderne et sécurisée
             </div>
 
-            <h1 className="hero-section__title">
-              Une rencontre
-              <span> sincère </span>
-              commence par un espace de confiance.
+            <h1>
+              La rencontre sincère commence par la confiance.
             </h1>
 
-            <p className="hero-section__description">
-              Mbolo rapproche les personnes qui souhaitent créer une
-              relation authentique, dans une expérience élégante,
-              respectueuse et conçue avec la sécurité au cœur du produit.
+            <p className="home-premium-hero__description">
+              Mbolo rapproche les personnes qui souhaitent construire une
+              relation authentique dans une expérience élégante, respectueuse
+              et pensée avec la sécurité au cœur du produit.
             </p>
 
-            <div className="hero-section__actions">
+            <div className="home-premium-hero__actions">
               <LinkButton
                 to="/register"
                 variant="primary"
-                className="hero-section__primary-action"
+                className="home-premium-hero__primary-action"
               >
-                Commencer l’expérience
+                Créer mon profil
                 <span aria-hidden="true">→</span>
               </LinkButton>
 
-              <LinkButton to="/safety" variant="secondary">
+              <LinkButton
+                to="/safety"
+                variant="secondary"
+              >
                 Découvrir notre sécurité
               </LinkButton>
             </div>
 
-            <p className="hero-section__privacy-note">
-              Inscription gratuite · Réservé aux adultes · Données
-              protégées
-            </p>
+            <div className="home-premium-hero__proof">
+              <span>Inscription gratuite</span>
+              <span>Réservé aux adultes</span>
+              <span>Données protégées</span>
+            </div>
           </div>
 
           <div
-            className="hero-visual"
-            aria-label="Aperçu de profils Mbolo"
+            className="home-premium-visual"
+            aria-label="Aperçu d’un profil Mbolo"
           >
-            <div className="hero-visual__frame">
-              <div className="hero-visual__topbar">
-                <span className="hero-visual__status">
-                  Profil recommandé
-                </span>
+            <div className="home-premium-visual__halo" />
 
+            <div className="home-premium-profile">
+              <div className="home-premium-profile__top">
+                <span>Profil recommandé</span>
                 <span
-                  className="hero-visual__verified"
+                  className="home-premium-profile__verified"
                   aria-label="Profil vérifié"
                 >
                   ✓
                 </span>
               </div>
 
-              <div className="hero-visual__portrait">
-                <div className="hero-visual__portrait-overlay" />
+              <div className="home-premium-profile__portrait">
+                <div className="home-premium-profile__portrait-glow" />
 
-                <div className="hero-visual__initials" aria-hidden="true">
+                <div
+                  className="home-premium-profile__initials"
+                  aria-hidden="true"
+                >
                   AM
                 </div>
 
-                <div className="hero-visual__profile-data">
-                  <p className="hero-visual__location">
-                    Libreville, Gabon
-                  </p>
+                <div className="home-premium-profile__identity">
+                  <p>Libreville, Gabon</p>
 
                   <h2>
                     Arielle
                     <span>29</span>
                   </h2>
 
-                  <p>
-                    Passionnée de voyages, de culture et de projets
-                    ambitieux.
-                  </p>
+                  <small>
+                    Passionnée de voyages, de culture et de projets ambitieux.
+                  </small>
                 </div>
               </div>
 
-              <div className="hero-visual__footer">
+              <div className="home-premium-profile__footer">
                 <button
-                  className="hero-visual__control hero-visual__control--secondary"
                   type="button"
                   aria-label="Passer ce profil"
                 >
@@ -149,7 +150,6 @@ export function HomePage() {
                 </button>
 
                 <button
-                  className="hero-visual__control hero-visual__control--primary"
                   type="button"
                   aria-label="Aimer ce profil"
                 >
@@ -158,17 +158,16 @@ export function HomePage() {
               </div>
             </div>
 
-            <div className="hero-visual__floating-card hero-visual__floating-card--security">
-              <span aria-hidden="true">◆</span>
-
+            <div className="home-premium-floating-card home-premium-floating-card--security">
+              <span aria-hidden="true">✓</span>
               <div>
                 <strong>Protection active</strong>
                 <small>Confidentialité par conception</small>
               </div>
             </div>
 
-            <div className="hero-visual__floating-card hero-visual__floating-card--match">
-              <div className="hero-visual__avatars">
+            <div className="home-premium-floating-card home-premium-floating-card--match">
+              <div className="home-premium-floating-card__avatars">
                 <span>AM</span>
                 <span>CY</span>
               </div>
@@ -181,13 +180,10 @@ export function HomePage() {
           </div>
         </div>
 
-        <div className="trust-strip">
-          <div className="trust-strip__container">
+        <div className="home-premium-trust-strip">
+          <div className="home-premium-trust-strip__container">
             {trustIndicators.map((indicator) => (
-              <article
-                className="trust-strip__item"
-                key={indicator.label}
-              >
+              <article key={indicator.label}>
                 <strong>{indicator.value}</strong>
                 <span>{indicator.label}</span>
               </article>
@@ -196,117 +192,108 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="features-section">
-        <div className="features-section__container">
-          <div className="section-heading">
+      <section className="home-premium-experience">
+        <div className="home-premium-section-heading">
+          <div>
             <p className="section-heading__eyebrow">
               L’expérience Mbolo
             </p>
 
             <h2>
-              Plus qu’une application.
-              <span> Un environnement de confiance.</span>
+              Une plateforme pensée pour créer de vraies connexions.
             </h2>
-
-            <p>
-              Chaque fonctionnalité est conçue pour favoriser des
-              rencontres sérieuses tout en réduisant les abus, les
-              expositions inutiles et les risques pour les utilisateurs.
-            </p>
           </div>
 
-          <div className="features-grid">
-            {featureCards.map((feature) => (
-              <article className="feature-card" key={feature.number}>
-                <span className="feature-card__number">
-                  {feature.number}
-                </span>
+          <p>
+            Chaque détail est conçu pour rendre la rencontre plus fluide,
+            plus rassurante et plus respectueuse.
+          </p>
+        </div>
 
-                <h3>{feature.title}</h3>
+        <div className="home-premium-experience__grid">
+          {experienceCards.map((feature) => (
+            <article key={feature.number}>
+              <div className="home-premium-experience__meta">
+                <span>{feature.number}</span>
+                <small>{feature.eyebrow}</small>
+              </div>
 
-                <p>{feature.description}</p>
+              <h3>{feature.title}</h3>
 
-                <span
-                  className="feature-card__decorative-arrow"
-                  aria-hidden="true"
-                >
-                  ↗
-                </span>
-              </article>
+              <p>{feature.description}</p>
+
+              <span
+                className="home-premium-experience__arrow"
+                aria-hidden="true"
+              >
+                ↗
+              </span>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="home-premium-safety">
+        <div className="home-premium-safety__visual">
+          <div className="home-premium-safety__shield">
+            <span>M</span>
+          </div>
+
+          <div className="home-premium-safety__orbit home-premium-safety__orbit--one" />
+          <div className="home-premium-safety__orbit home-premium-safety__orbit--two" />
+
+          <div className="home-premium-safety__badge">
+            <span aria-hidden="true">✓</span>
+            Sécurité intégrée
+          </div>
+        </div>
+
+        <div className="home-premium-safety__content">
+          <p className="section-heading__eyebrow">
+            Sécurité par conception
+          </p>
+
+          <h2>
+            La confiance ne doit jamais être ajoutée à la fin.
+          </h2>
+
+          <p>
+            Mbolo est développé avec une approche de défense en profondeur
+            inspirée des pratiques utilisées dans les organisations matures.
+          </p>
+
+          <ul>
+            {safetyPoints.map((point) => (
+              <li key={point}>
+                <span aria-hidden="true">✓</span>
+                {point}
+              </li>
             ))}
-          </div>
+          </ul>
+
+          <LinkButton to="/safety" variant="secondary">
+            Consulter notre approche
+          </LinkButton>
         </div>
       </section>
 
-      <section className="security-section">
-        <div className="security-section__container">
-          <div className="security-section__visual">
-            <div className="security-section__shield">
-              <span aria-hidden="true">M</span>
-            </div>
-
-            <div className="security-section__orbit security-section__orbit--one" />
-            <div className="security-section__orbit security-section__orbit--two" />
-          </div>
-
-          <div className="security-section__content">
-            <p className="section-heading__eyebrow">
-              Sécurité par conception
-            </p>
-
-            <h2>
-              La confiance n’est pas une option ajoutée à la fin.
-            </h2>
-
-            <p>
-              Mbolo est développé avec une approche de défense en
-              profondeur inspirée des standards utilisés par les
-              organisations matures.
-            </p>
-
-            <ul className="security-list">
-              <li>
-                <span aria-hidden="true">✓</span>
-                Protection CSRF et sessions sécurisées
-              </li>
-
-              <li>
-                <span aria-hidden="true">✓</span>
-                Limitation anti-force brute avec Redis
-              </li>
-
-              <li>
-                <span aria-hidden="true">✓</span>
-                Traitement et réencodage sécurisé des photos
-              </li>
-
-              <li>
-                <span aria-hidden="true">✓</span>
-                Blocage, signalement et isolation des données
-              </li>
-            </ul>
-
-            <LinkButton to="/safety" variant="secondary">
-              Consulter notre approche
-            </LinkButton>
-          </div>
-        </div>
-      </section>
-
-      <section className="final-cta">
-        <div className="final-cta__container">
+      <section className="home-premium-final-cta">
+        <div>
           <p>Une nouvelle rencontre peut commencer aujourd’hui.</p>
 
           <h2>
-            Rejoins une communauté qui valorise l’authenticité,
-            le respect et l’ambition.
+            Rejoins une communauté qui valorise l’authenticité, le respect
+            et l’ambition.
           </h2>
-
-          <LinkButton to="/register" variant="primary">
-            Créer mon profil
-            <span aria-hidden="true">→</span>
-          </LinkButton>
         </div>
+
+        <LinkButton
+          to="/register"
+          variant="primary"
+        >
+          Commencer maintenant
+          <span aria-hidden="true">→</span>
+        </LinkButton>
       </section>
     </main>
   );

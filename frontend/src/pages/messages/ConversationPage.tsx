@@ -168,6 +168,9 @@ export function ConversationPage() {
   const [conversation, setConversation] =
     useState<ConversationItem | null>(null);
 
+  const [conversationList, setConversationList] =
+    useState<ConversationItem[]>([]);
+
   const [messages, setMessages] =
     useState<MessageItem[]>([]);
 
@@ -291,6 +294,8 @@ export function ConversationPage() {
         page: 1,
         pageSize: DEFAULT_CONVERSATIONS_PAGE_SIZE,
       });
+
+      setConversationList(result.results);
 
       return (
         result.results.find(
@@ -864,24 +869,102 @@ export function ConversationPage() {
 
   return (
     <main className="conversation-page">
-      <section className="conversation-shell">
-        <header className="conversation-header">
-          <Link
-            className="conversation-header__back-link"
-            to="/messages"
-          >
-            <span aria-hidden="true">←</span>
-            Mes messages
-          </Link>
-
-          <div className="conversation-contact">
-            <div
-              className="conversation-contact__avatar"
-              aria-label={
-                `Photo de ${conversation.other_profile.display_name}`
-              }
+      <section className="conversation-shell conversation-shell--premium">
+        <aside className="conversation-sidebar">
+          <div className="conversation-sidebar__top">
+            <Link
+              className="conversation-sidebar__back"
+              to="/messages"
             >
-              {primaryPhotoUrl ? (
+              <span aria-hidden="true">←</span>
+              Toutes les conversations
+            </Link>
+
+            <div className="conversation-sidebar__heading">
+              <p className="section-heading__eyebrow">
+                Messagerie privée
+              </p>
+              <h2>Conversations</h2>
+              <span>{conversationList.length}</span>
+            </div>
+          </div>
+
+          <nav
+            className="conversation-sidebar__list"
+            aria-label="Conversations"
+          >
+            {conversationList.map((item) => {
+              const itemPhotoUrl = getPrimaryPhotoUrl(item);
+              const isActive = item.id === conversation.id;
+
+              return (
+                <Link
+                  key={item.id}
+                  className={
+                    isActive
+                      ? "conversation-sidebar__item conversation-sidebar__item--active"
+                      : "conversation-sidebar__item"
+                  }
+                  to={`/messages/${item.id}`}
+                >
+                  <span className="conversation-sidebar__avatar">
+                    {itemPhotoUrl ? (
+                      <img src={itemPhotoUrl} alt="" />
+                    ) : (
+                      getProfileInitial(
+                        item.other_profile.display_name,
+                      )
+                    )}
+                    <i
+                      className={
+                        item.other_presence.is_online
+                          ? "conversation-sidebar__presence conversation-sidebar__presence--online"
+                          : "conversation-sidebar__presence"
+                      }
+                    />
+                  </span>
+
+                  <span className="conversation-sidebar__copy">
+                    <span className="conversation-sidebar__name-row">
+                      <strong>
+                        {item.other_profile.display_name}
+                      </strong>
+                      {item.unread_count > 0 ? (
+                        <b>{item.unread_count}</b>
+                      ) : null}
+                    </span>
+
+                    <small>
+                      {item.last_message?.body ??
+                        "Commencez la conversation"}
+                    </small>
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="conversation-sidebar__security">
+            <span aria-hidden="true">✓</span>
+            <div>
+              <strong>Conversation protégée</strong>
+              <small>
+                Accessible uniquement aux deux participants du match.
+              </small>
+            </div>
+          </div>
+        </aside>
+
+        <section className="conversation-panel">
+          <header className="conversation-header">
+            <div className="conversation-contact">
+              <div
+                className="conversation-contact__avatar"
+                aria-label={
+                  `Photo de ${conversation.other_profile.display_name}`
+                }
+              >
+                {primaryPhotoUrl ? (
                   <img
                     src={primaryPhotoUrl}
                     alt=""
@@ -891,198 +974,214 @@ export function ConversationPage() {
                     conversation.other_profile.display_name,
                   )
                 )}
-            </div>
-
-            <div className="conversation-contact__identity">
-              <p className="conversation-contact__eyebrow">
-                Conversation privée
-              </p>
-
-              <div className="conversation-contact__name-row">
-                <h1>
-                  {
-                    conversation.other_profile
-                      .display_name
-                  }
-                </h1>
-
-                {conversation.other_profile.is_verified ? (
-                  <span
-                    className="conversation-contact__verified"
-                    title="Profil vérifié"
-                    aria-label="Profil vérifié"
-                  >
-                    ✓
-                  </span>
-                ) : null}
               </div>
 
-              {profileMetadata ? (
-                <p className="conversation-contact__metadata">
-                  {profileMetadata}
-                </p>
-              ) : null}
+              <div className="conversation-contact__identity">
+                <div className="conversation-contact__name-row">
+                  <h1>
+                    {conversation.other_profile.display_name}
+                  </h1>
 
-              <p
-                className={
-                  conversation.other_presence.is_online
-                    ? "conversation-contact__presence conversation-contact__presence--online"
-                    : "conversation-contact__presence"
-                }
+                  {conversation.other_profile.is_verified ? (
+                    <span
+                      className="conversation-contact__verified"
+                      title="Profil vérifié"
+                      aria-label="Profil vérifié"
+                    >
+                      ✓
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="conversation-contact__details">
+                  {profileMetadata ? (
+                    <span>{profileMetadata}</span>
+                  ) : null}
+
+                  <span
+                    className={
+                      conversation.other_presence.is_online
+                        ? "conversation-contact__presence conversation-contact__presence--online"
+                        : "conversation-contact__presence"
+                    }
+                  >
+                    <i aria-hidden="true" />
+                    {formatPresenceLabel(
+                      conversation.other_presence.is_online,
+                      conversation.other_presence.last_seen_at,
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="conversation-header__actions">
+              <Link
+                className="conversation-header__profile-link"
+                to={`/profiles/${conversation.other_profile.id}`}
               >
-                <span aria-hidden="true" />
-                {formatPresenceLabel(
-                  conversation.other_presence.is_online,
-                  conversation.other_presence.last_seen_at,
-                )}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="conversation-header__refresh-button"
-            disabled={isRefreshing}
-            onClick={() => {
-              void loadMessages({
-                silent: true,
-              });
-            }}
-          >
-            {isRefreshing
-              ? "Actualisation…"
-              : "Actualiser"}
-          </button>
-        </header>
-
-        <section
-          className="conversation-messages"
-          aria-label={`Conversation avec ${conversation.other_profile.display_name}`}
-          aria-live="polite"
-        >
-          {messages.length === 0 ? (
-            <div className="conversation-empty-state">
-              <span aria-hidden="true">♡</span>
-
-              <h2>Commence la conversation</h2>
-
-              <p>
-                Vous avez un match. Tu peux maintenant envoyer
-                ton premier message en toute confidentialité.
-              </p>
-            </div>
-          ) : (
-            messages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-              />
-            ))
-          )}
-
-
-          {otherIsTyping ? (
-            <div
-              className="conversation-typing-indicator"
-              role="status"
-              aria-live="polite"
-            >
-              <span aria-hidden="true"><i /><i /><i /></span>
-              {conversation.other_profile.display_name} écrit…
-            </div>
-          ) : null}
-
-          <div
-            ref={messagesEndReference}
-            className="conversation-messages__end"
-            aria-hidden="true"
-          />
-        </section>
-
-        <form
-          className="message-composer"
-          onSubmit={(event) => {
-            void handleSubmit(event);
-          }}
-        >
-          {sendError ? (
-            <div
-              className="message-composer__error"
-              role="alert"
-            >
-              <span aria-hidden="true">!</span>
-
-              <p>{sendError}</p>
+                Voir le profil
+              </Link>
 
               <button
                 type="button"
-                aria-label="Fermer le message d'erreur"
+                className="conversation-header__refresh-button"
+                disabled={isRefreshing}
+                title="Actualiser les messages"
+                aria-label="Actualiser les messages"
                 onClick={() => {
-                  setSendError("");
+                  void loadMessages({
+                    silent: true,
+                  });
                 }}
               >
-                ×
+                {isRefreshing ? "…" : "↻"}
+              </button>
+
+              <button
+                type="button"
+                className="conversation-header__more-button"
+                aria-label="Options de la conversation"
+                title="Supprimer le match"
+                onClick={() => {
+                  setIsUnmatchDialogOpen(true);
+                }}
+              >
+                ⋯
               </button>
             </div>
-          ) : null}
+          </header>
 
-          <label
-            className="message-composer__label"
-            htmlFor="message-body"
+          <section
+            className="conversation-messages"
+            aria-label={`Conversation avec ${conversation.other_profile.display_name}`}
+            aria-live="polite"
           >
-            Ton message
-          </label>
+            <div className="conversation-messages__privacy-note">
+              <span aria-hidden="true">◇</span>
+              <p>
+                Cette conversation est privée. Ne partage jamais de code,
+                mot de passe ou information bancaire.
+              </p>
+            </div>
 
-          <div className="message-composer__controls">
-            <textarea
-              id="message-body"
-              value={messageBody}
-              maxLength={MAX_MESSAGE_LENGTH}
-              placeholder={`Écris à ${conversation.other_profile.display_name}…`}
-              rows={3}
-              disabled={isSending}
-              onKeyDown={handleTextareaKeyDown}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setMessageBody(nextValue);
-                publishTypingStatus(nextValue.trim().length > 0);
-                setSendError("");
-              }}
+            {messages.length === 0 ? (
+              <div className="conversation-empty-state">
+                <span aria-hidden="true">♡</span>
+
+                <h2>Commence la conversation</h2>
+
+                <p>
+                  Vous avez un match. Tu peux maintenant envoyer
+                  ton premier message en toute confidentialité.
+                </p>
+              </div>
+            ) : (
+              messages.map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                />
+              ))
+            )}
+
+            {otherIsTyping ? (
+              <div
+                className="conversation-typing-indicator"
+                role="status"
+                aria-live="polite"
+              >
+                <span aria-hidden="true"><i /><i /><i /></span>
+                {conversation.other_profile.display_name} écrit…
+              </div>
+            ) : null}
+
+            <div
+              ref={messagesEndReference}
+              className="conversation-messages__end"
+              aria-hidden="true"
             />
+          </section>
 
-            <button
-              type="submit"
-              disabled={
-                isSending ||
-                messageBody.trim().length === 0
-              }
-            >
-              {isSending
-                ? "Envoi…"
-                : "Envoyer"}
-              <span aria-hidden="true">→</span>
-            </button>
-          </div>
+          <form
+            className="message-composer"
+            onSubmit={(event) => {
+              void handleSubmit(event);
+            }}
+          >
+            {sendError ? (
+              <div
+                className="message-composer__error"
+                role="alert"
+              >
+                <span aria-hidden="true">!</span>
+                <p>{sendError}</p>
+                <button
+                  type="button"
+                  aria-label="Fermer le message d'erreur"
+                  onClick={() => {
+                    setSendError("");
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ) : null}
 
-          <div className="message-composer__footer">
-            <span>
-              Entrée pour envoyer · Maj + Entrée pour aller à la
-              ligne
-            </span>
+            <div className="message-composer__controls">
+              <textarea
+                id="message-body"
+                aria-label={`Écrire à ${conversation.other_profile.display_name}`}
+                value={messageBody}
+                maxLength={MAX_MESSAGE_LENGTH}
+                placeholder={`Écris à ${conversation.other_profile.display_name}…`}
+                rows={1}
+                disabled={isSending}
+                onKeyDown={handleTextareaKeyDown}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setMessageBody(nextValue);
+                  publishTypingStatus(
+                    nextValue.trim().length > 0,
+                  );
+                  setSendError("");
+                }}
+              />
 
-            <strong
-              className={
-                messageBody.length >=
-                MAX_MESSAGE_LENGTH
-                  ? "message-composer__counter message-composer__counter--limit"
-                  : "message-composer__counter"
-              }
-            >
-              {messageBody.length}/{MAX_MESSAGE_LENGTH}
-            </strong>
-          </div>
-        </form>
+              <button
+                type="submit"
+                disabled={
+                  isSending ||
+                  messageBody.trim().length === 0
+                }
+                aria-label="Envoyer le message"
+              >
+                <span>
+                  {isSending ? "Envoi…" : "Envoyer"}
+                </span>
+                <i aria-hidden="true">→</i>
+              </button>
+            </div>
+
+            <div className="message-composer__footer">
+              <span>
+                Entrée pour envoyer · Maj + Entrée pour une nouvelle ligne
+              </span>
+
+              <strong
+                className={
+                  messageBody.length >= MAX_MESSAGE_LENGTH
+                    ? "message-composer__counter message-composer__counter--limit"
+                    : "message-composer__counter"
+                }
+              >
+                {messageBody.length}/{MAX_MESSAGE_LENGTH}
+              </strong>
+            </div>
+          </form>
+        </section>
       </section>
+
       {isUnmatchDialogOpen ? (
         <div className="unmatch-dialog-backdrop">
           <section
@@ -1096,13 +1195,14 @@ export function ConversationPage() {
             </p>
 
             <h2 id="conversation-unmatch-title">
-              Fermer cette relation ?
+              Supprimer le match avec{" "}
+              {conversation.other_profile.display_name} ?
             </h2>
 
             <p>
-              Le match sera supprimé et cette conversation deviendra
-              inaccessible. Les messages resteront conservés pour
-              assurer la traçabilité et la sécurité.
+              Cette conversation deviendra inaccessible. Les messages
+              resteront conservés de manière sécurisée pour assurer
+              la traçabilité des signalements.
             </p>
 
             <div className="unmatch-dialog__actions">

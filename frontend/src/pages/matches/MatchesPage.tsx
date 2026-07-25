@@ -28,14 +28,17 @@ import type {
   MatchesPaginatedResponse,
 } from "../../types/matches";
 
+
 type MatchesStatus =
   | "loading"
   | "success"
   | "empty"
   | "error";
 
+
 export function MatchesPage() {
   const navigate = useNavigate();
+
   const {
     lastEvent,
     revision,
@@ -61,9 +64,7 @@ export function MatchesPage() {
   const [isRemovingMatch, setIsRemovingMatch] =
     useState(false);
 
-  /**
-   * Charge une page de matchs depuis Django.
-   */
+
   const loadMatches = useCallback(
     async (page: number): Promise<void> => {
       setStatus("loading");
@@ -78,12 +79,11 @@ export function MatchesPage() {
         setMatchesData(result);
         setCurrentPage(page);
 
-        if (result.results.length === 0) {
-          setStatus("empty");
-          return;
-        }
-
-        setStatus("success");
+        setStatus(
+          result.results.length === 0
+            ? "empty"
+            : "success",
+        );
       } catch (error: unknown) {
         const normalizedError =
           normalizeApiError(error);
@@ -96,14 +96,12 @@ export function MatchesPage() {
     [],
   );
 
+
   useEffect(() => {
     void loadMatches(1);
   }, [loadMatches]);
 
-  /**
-   * Recharge la première page lorsqu'un nouveau match
-   * arrive par le canal WebSocket global.
-   */
+
   useEffect(() => {
     if (lastEvent?.event === "match.notification") {
       void loadMatches(1);
@@ -114,8 +112,10 @@ export function MatchesPage() {
     revision,
   ]);
 
+
   const matches: MatchItem[] =
     matchesData?.results ?? [];
+
 
   async function handleUnmatch(): Promise<void> {
     if (
@@ -130,37 +130,53 @@ export function MatchesPage() {
 
     try {
       await deactivateMatch(matchToRemove.id);
-
       setMatchToRemove(null);
-
       await loadMatches(1);
     } catch (error: unknown) {
-      const normalizedError =
-        normalizeApiError(error);
-
-      setErrorMessage(normalizedError.message);
+      setErrorMessage(
+        normalizeApiError(error).message,
+      );
     } finally {
       setIsRemovingMatch(false);
     }
   }
 
+
+  function renderHeading(count: number) {
+    return (
+      <section className="matches-page__heading">
+        <div>
+          <p className="section-heading__eyebrow">
+            Connexions réciproques
+          </p>
+
+          <h1>Mes matchs</h1>
+
+          <p>
+            Retrouve les personnes avec lesquelles l’intérêt
+            est mutuel et commence une conversation en toute
+            confiance.
+          </p>
+        </div>
+
+        <div className="matches-page__summary">
+          <span>{count}</span>
+
+          <p>
+            {count > 1
+              ? "matchs actifs"
+              : "match actif"}
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+
   if (status === "loading") {
     return (
       <main className="matches-page">
-        <section className="matches-page__heading">
-          <div>
-            <p className="section-heading__eyebrow">
-              Connexions réciproques
-            </p>
-
-            <h1>Nous chargeons tes matchs.</h1>
-
-            <p>
-              Seules les connexions actives associées
-              à ton profil sont récupérées.
-            </p>
-          </div>
-        </section>
+        {renderHeading(matchesData?.count ?? 0)}
 
         <section
           className="matches-state-card"
@@ -175,30 +191,18 @@ export function MatchesPage() {
           <h2>Chargement en cours</h2>
 
           <p>
-            Tes informations privées restent protégées.
+            Tes connexions actives sont récupérées de manière sécurisée.
           </p>
         </section>
       </main>
     );
   }
 
+
   if (status === "error") {
     return (
       <main className="matches-page">
-        <section className="matches-page__heading">
-          <div>
-            <p className="section-heading__eyebrow">
-              Mes matchs
-            </p>
-
-            <h1>Impossible de charger tes matchs.</h1>
-
-            <p>
-              Ta session reste sécurisée. Tu peux
-              relancer la requête.
-            </p>
-          </div>
-        </section>
+        {renderHeading(0)}
 
         <section
           className="matches-state-card matches-state-card--error"
@@ -211,7 +215,7 @@ export function MatchesPage() {
             !
           </div>
 
-          <h2>Une erreur est survenue</h2>
+          <h2>Impossible de charger tes matchs</h2>
 
           <p>
             {errorMessage ||
@@ -231,28 +235,11 @@ export function MatchesPage() {
     );
   }
 
+
   if (status === "empty") {
     return (
       <main className="matches-page">
-        <section className="matches-page__heading">
-          <div>
-            <p className="section-heading__eyebrow">
-              Connexions réciproques
-            </p>
-
-            <h1>Mes matchs</h1>
-
-            <p>
-              Les personnes qui t’apprécient également
-              apparaîtront ici.
-            </p>
-          </div>
-
-          <div className="matches-page__summary">
-            <span>0</span>
-            <p>match actif</p>
-          </div>
-        </section>
+        {renderHeading(0)}
 
         <section className="matches-state-card">
           <div
@@ -269,42 +256,34 @@ export function MatchesPage() {
             deviendra réciproque.
           </p>
 
-          <a href="/discovery">
+          <button
+            type="button"
+            onClick={() => {
+              navigate("/discovery");
+            }}
+          >
             Continuer la découverte
             <span aria-hidden="true">→</span>
-          </a>
+          </button>
         </section>
       </main>
     );
   }
 
+
   return (
     <main className="matches-page">
-      <section className="matches-page__heading">
-        <div>
-          <p className="section-heading__eyebrow">
-            Connexions réciproques
-          </p>
+      {renderHeading(matchesData?.count ?? 0)}
 
-          <h1>Mes matchs</h1>
-
-          <p>
-            Chaque connexion affichée repose sur deux
-            likes mutuels et reste limitée aux informations
-            publiques.
-          </p>
+      {errorMessage ? (
+        <div
+          className="matches-inline-alert"
+          role="alert"
+        >
+          <span aria-hidden="true">!</span>
+          <p>{errorMessage}</p>
         </div>
-
-        <div className="matches-page__summary">
-          <span>{matchesData?.count ?? 0}</span>
-
-          <p>
-            {(matchesData?.count ?? 0) > 1
-              ? "matchs actifs"
-              : "match actif"}
-          </p>
-        </div>
-      </section>
+      ) : null}
 
       <section
         className="matches-grid"
@@ -320,6 +299,17 @@ export function MatchesPage() {
             <div className="match-card-with-detail__actions">
               <button
                 type="button"
+                className="match-card-with-detail__message"
+                onClick={() => {
+                  navigate("/messages");
+                }}
+              >
+                <span aria-hidden="true">✦</span>
+                Envoyer un message
+              </button>
+
+              <button
+                type="button"
                 className="profile-detail-link-button"
                 onClick={() => {
                   navigate(
@@ -327,7 +317,7 @@ export function MatchesPage() {
                   );
                 }}
               >
-                Voir le profil complet
+                Voir le profil
               </button>
 
               <button
@@ -336,8 +326,10 @@ export function MatchesPage() {
                 onClick={() => {
                   setMatchToRemove(match);
                 }}
+                aria-label={`Supprimer le match avec ${match.other_profile.display_name}`}
+                title="Supprimer ce match"
               >
-                Supprimer le match
+                ⋯
               </button>
             </div>
           </div>
@@ -375,8 +367,19 @@ export function MatchesPage() {
           </button>
         </nav>
       ) : null}
+
       {matchToRemove ? (
-        <div className="unmatch-dialog-backdrop">
+        <div
+          className="unmatch-dialog-backdrop"
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              !isRemovingMatch
+            ) {
+              setMatchToRemove(null);
+            }
+          }}
+        >
           <section
             className="unmatch-dialog"
             role="dialog"
@@ -384,7 +387,7 @@ export function MatchesPage() {
             aria-labelledby="unmatch-title"
           >
             <p className="section-heading__eyebrow">
-              Confirmation
+              Action sensible
             </p>
 
             <h2 id="unmatch-title">
@@ -393,9 +396,9 @@ export function MatchesPage() {
             </h2>
 
             <p>
-              La conversation sera fermée. Les messages seront
-              conservés de manière sécurisée mais ne seront plus
-              accessibles depuis l’application.
+              La conversation sera fermée. Les messages resteront
+              protégés mais ne seront plus accessibles depuis
+              l’application.
             </p>
 
             <div className="unmatch-dialog__actions">
