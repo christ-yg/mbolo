@@ -35,6 +35,8 @@ import { MatchModal } from "../../components/discovery/MatchModal";
 import { ProfileCard } from "../../components/discovery/ProfileCard";
 import { useAuth } from "../../hooks/useAuth";
 
+import "./DiscoveryPage.css";
+
 import type {
   DiscoveryPaginatedResponse,
   DiscoveryProfile,
@@ -425,70 +427,75 @@ export function DiscoveryPage() {
 
   if (status === "empty" || !currentProfile) {
     return (
-      <main className="discovery-page">
-        <section className="discovery-page__heading">
-          <div>
-            <p className="section-heading__eyebrow">
-              Sélection terminée
-            </p>
+      <main className="discovery-page discovery-page--empty">
+        <section className="discovery-empty-hero">
+          <div className="discovery-empty-hero__copy">
+            <p className="section-heading__eyebrow">Sélection à jour</p>
 
-            <h1>Tu as exploré les profils disponibles.</h1>
+            <h1>Tu as vu tous les profils disponibles pour le moment.</h1>
 
             <p>
-              De nouveaux profils compatibles pourront apparaître
-              lorsque la communauté évoluera ou lorsque tes
-              préférences seront ajustées.
+              Ta sélection est calculée selon tes préférences et les règles
+              de compatibilité de Mbolo. Dès qu’un nouveau profil correspond,
+              il apparaîtra ici automatiquement.
             </p>
-          </div>
-        </section>
 
-        <section className="discovery-state-card">
-          <div
-            className="discovery-state-card__symbol"
-            aria-hidden="true"
-          >
-            ◇
+            <div className="discovery-empty-hero__facts" aria-label="Informations de confidentialité">
+              <span>✓ Critères privés</span>
+              <span>✓ Profils déjà vus exclus</span>
+              <span>✓ Calcul effectué côté serveur</span>
+            </div>
           </div>
 
-          <h2>Aucun nouveau profil</h2>
+          <aside className="discovery-empty-panel" aria-label="Actions de découverte">
+            <div className="discovery-empty-panel__icon" aria-hidden="true">
+              <span>◇</span>
+            </div>
 
-          <p>
-            Tes critères restent privés. Les profils déjà évalués
-            sont exclus par le moteur côté serveur.
-          </p>
-
-          {actionError ? (
-            <p className="discovery-rewind-error" role="alert">
-              {actionError}
+            <p className="discovery-empty-panel__eyebrow">Aucun profil en attente</p>
+            <h2>Ta sélection est complète.</h2>
+            <p>
+              Actualise maintenant ou ajuste tes préférences pour élargir
+              les profils compatibles proposés.
             </p>
-          ) : null}
 
-          <button
-            type="button"
-            onClick={() => {
-              void loadDiscoveryPage(1);
-            }}
-          >
-            Actualiser la sélection
-          </button>
+            {actionError ? (
+              <p className="discovery-rewind-error" role="alert">
+                {actionError}
+              </p>
+            ) : null}
 
-          <button
-            type="button"
-            className="discovery-rewind-button"
-            disabled={
-              rewindState.entitled &&
-              (!rewindState.available || isRewindPending)
-            }
-            onClick={() => {
-              void handleRewind();
-            }}
-          >
-            {rewindState.entitled
-              ? isRewindPending
-                ? "Restauration…"
-                : "↶ Revenir au dernier profil"
-              : "↶ Rewind avec Mbolo Plus"}
-          </button>
+            <div className="discovery-empty-panel__actions">
+              <button
+                type="button"
+                className="discovery-empty-panel__primary"
+                onClick={() => {
+                  void loadDiscoveryPage(1);
+                }}
+              >
+                Actualiser la sélection
+                <span aria-hidden="true">↗</span>
+              </button>
+
+              <button
+                type="button"
+                className="discovery-rewind-button"
+                disabled={
+                  rewindState.entitled &&
+                  (!rewindState.available || isRewindPending)
+                }
+                onClick={() => {
+                  void handleRewind();
+                }}
+              >
+                {rewindState.entitled
+                  ? isRewindPending
+                    ? "Restauration…"
+                    : "↶ Revenir au dernier profil"
+                  : "↶ Rewind avec Mbolo Plus"}
+              </button>
+            </div>
+          </aside>
         </section>
       </main>
     );
