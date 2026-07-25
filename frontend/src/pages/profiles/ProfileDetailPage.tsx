@@ -1,4 +1,3 @@
-
 import {
   useEffect,
   useMemo,
@@ -26,10 +25,13 @@ import type {
 } from "../../types/interactions";
 import type {
   PublicProfileDetail,
+  PublicProfilePhoto,
 } from "../../types/profileDetail";
 import type {
   ReportReason,
 } from "../../types/safety";
+
+import "./ProfileDetailPage.css";
 
 
 type DetailStatus =
@@ -75,6 +77,10 @@ export function ProfileDetailPage() {
   const [isSafetyActionPending, setIsSafetyActionPending] =
     useState(false);
 
+  const [selectedPhotoId, setSelectedPhotoId] =
+    useState<string | null>(null);
+
+
   useEffect(() => {
     let isActive = true;
 
@@ -112,16 +118,49 @@ export function ProfileDetailPage() {
     };
   }, [profileId]);
 
+
   const orderedPhotos = useMemo(
     () =>
-      [...(profile?.photos ?? [])].sort(
-        (first, second) =>
-          Number(second.is_primary) -
-            Number(first.is_primary) ||
-          first.position - second.position,
-      ),
+      [...(profile?.photos ?? [])]
+        .filter(
+          (
+            photo,
+          ): photo is PublicProfilePhoto & {
+            image_url: string;
+          } => Boolean(photo.image_url),
+        )
+        .sort(
+          (first, second) =>
+            Number(second.is_primary) -
+              Number(first.is_primary) ||
+            first.position - second.position,
+        ),
     [profile],
   );
+
+
+  useEffect(() => {
+    if (orderedPhotos.length === 0) {
+      setSelectedPhotoId(null);
+      return;
+    }
+
+    const selectedPhotoStillExists =
+      orderedPhotos.some(
+        (photo) => photo.id === selectedPhotoId,
+      );
+
+    if (!selectedPhotoStillExists) {
+      setSelectedPhotoId(orderedPhotos[0].id);
+    }
+  }, [orderedPhotos, selectedPhotoId]);
+
+
+  const selectedPhoto =
+    orderedPhotos.find(
+      (photo) => photo.id === selectedPhotoId,
+    ) ?? orderedPhotos[0] ?? null;
+
 
   async function handleDecision(
     decision: InteractionDecision,
@@ -257,16 +296,22 @@ export function ProfileDetailPage() {
     return (
       <main className="profile-detail-page">
         <section className="profile-detail-state">
-          Chargement sécurisé du profil…
+          <span className="profile-detail-state__loader" />
+          <p>Chargement sécurisé du profil…</p>
         </section>
       </main>
     );
   }
 
+
   if (status === "error" || profile === null) {
     return (
       <main className="profile-detail-page">
         <section className="profile-detail-state">
+          <p className="profile-detail-eyebrow">
+            Profil Mbolo
+          </p>
+
           <h1>Profil indisponible</h1>
 
           <p>
@@ -278,25 +323,27 @@ export function ProfileDetailPage() {
             type="button"
             onClick={() => navigate(-1)}
           >
-            Revenir
+            ← Revenir
           </button>
         </section>
       </main>
     );
   }
 
+
   return (
     <main className="profile-detail-page">
       <section className="profile-detail-page__topbar">
         <button
           type="button"
+          className="profile-detail-page__back"
           onClick={() => navigate(-1)}
         >
           ← Retour
         </button>
 
         <div className="profile-detail-safety-menu">
-          <span>
+          <span className="profile-detail-page__context">
             {profile.relationship === "match"
               ? "Profil d’un match"
               : "Profil public"}
@@ -343,30 +390,73 @@ export function ProfileDetailPage() {
         </div>
       </section>
 
+
       <section className="profile-detail-layout">
-        <div className="profile-detail-gallery">
-          {orderedPhotos.length > 0 ? (
-            orderedPhotos.map((photo) => (
-              photo.image_url ? (
-                <img
-                  key={photo.id}
-                  src={photo.image_url}
-                  alt={`Photo de ${profile.display_name}`}
-                  loading="lazy"
-                />
-              ) : null
-            ))
-          ) : (
-            <div className="profile-detail-gallery__placeholder">
-              {profile.display_name
-                .charAt(0)
-                .toUpperCase()}
+        <div className="profile-detail-media">
+          <div className="profile-detail-media__main">
+            {selectedPhoto ? (
+              <img
+                src={selectedPhoto.image_url}
+                alt={`Photo principale de ${profile.display_name}`}
+              />
+            ) : (
+              <div className="profile-detail-gallery__placeholder">
+                {profile.display_name
+                  .charAt(0)
+                  .toUpperCase()}
+              </div>
+            )}
+
+            {profile.is_verified ? (
+              <div className="profile-detail-media__verified">
+                <span>✓</span>
+                Profil vérifié
+              </div>
+            ) : null}
+
+            <div className="profile-detail-media__counter">
+              {orderedPhotos.length > 0
+                ? `${orderedPhotos.findIndex(
+                    (photo) => photo.id === selectedPhoto?.id,
+                  ) + 1}/${orderedPhotos.length}`
+                : "0 photo"}
             </div>
-          )}
+          </div>
+
+          {orderedPhotos.length > 1 ? (
+            <div
+              className="profile-detail-thumbnails"
+              aria-label="Galerie de photos"
+            >
+              {orderedPhotos.map((photo, index) => (
+                <button
+                  key={photo.id}
+                  type="button"
+                  className={
+                    photo.id === selectedPhoto?.id
+                      ? "profile-detail-thumbnail profile-detail-thumbnail--active"
+                      : "profile-detail-thumbnail"
+                  }
+                  aria-label={`Afficher la photo ${index + 1}`}
+                  aria-pressed={photo.id === selectedPhoto?.id}
+                  onClick={() => {
+                    setSelectedPhotoId(photo.id);
+                  }}
+                >
+                  <img
+                    src={photo.image_url}
+                    alt=""
+                    loading="lazy"
+                  />
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
+
         <article className="profile-detail-card">
-          <p className="section-heading__eyebrow">
+          <p className="profile-detail-eyebrow">
             Rencontre Mbolo
           </p>
 
@@ -374,7 +464,11 @@ export function ProfileDetailPage() {
             <h1>{profile.display_name}</h1>
 
             {profile.is_verified ? (
-              <span aria-label="Compte vérifié">
+              <span
+                className="profile-detail-card__badge"
+                aria-label="Compte vérifié"
+                title="Profil vérifié par Mbolo"
+              >
                 ✓
               </span>
             ) : null}
@@ -388,6 +482,23 @@ export function ProfileDetailPage() {
             {profile.city_label}
           </p>
 
+          <div className="profile-detail-card__trust">
+            <span className="profile-detail-card__trust-icon">
+              ◇
+            </span>
+
+            <div>
+              <strong>
+                Échange protégé sur Mbolo
+              </strong>
+
+              <p>
+                Utilise les outils de signalement ou de blocage
+                dès qu’un comportement te semble suspect.
+              </p>
+            </div>
+          </div>
+
           <dl className="profile-detail-card__facts">
             <div>
               <dt>Recherche</dt>
@@ -400,10 +511,21 @@ export function ProfileDetailPage() {
               <dt>Genre</dt>
               <dd>{profile.gender_label}</dd>
             </div>
+
+            <div>
+              <dt>Localisation</dt>
+              <dd>{profile.city_label}</dd>
+            </div>
           </dl>
 
           <section className="profile-detail-card__bio">
-            <h2>À propos</h2>
+            <p className="profile-detail-eyebrow">
+              À propos
+            </p>
+
+            <h2>
+              Faire connaissance
+            </h2>
 
             <p>
               {profile.biography ||
@@ -433,9 +555,10 @@ export function ProfileDetailPage() {
             {profile.relationship === "match" ? (
               <button
                 type="button"
+                className="profile-detail-card__match"
                 onClick={() => navigate("/matches")}
               >
-                Voir dans Mes matchs
+                Voir dans Mes matchs →
               </button>
             ) : (
               <>
@@ -471,6 +594,11 @@ export function ProfileDetailPage() {
               </>
             )}
           </div>
+
+          <p className="profile-detail-card__privacy">
+            Tes données privées et tes actions de sécurité
+            ne sont jamais affichées à ce membre.
+          </p>
         </article>
       </section>
 
@@ -479,6 +607,11 @@ export function ProfileDetailPage() {
         <div
           className="profile-safety-dialog-backdrop"
           role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsBlockDialogOpen(false);
+            }
+          }}
         >
           <section
             className="profile-safety-dialog"
@@ -486,7 +619,7 @@ export function ProfileDetailPage() {
             aria-modal="true"
             aria-labelledby="block-profile-title"
           >
-            <p className="section-heading__eyebrow">
+            <p className="profile-detail-eyebrow">
               Action de sécurité
             </p>
 
@@ -528,10 +661,16 @@ export function ProfileDetailPage() {
         </div>
       ) : null}
 
+
       {isReportDialogOpen ? (
         <div
           className="profile-safety-dialog-backdrop"
           role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsReportDialogOpen(false);
+            }
+          }}
         >
           <section
             className="profile-safety-dialog"
@@ -539,7 +678,7 @@ export function ProfileDetailPage() {
             aria-modal="true"
             aria-labelledby="report-profile-title"
           >
-            <p className="section-heading__eyebrow">
+            <p className="profile-detail-eyebrow">
               Signalement confidentiel
             </p>
 
@@ -549,6 +688,7 @@ export function ProfileDetailPage() {
 
             <label>
               Motif
+
               <select
                 value={reportReason}
                 onChange={(event) => {
@@ -560,24 +700,31 @@ export function ProfileDetailPage() {
                 <option value="harassment">
                   Harcèlement
                 </option>
+
                 <option value="fake_profile">
                   Faux profil ou usurpation
                 </option>
+
                 <option value="scam">
                   Arnaque ou demande d’argent
                 </option>
+
                 <option value="inappropriate_content">
                   Contenu inapproprié
                 </option>
+
                 <option value="threat">
                   Menace ou violence
                 </option>
+
                 <option value="spam">
                   Spam ou sollicitation abusive
                 </option>
+
                 <option value="underage_suspicion">
                   Suspicion de personne mineure
                 </option>
+
                 <option value="other">
                   Autre motif
                 </option>
@@ -586,6 +733,7 @@ export function ProfileDetailPage() {
 
             <label>
               Informations complémentaires
+
               <textarea
                 maxLength={2000}
                 value={reportDescription}
