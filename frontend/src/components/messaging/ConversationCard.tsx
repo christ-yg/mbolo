@@ -1,5 +1,8 @@
 /**
  * Carte d'une conversation dans la liste de messagerie.
+ *
+ * La carte reste volontairement purement visuelle :
+ * les permissions et l'accès à la conversation sont validés par Django.
  */
 
 import { Link } from "react-router-dom";
@@ -28,14 +31,12 @@ function getInitials(displayName: string): string {
     .join("");
 }
 
-function getPrimaryPhotoUrl(
-  conversation: ConversationItem,
-): string | null {
+
+function getPrimaryPhotoUrl(conversation: ConversationItem): string | null {
   const photo = [...conversation.other_profile.photos]
     .sort(
       (first, second) =>
-        Number(second.is_primary) -
-          Number(first.is_primary) ||
+        Number(second.is_primary) - Number(first.is_primary) ||
         first.position - second.position,
     )
     .find((item) => Boolean(item.image_url));
@@ -52,17 +53,23 @@ function formatDate(value: string): string {
   }
 
   const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
 
-  const isToday =
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate();
+  const sameDay = (first: Date, second: Date) =>
+    first.getFullYear() === second.getFullYear() &&
+    first.getMonth() === second.getMonth() &&
+    first.getDate() === second.getDate();
 
-  if (isToday) {
+  if (sameDay(date, today)) {
     return new Intl.DateTimeFormat("fr-FR", {
       hour: "2-digit",
       minute: "2-digit",
     }).format(date);
+  }
+
+  if (sameDay(date, yesterday)) {
+    return "Hier";
   }
 
   return new Intl.DateTimeFormat("fr-FR", {
@@ -72,35 +79,43 @@ function formatDate(value: string): string {
 }
 
 
-export function ConversationCard({
-  conversation,
-}: ConversationCardProps) {
+export function ConversationCard({ conversation }: ConversationCardProps) {
   const profile = conversation.other_profile;
   const lastMessage = conversation.last_message;
-  const primaryPhotoUrl = getPrimaryPhotoUrl(
-    conversation,
-  );
+  const primaryPhotoUrl = getPrimaryPhotoUrl(conversation);
+  const hasUnreadMessages = conversation.unread_count > 0;
 
   return (
     <Link
-      className="conversation-card"
+      className={
+        hasUnreadMessages
+          ? "conversation-card conversation-card--unread"
+          : "conversation-card"
+      }
       to={`/messages/${conversation.id}`}
+      aria-label={`Ouvrir la conversation avec ${profile.display_name}`}
     >
-      <div
-        className="conversation-card__avatar"
-        aria-label={`Photo de ${profile.display_name}`}
-      >
-        {primaryPhotoUrl ? (
-          <img src={primaryPhotoUrl} alt="" />
-        ) : (
-          getInitials(profile.display_name)
-        )}
+      <div className="conversation-card__avatar-wrap">
+        <div
+          className="conversation-card__avatar"
+          aria-label={`Photo de ${profile.display_name}`}
+        >
+          {primaryPhotoUrl ? (
+            <img src={primaryPhotoUrl} alt="" />
+          ) : (
+            getInitials(profile.display_name)
+          )}
+        </div>
+
+        {conversation.other_presence.is_online ? (
+          <span className="conversation-card__online-dot" aria-label="En ligne" />
+        ) : null}
       </div>
 
       <div className="conversation-card__content">
         <div className="conversation-card__heading">
-          <div>
-            <h2>{profile.display_name}</h2>
+          <div className="conversation-card__identity">
+            <h3>{profile.display_name}</h3>
 
             {profile.is_verified ? (
               <span
@@ -113,46 +128,34 @@ export function ConversationCard({
             ) : null}
           </div>
 
-          <time
-            dateTime={
-              lastMessage?.created_at ??
-              conversation.updated_at
-            }
-          >
-            {formatDate(
-              lastMessage?.created_at ??
-              conversation.updated_at,
-            )}
+          <time dateTime={lastMessage?.created_at ?? conversation.updated_at}>
+            {formatDate(lastMessage?.created_at ?? conversation.updated_at)}
           </time>
         </div>
 
         <p className="conversation-card__preview">
           {lastMessage ? (
             <>
-              {lastMessage.is_mine ? (
-                <strong>Vous : </strong>
-              ) : null}
-
+              {lastMessage.is_mine ? <strong>Toi : </strong> : null}
               {lastMessage.body}
             </>
           ) : (
-            "Vous pouvez maintenant commencer la conversation."
+            "Le match est créé. Envoie ton premier message."
           )}
         </p>
 
-        <div className="conversation-card__metadata">
-          <span>{profile.city}</span>
-          <span aria-hidden="true">·</span>
-          <span>{profile.age} ans</span>
+        <div className="conversation-card__footer">
+          <div className="conversation-card__metadata">
+            <span>{profile.city}</span>
+            <span aria-hidden="true">·</span>
+            <span>{profile.age} ans</span>
+          </div>
+
+          <span className="conversation-card__action">
+            Ouvrir <span aria-hidden="true">→</span>
+          </span>
         </div>
       </div>
-
-      <span
-        className="conversation-card__arrow"
-        aria-hidden="true"
-      >
-        →
-      </span>
     </Link>
   );
 }
