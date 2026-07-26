@@ -221,7 +221,7 @@ export function ReportsPage() {
   return (
     <main className="reports-premium-page">
       <section
-        className="reports-premium-hero"
+        className="reports-premium-hero reports-premium-hero--panel"
         aria-labelledby="reports-title"
       >
         <div className="reports-premium-hero__content">
@@ -288,6 +288,33 @@ export function ReportsPage() {
           Procédure protégée
         </span>
       </aside>
+
+
+      <section className="reports-premium-overview" aria-label="Résumé du suivi">
+        <div>
+          <span className="reports-premium-overview__index">01</span>
+          <div>
+            <strong>Tu gardes la visibilité</strong>
+            <p>Chaque dossier affiche son motif, son statut public et sa dernière mise à jour.</p>
+          </div>
+        </div>
+
+        <div>
+          <span className="reports-premium-overview__index">02</span>
+          <div>
+            <strong>La modération reste indépendante</strong>
+            <p>Les décisions et preuves internes ne sont ni modifiables ni exposées depuis ton compte.</p>
+          </div>
+        </div>
+
+        <div>
+          <span className="reports-premium-overview__index">03</span>
+          <div>
+            <strong>La procédure reste confidentielle</strong>
+            <p>Seules les informations nécessaires au suivi sont affichées dans cet espace privé.</p>
+          </div>
+        </div>
+      </section>
 
       {errorMessage ? (
         <div
@@ -379,6 +406,14 @@ export function ReportsPage() {
         </section>
       ) : (
         <>
+          <header className="reports-premium-section-heading">
+            <div>
+              <p className="reports-premium-eyebrow">Suivi de tes dossiers</p>
+              <h2>Une lecture simple de chaque signalement.</h2>
+            </div>
+            <p>Les dossiers les plus récents apparaissent en premier. Le statut est mis à jour côté serveur.</p>
+          </header>
+
           <section
             className="reports-premium-list"
             aria-label="Liste de mes signalements"
