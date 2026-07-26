@@ -367,12 +367,18 @@ export function PremiumPage() {
                 <div className="premium-redesign-tool-card__meta">
                   <span>
                     {overview.boost.allowance_per_7_days}
-                    {" "}activation(s) / 7 jours
+                    {" "}
+                    {overview.boost.allowance_per_7_days > 1
+                      ? "activations / 7 jours"
+                      : "activation / 7 jours"}
                   </span>
 
                   <span>
                     {overview.boost.remaining}
-                    {" "}restante(s)
+                    {" "}
+                    {overview.boost.remaining > 1
+                      ? "activations restantes"
+                      : "activation restante"}
                   </span>
                 </div>
               </div>
@@ -532,7 +538,7 @@ export function PremiumPage() {
               </p>
 
               <h2>
-                Ce que Mbolo ne conservera jamais
+                Ce que Mbolo ne demandera ni ne stockera jamais
               </h2>
             </div>
 
