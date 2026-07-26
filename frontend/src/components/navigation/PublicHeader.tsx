@@ -363,7 +363,7 @@ export function PublicHeader() {
                 </NavLink>
                 <NavLink
                   className={getNavigationLinkClass}
-                  to="/account/security"
+                  to="/safety"
                 >
                   Sécurité
                 </NavLink>
@@ -574,7 +574,7 @@ export function PublicHeader() {
               </NavLink>
               <NavLink
                 className={getMobileNavigationLinkClass}
-                to="/account/security"
+                to="/safety"
               >
                 Sécurité
               </NavLink>

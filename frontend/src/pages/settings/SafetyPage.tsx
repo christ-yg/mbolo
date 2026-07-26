@@ -1,15 +1,12 @@
 /**
- * Page de sécurité et de confidentialité Mbolo.
+ * Centre de sécurité Mbolo.
  *
- * Cette page présente les principales protections du service
- * et permet à l'utilisateur de contrôler les notifications
- * natives de messages.
+ * Cette page regroupe les principaux contrôles de sécurité et de
+ * confidentialité accessibles à l'utilisateur. Les opérations sensibles
+ * restent exécutées et validées côté serveur.
  */
 
-import {
-  useMemo,
-  useState,
-} from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -17,32 +14,64 @@ import {
   useNotification,
 } from "../../context/NotificationContext";
 
+import "./SafetyPage.css";
+
 function getPermissionExplanation(
   permission: BrowserNotificationPermission,
 ): string {
   switch (permission) {
     case "granted":
-      return (
-        "Le navigateur autorise Mbolo à afficher des notifications."
-      );
-
+      return "Le navigateur autorise Mbolo à afficher des notifications.";
     case "denied":
       return (
         "Le navigateur a bloqué cette autorisation. " +
         "Tu dois la réactiver depuis les paramètres du site."
       );
-
     case "default":
-      return (
-        "Aucune décision n’a encore été enregistrée par le navigateur."
-      );
-
+      return "Aucune décision n’a encore été enregistrée par le navigateur.";
     case "unsupported":
-      return (
-        "Ce navigateur ne prend pas en charge les notifications natives."
-      );
+      return "Ce navigateur ne prend pas en charge les notifications natives.";
   }
 }
+
+const securityCards = [
+  {
+    eyebrow: "Compte et authentification",
+    title: "Sécurité du compte",
+    description:
+      "Modifie ton mot de passe, contrôle les sessions actives, la double authentification et les alertes de connexion.",
+    to: "/account/security",
+    action: "Ouvrir la sécurité du compte",
+    icon: "01",
+  },
+  {
+    eyebrow: "Droits et données",
+    title: "Centre de confidentialité",
+    description:
+      "Exporte tes données, consulte les informations conservées et exerce ton droit à l’effacement.",
+    to: "/account/privacy",
+    action: "Gérer mes données",
+    icon: "02",
+  },
+  {
+    eyebrow: "Contrôle personnel",
+    title: "Profils bloqués",
+    description:
+      "Consulte les profils que tu as bloqués et retire un blocage lorsque tu le décides.",
+    to: "/blocked-users",
+    action: "Voir les profils bloqués",
+    icon: "03",
+  },
+  {
+    eyebrow: "Sécurité communautaire",
+    title: "Mes signalements",
+    description:
+      "Suis l’état public des dossiers transmis sans exposer les notes internes de modération.",
+    to: "/reports",
+    action: "Suivre mes signalements",
+    icon: "04",
+  },
+] as const;
 
 export function SafetyPage() {
   const {
@@ -53,49 +82,30 @@ export function SafetyPage() {
     disableBrowserNotifications,
   } = useNotification();
 
-  const [
-    isUpdatingNotifications,
-    setIsUpdatingNotifications,
-  ] = useState(false);
+  const [isUpdatingNotifications, setIsUpdatingNotifications] =
+    useState(false);
+  const [notificationFeedback, setNotificationFeedback] =
+    useState<string | null>(null);
 
-  const [
-    notificationFeedback,
-    setNotificationFeedback,
-  ] = useState<string | null>(null);
+  const permissionExplanation = useMemo(
+    () => getPermissionExplanation(browserNotificationPermission),
+    [browserNotificationPermission],
+  );
 
-  const permissionExplanation =
-    useMemo(
-      () =>
-        getPermissionExplanation(
-          browserNotificationPermission,
-        ),
-      [browserNotificationPermission],
-    );
-
-  async function handleEnableNotifications():
-  Promise<void> {
-    if (isUpdatingNotifications) {
-      return;
-    }
+  async function handleEnableNotifications(): Promise<void> {
+    if (isUpdatingNotifications) return;
 
     setIsUpdatingNotifications(true);
     setNotificationFeedback(null);
 
-    const enabled =
-      await enableBrowserNotifications();
+    const enabled = await enableBrowserNotifications();
 
     setNotificationFeedback(
       enabled
-        ? (
-            "Les notifications de messages sont maintenant activées."
-          )
+        ? "Les notifications de messages sont maintenant activées."
         : browserNotificationPermission === "denied"
-          ? (
-              "L’autorisation reste bloquée dans les paramètres du navigateur."
-            )
-          : (
-              "Les notifications n’ont pas été autorisées."
-            ),
+          ? "L’autorisation reste bloquée dans les paramètres du navigateur."
+          : "Les notifications n’ont pas été autorisées.",
     );
 
     setIsUpdatingNotifications(false);
@@ -103,121 +113,112 @@ export function SafetyPage() {
 
   function handleDisableNotifications(): void {
     disableBrowserNotifications();
-
     setNotificationFeedback(
       "Les notifications de messages sont désactivées dans Mbolo.",
     );
   }
 
   return (
-    <main className="safety-page">
-      <section className="safety-page__hero">
-        <p className="section-heading__eyebrow">
-          Sécurité et confiance
-        </p>
+    <main className="security-hub">
+      <section className="security-hub__hero">
+        <div className="security-hub__hero-copy">
+          <p className="security-hub__eyebrow">Sécurité et confiance</p>
+          <h1>Ton espace de protection sur Mbolo.</h1>
+          <p className="security-hub__lead">
+            Contrôle ton compte, tes données, tes blocages et tes signalements
+            depuis un centre unique. Chaque action sensible reste vérifiée côté
+            serveur et journalisée lorsque cela est nécessaire.
+          </p>
 
-        <h1>
-          La protection des utilisateurs commence dès la conception.
-        </h1>
+          <div className="security-hub__trust-pills" aria-label="Protections actives">
+            <span>✓ Sessions protégées</span>
+            <span>✓ Contrôle côté serveur</span>
+            <span>✓ Données minimisées</span>
+          </div>
+        </div>
 
-        <p>
-          Mbolo utilise des sessions sécurisées, une protection
-          CSRF, une limitation anti-abus, une validation stricte
-          des données, une isolation des profils et un traitement
-          contrôlé des images.
-        </p>
+        <aside className="security-hub__status-card" aria-label="État de sécurité">
+          <div className="security-hub__shield" aria-hidden="true">M</div>
+          <p>PROTECTION ACTIVE</p>
+          <h2>Sécurité intégrée</h2>
+          <span>
+            Les fonctionnalités sensibles ne reposent jamais uniquement sur
+            l’interface du navigateur.
+          </span>
+        </aside>
       </section>
 
-      <section
-        className="safety-settings"
-        aria-labelledby="notification-settings-title"
-      >
-        <div className="safety-settings__content">
-          <span
-            className="safety-settings__icon"
-            aria-hidden="true"
-          >
-            🔔
-          </span>
-
+      <section className="security-hub__section" aria-labelledby="controls-title">
+        <div className="security-hub__section-heading">
           <div>
-            <p className="safety-settings__eyebrow">
-              Préférence locale
-            </p>
+            <p className="security-hub__eyebrow">Contrôles essentiels</p>
+            <h2 id="controls-title">Tout ce qui protège ton expérience.</h2>
+          </div>
+          <p>
+            Accède directement aux réglages importants sans multiplier les
+            menus ni exposer d’informations privées.
+          </p>
+        </div>
 
-            <h2 id="notification-settings-title">
-              Notifications de nouveaux messages
-            </h2>
+        <div className="security-hub__grid">
+          {securityCards.map((card) => (
+            <article className="security-hub__card" key={card.to}>
+              <div className="security-hub__card-number" aria-hidden="true">
+                {card.icon}
+              </div>
+              <p className="security-hub__card-eyebrow">{card.eyebrow}</p>
+              <h3>{card.title}</h3>
+              <p>{card.description}</p>
+              <Link to={card.to}>{card.action} <span aria-hidden="true">→</span></Link>
+            </article>
+          ))}
+        </div>
+      </section>
 
+      <section className="security-hub__notifications" aria-labelledby="notification-settings-title">
+        <div className="security-hub__notifications-copy">
+          <div className="security-hub__bell" aria-hidden="true">◇</div>
+          <div>
+            <p className="security-hub__eyebrow">Préférence locale</p>
+            <h2 id="notification-settings-title">Notifications de nouveaux messages</h2>
             <p>
-              Mbolo peut t’avertir lorsqu’un nouveau message
-              arrive pendant que l’onglet est en arrière-plan.
-              Le contenu privé du message n’est jamais affiché
-              dans la notification système.
+              Mbolo peut t’avertir lorsqu’un message arrive pendant que l’onglet
+              est en arrière-plan. Le contenu privé du message n’est jamais
+              affiché dans la notification système.
             </p>
-
-            <div className="safety-settings__privacy-note">
+            <div className="security-hub__privacy-note">
               <strong>Confidentialité :</strong>
               <span>
-                la notification indique seulement le nom public
-                de l’expéditeur et l’existence d’un nouveau message.
+                seule l’existence du message et le nom public de l’expéditeur
+                peuvent être affichés.
               </span>
             </div>
           </div>
         </div>
 
-        <div className="safety-settings__control">
-          <div
-            className={
-              browserNotificationsEnabled
-                ? (
-                    "safety-settings__status " +
-                    "safety-settings__status--enabled"
-                  )
-                : "safety-settings__status"
-            }
-          >
+        <div className="security-hub__notifications-control">
+          <div className={
+            browserNotificationsEnabled
+              ? "security-hub__notification-state security-hub__notification-state--enabled"
+              : "security-hub__notification-state"
+          }>
             <span aria-hidden="true" />
-
-            <strong>
-              {browserNotificationsEnabled
-                ? "Activées"
-                : "Désactivées"}
-            </strong>
+            <strong>{browserNotificationsEnabled ? "Activées" : "Désactivées"}</strong>
           </div>
 
           <p>{permissionExplanation}</p>
 
           {!browserNotificationsSupported ? (
-            <button
-              type="button"
-              className="safety-settings__button"
-              disabled
-            >
-              Fonction indisponible
-            </button>
+            <button type="button" disabled>Fonction indisponible</button>
           ) : browserNotificationsEnabled ? (
-            <button
-              type="button"
-              className={
-                "safety-settings__button " +
-                "safety-settings__button--secondary"
-              }
-              onClick={handleDisableNotifications}
-            >
+            <button type="button" className="security-hub__button--secondary" onClick={handleDisableNotifications}>
               Désactiver dans Mbolo
             </button>
           ) : (
             <button
               type="button"
-              className="safety-settings__button"
-              disabled={
-                isUpdatingNotifications ||
-                browserNotificationPermission === "denied"
-              }
-              onClick={() => {
-                void handleEnableNotifications();
-              }}
+              disabled={isUpdatingNotifications || browserNotificationPermission === "denied"}
+              onClick={() => void handleEnableNotifications()}
             >
               {isUpdatingNotifications
                 ? "Demande en cours…"
@@ -228,75 +229,37 @@ export function SafetyPage() {
           )}
 
           {notificationFeedback ? (
-            <p
-              className="safety-settings__feedback"
-              role="status"
-            >
+            <p className="security-hub__feedback" role="status">
               {notificationFeedback}
             </p>
           ) : null}
         </div>
       </section>
 
-      <section className="safety-account-controls">
-        <div>
-          <p className="safety-settings__eyebrow">
-            Contrôle du compte
-          </p>
-          <h2>Profils bloqués</h2>
+      <section className="security-hub__principles" aria-labelledby="principles-title">
+        <div className="security-hub__principles-intro">
+          <p className="security-hub__eyebrow">Sécurité par conception</p>
+          <h2 id="principles-title">La confiance ne doit jamais être ajoutée à la fin.</h2>
           <p>
-            Consulte les profils bloqués et retire un blocage
-            lorsque tu le souhaites.
+            Mbolo applique une approche de défense en profondeur, de minimisation
+            des données et de contrôle systématique des autorisations.
           </p>
         </div>
-        <Link to="/blocked-users">
-          Gérer les profils bloqués
-        </Link>
-      </section>
 
-      <section className="safety-account-controls">
-        <div>
-          <p className="safety-settings__eyebrow">
-            Suivi transparent
-          </p>
-          <h2>Mes signalements</h2>
-          <p>
-            Retrouve les signalements que tu as envoyés et suis leur
-            état sans exposer les notes privées de la modération.
-          </p>
+        <div className="security-hub__principles-list">
+          <article>
+            <span>01</span>
+            <div><h3>Contrôle des accès</h3><p>Chaque conversation est limitée aux participants d’un match actif.</p></div>
+          </article>
+          <article>
+            <span>02</span>
+            <div><h3>Données minimales</h3><p>Les interfaces exposent uniquement les informations nécessaires.</p></div>
+          </article>
+          <article>
+            <span>03</span>
+            <div><h3>Choix de l’utilisateur</h3><p>Les préférences facultatives peuvent être modifiées sans bloquer le service.</p></div>
+          </article>
         </div>
-        <Link to="/reports">
-          Suivre mes signalements
-        </Link>
-      </section>
-
-      <section className="safety-principles">
-        <article>
-          <span aria-hidden="true">01</span>
-          <h2>Contrôle des accès</h2>
-          <p>
-            Chaque conversation est limitée aux deux participants
-            d’un match actif et vérifiée côté serveur.
-          </p>
-        </article>
-
-        <article>
-          <span aria-hidden="true">02</span>
-          <h2>Données minimales</h2>
-          <p>
-            Les interfaces exposent seulement les données nécessaires
-            au fonctionnement de chaque fonctionnalité.
-          </p>
-        </article>
-
-        <article>
-          <span aria-hidden="true">03</span>
-          <h2>Choix de l’utilisateur</h2>
-          <p>
-            Les notifications natives restent facultatives et peuvent
-            être désactivées sans interrompre la messagerie.
-          </p>
-        </article>
       </section>
     </main>
   );

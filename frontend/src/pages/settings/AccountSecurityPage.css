@@ -388,3 +388,23 @@
     border-radius: 1.2rem;
   }
 }
+
+
+/*
+ * Quand une section contient un nombre impair de cartes, la dernière carte
+ * occupe toute la largeur. Cela évite les grandes zones vides visibles dans
+ * le journal de sécurité et autour du badge Profil vérifié.
+ */
+.account-security-grid > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.account-security-grid > .security-trust-card:last-child:nth-child(odd) {
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .account-security-grid > :last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+}
