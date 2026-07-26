@@ -1,14 +1,13 @@
 /**
- * Centre de confidentialité Mbolo.
+ * Centre de confidentialité premium de Mbolo.
  *
  * Cette page permet à l'utilisateur :
- * - d'exporter une copie portable de ses données personnelles ;
- * - de comprendre quelles informations sont incluses ou exclues ;
- * - de supprimer définitivement son compte avec une double confirmation.
+ * - de comprendre les grands principes de traitement de ses données ;
+ * - d'exporter une copie portable de ses informations personnelles ;
+ * - de supprimer définitivement son compte avec double confirmation.
  *
- * Les appels API existants sont conservés. La refonte concerne
- * principalement l'expérience utilisateur, l'accessibilité et la sécurité
- * des actions sensibles.
+ * Les appels API existants sont volontairement conservés. Le backend reste
+ * l'autorité finale pour toutes les opérations sensibles.
  */
 
 import {
@@ -26,9 +25,31 @@ import {
 
 import "./PrivacyCenterPage.css";
 
-
 const REQUIRED_CONFIRMATION = "SUPPRIMER DEFINITIVEMENT";
 
+const PRIVACY_PRINCIPLES = [
+  {
+    number: "01",
+    eyebrow: "Minimisation",
+    title: "Seulement les données utiles",
+    description:
+      "Mbolo limite la collecte aux informations nécessaires au fonctionnement, à la sécurité et à la qualité des rencontres.",
+  },
+  {
+    number: "02",
+    eyebrow: "Contrôle",
+    title: "Des choix pilotés par toi",
+    description:
+      "Tu peux consulter ton profil, gérer ta visibilité, exporter tes données et demander l’effacement de ton compte.",
+  },
+  {
+    number: "03",
+    eyebrow: "Protection",
+    title: "Les secrets restent secrets",
+    description:
+      "Les mots de passe, cookies, secrets de session et notes internes de sécurité ne sont jamais exposés dans ton export.",
+  },
+] as const;
 
 export function PrivacyCenterPage() {
   const [password, setPassword] = useState("");
@@ -39,13 +60,6 @@ export function PrivacyCenterPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  /**
-   * Le bouton de suppression reste désactivé tant que les deux conditions
-   * locales minimales ne sont pas remplies.
-   *
-   * Le backend demeure l'autorité finale : il vérifie encore le mot de passe,
-   * la phrase de confirmation et les droits de la session.
-   */
   const canRequestDeletion = useMemo(
     () => (
       password.trim().length > 0
@@ -53,14 +67,8 @@ export function PrivacyCenterPage() {
       && !isExporting
       && !isDeleting
     ),
-    [
-      confirmation,
-      isDeleting,
-      isExporting,
-      password,
-    ],
+    [confirmation, isDeleting, isExporting, password],
   );
-
 
   async function handleExport() {
     if (isExporting || isDeleting) {
@@ -83,7 +91,6 @@ export function PrivacyCenterPage() {
     }
   }
 
-
   function handleDeleteFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
@@ -103,13 +110,8 @@ export function PrivacyCenterPage() {
       return;
     }
 
-    /**
-     * Une seconde confirmation visuelle est demandée avant l'appel API.
-     * Aucune suppression n'est effectuée à cette étape.
-     */
     setIsFinalConfirmationOpen(true);
   }
-
 
   async function confirmPermanentDeletion() {
     if (!canRequestDeletion) {
@@ -127,11 +129,6 @@ export function PrivacyCenterPage() {
         confirmation,
       });
 
-      /**
-       * Après la suppression, la session n'est plus exploitable.
-       * Une navigation complète vers l'accueil évite de conserver un ancien
-       * état React ou une donnée sensible dans la mémoire de l'application.
-       */
       window.location.assign("/");
     } catch (caught: unknown) {
       setError(normalizeApiError(caught).message);
@@ -140,58 +137,55 @@ export function PrivacyCenterPage() {
     }
   }
 
-
   return (
     <main className="privacy-center-page">
       <section className="privacy-center-hero" aria-labelledby="privacy-title">
         <div className="privacy-center-hero__content">
-          <p className="privacy-center-eyebrow">
-            Tes droits et tes données
-          </p>
-
-          <h1 id="privacy-title">
-            Centre de confidentialité
-          </h1>
-
+          <p className="privacy-center-eyebrow">Tes droits et tes données</p>
+          <h1 id="privacy-title">Garder le contrôle reste essentiel.</h1>
           <p className="privacy-center-hero__description">
-            Télécharge une copie portable de tes informations ou exerce ton
-            droit à l’effacement depuis un espace clair, privé et sécurisé.
+            Consulte les principes de confidentialité de Mbolo, télécharge une
+            copie de tes informations et exerce tes droits depuis un espace
+            privé, lisible et protégé.
           </p>
 
-          <Link
-            className="privacy-center-back-link"
-            to="/account/security"
-          >
-            <span aria-hidden="true">←</span>
-            Retour à la sécurité du compte
-          </Link>
+          <div className="privacy-center-hero__actions">
+            <button
+              className="privacy-center-button privacy-center-button--primary"
+              type="button"
+              disabled={isExporting || isDeleting}
+              onClick={() => void handleExport()}
+            >
+              {isExporting ? "Préparation de l’export…" : "Exporter mes données"}
+              <span aria-hidden="true">→</span>
+            </button>
+
+            <Link
+              className="privacy-center-button privacy-center-button--secondary"
+              to="/account/security"
+            >
+              Centre de sécurité
+            </Link>
+          </div>
         </div>
 
         <aside className="privacy-center-trust-card">
-          <span className="privacy-center-trust-card__icon" aria-hidden="true">
-            ◇
-          </span>
-
-          <div>
-            <p className="privacy-center-trust-card__label">
-              Contrôle personnel
-            </p>
-            <strong>
-              Tes choix restent entre tes mains
-            </strong>
-            <p>
-              Les opérations sensibles sont vérifiées côté serveur et ne sont
-              jamais déclenchées par une simple navigation.
-            </p>
-          </div>
+          <div className="privacy-center-trust-card__mark" aria-hidden="true">M</div>
+          <p className="privacy-center-trust-card__label">Confidentialité par conception</p>
+          <h2>Ce qui est privé reste privé.</h2>
+          <p>
+            Les actions sensibles sont validées côté serveur. Une simple
+            navigation ou redirection ne peut ni exporter ni supprimer ton compte.
+          </p>
+          <ul>
+            <li>Export sans secrets d’authentification</li>
+            <li>Suppression avec double confirmation</li>
+            <li>Données des autres membres exclues</li>
+          </ul>
         </aside>
       </section>
 
-      <section
-        className="privacy-center-status"
-        aria-live="polite"
-        aria-atomic="true"
-      >
+      <section className="privacy-center-status" aria-live="polite" aria-atomic="true">
         {message ? (
           <div className="privacy-center-alert privacy-center-alert--success">
             <span aria-hidden="true">✓</span>
@@ -200,128 +194,114 @@ export function PrivacyCenterPage() {
         ) : null}
 
         {error ? (
-          <div
-            className="privacy-center-alert privacy-center-alert--error"
-            role="alert"
-          >
+          <div className="privacy-center-alert privacy-center-alert--error" role="alert">
             <span aria-hidden="true">!</span>
             <p>{error}</p>
           </div>
         ) : null}
       </section>
 
-      <div className="privacy-center-grid">
-        <section
-          className="privacy-center-card privacy-center-card--export"
-          aria-labelledby="privacy-export-title"
-        >
-          <header className="privacy-center-card__header">
-            <span className="privacy-center-card__icon" aria-hidden="true">
-              ↓
-            </span>
-
-            <div>
-              <p className="privacy-center-eyebrow">
-                Portabilité
-              </p>
-              <h2 id="privacy-export-title">
-                Exporter mes données
-              </h2>
-            </div>
-          </header>
-
-          <p className="privacy-center-card__intro">
-            Reçois un fichier JSON structuré contenant les informations liées
-            à ton utilisation de Mbolo.
+      <section className="privacy-center-principles" aria-labelledby="privacy-principles-title">
+        <div className="privacy-center-section-heading">
+          <div>
+            <p className="privacy-center-eyebrow">Principes Mbolo</p>
+            <h2 id="privacy-principles-title">Une confidentialité compréhensible.</h2>
+          </div>
+          <p>
+            Les protections sont conçues pour rester claires avant même qu’une
+            action sensible soit lancée.
           </p>
+        </div>
 
-          <div className="privacy-center-info-block">
-            <p className="privacy-center-info-block__title">
-              Informations incluses
-            </p>
+        <div className="privacy-center-principles__grid">
+          {PRIVACY_PRINCIPLES.map((principle) => (
+            <article className="privacy-center-principle-card" key={principle.number}>
+              <div className="privacy-center-principle-card__topline">
+                <span>{principle.number}</span>
+                <small>{principle.eyebrow}</small>
+              </div>
+              <h3>{principle.title}</h3>
+              <p>{principle.description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
 
-            <ul className="privacy-center-check-list">
-              <li>Compte, profil et préférences</li>
-              <li>Interactions, matchs et messages envoyés</li>
-              <li>Données utiles à la compréhension de ton activité</li>
-            </ul>
+      <section className="privacy-center-export" aria-labelledby="privacy-export-title">
+        <div className="privacy-center-export__intro">
+          <p className="privacy-center-eyebrow">Portabilité</p>
+          <h2 id="privacy-export-title">Une copie claire de tes informations.</h2>
+          <p>
+            Le fichier JSON est généré côté serveur et contient les éléments
+            utiles pour comprendre ton compte et ton activité sur Mbolo.
+          </p>
+        </div>
+
+        <div className="privacy-center-export__details">
+          <div className="privacy-center-info-panel">
+            <span className="privacy-center-info-panel__icon" aria-hidden="true">✓</span>
+            <div>
+              <h3>Informations incluses</h3>
+              <ul>
+                <li>Compte, profil et préférences</li>
+                <li>Interactions, matchs et messages envoyés</li>
+                <li>Données utiles à la compréhension de ton activité</li>
+              </ul>
+            </div>
           </div>
 
-          <div className="privacy-center-info-block">
-            <p className="privacy-center-info-block__title">
-              Informations exclues
-            </p>
-
-            <ul className="privacy-center-check-list privacy-center-check-list--muted">
-              <li>Aucun mot de passe, cookie ou secret d’authentification</li>
-              <li>Aucune adresse IP exacte ni clé technique interne</li>
-              <li>Aucune donnée appartenant aux autres membres</li>
-            </ul>
+          <div className="privacy-center-info-panel privacy-center-info-panel--muted">
+            <span className="privacy-center-info-panel__icon" aria-hidden="true">—</span>
+            <div>
+              <h3>Informations volontairement exclues</h3>
+              <ul>
+                <li>Mot de passe, cookie ou secret d’authentification</li>
+                <li>Adresse IP exacte ou clé technique interne</li>
+                <li>Données appartenant aux autres membres</li>
+              </ul>
+            </div>
           </div>
+        </div>
 
-          <div className="privacy-center-security-note">
-            <span aria-hidden="true">✓</span>
-            <p>
-              Fichier généré côté serveur et téléchargement non mis en cache.
-            </p>
-          </div>
-
+        <div className="privacy-center-export__footer">
+          <p>
+            <strong>Protection active :</strong> téléchargement non mis en cache
+            et calculé selon les droits de ta session actuelle.
+          </p>
           <button
             className="privacy-center-button privacy-center-button--primary"
             type="button"
             disabled={isExporting || isDeleting}
             onClick={() => void handleExport()}
           >
-            {isExporting ? "Préparation de l’export…" : "Télécharger mes données"}
-            <span aria-hidden="true">→</span>
+            {isExporting ? "Préparation…" : "Télécharger mon export"}
+            <span aria-hidden="true">↓</span>
           </button>
-        </section>
+        </div>
+      </section>
 
-        <form
-          className="privacy-center-card privacy-center-card--danger"
-          onSubmit={handleDeleteFormSubmit}
-          aria-labelledby="privacy-delete-title"
-        >
-          <header className="privacy-center-card__header">
-            <span
-              className="privacy-center-card__icon privacy-center-card__icon--danger"
-              aria-hidden="true"
-            >
-              !
-            </span>
-
-            <div>
-              <p className="privacy-center-eyebrow privacy-center-eyebrow--danger">
-                Zone sensible
-              </p>
-              <h2 id="privacy-delete-title">
-                Supprimer mon compte
-              </h2>
-            </div>
-          </header>
-
-          <p className="privacy-center-card__intro">
-            Cette action efface définitivement ton identité Mbolo et les
-            données personnelles associées. Elle ne peut pas être annulée.
+      <section className="privacy-center-danger" aria-labelledby="privacy-delete-title">
+        <div className="privacy-center-danger__intro">
+          <p className="privacy-center-eyebrow privacy-center-eyebrow--danger">Zone sensible</p>
+          <h2 id="privacy-delete-title">Supprimer définitivement mon compte.</h2>
+          <p>
+            Cette action efface ton identité Mbolo et les données personnelles
+            associées. Elle est irréversible et exige ton mot de passe, une phrase
+            exacte puis une confirmation finale.
           </p>
 
-          <div className="privacy-center-danger-summary">
-            <p className="privacy-center-info-block__title">
-              Seront notamment supprimés
+          <div className="privacy-center-danger__summary">
+            <span aria-hidden="true">!</span>
+            <p>
+              Ton profil, tes photos, tes préférences, tes interactions et tes
+              matchs seront notamment concernés.
             </p>
-
-            <ul className="privacy-center-check-list privacy-center-check-list--danger">
-              <li>Ton profil et tes photos</li>
-              <li>Tes préférences et tes interactions</li>
-              <li>Tes matchs et les données associées au compte</li>
-            </ul>
           </div>
+        </div>
 
+        <form className="privacy-center-danger__form" onSubmit={handleDeleteFormSubmit}>
           <div className="privacy-center-field">
-            <label htmlFor="privacy-current-password">
-              Mot de passe actuel
-            </label>
-
+            <label htmlFor="privacy-current-password">Mot de passe actuel</label>
             <input
               id="privacy-current-password"
               type="password"
@@ -334,16 +314,10 @@ export function PrivacyCenterPage() {
           </div>
 
           <div className="privacy-center-field">
-            <label htmlFor="privacy-delete-confirmation">
-              Phrase de confirmation
-            </label>
-
+            <label htmlFor="privacy-delete-confirmation">Phrase de confirmation</label>
             <p className="privacy-center-field__help">
-              Recopie exactement :
-              {" "}
-              <strong>{REQUIRED_CONFIRMATION}</strong>
+              Recopie exactement : <strong>{REQUIRED_CONFIRMATION}</strong>
             </p>
-
             <input
               id="privacy-delete-confirmation"
               type="text"
@@ -356,13 +330,6 @@ export function PrivacyCenterPage() {
             />
           </div>
 
-          <div className="privacy-center-danger-note">
-            <span aria-hidden="true">!</span>
-            <p>
-              Une dernière confirmation sera demandée avant l’effacement.
-            </p>
-          </div>
-
           <button
             className="privacy-center-button privacy-center-button--danger"
             type="submit"
@@ -372,7 +339,7 @@ export function PrivacyCenterPage() {
             <span aria-hidden="true">→</span>
           </button>
         </form>
-      </div>
+      </section>
 
       {isFinalConfirmationOpen ? (
         <div
@@ -390,18 +357,13 @@ export function PrivacyCenterPage() {
           />
 
           <section className="privacy-center-modal__content">
-            <span className="privacy-center-modal__icon" aria-hidden="true">
-              !
-            </span>
-
+            <span className="privacy-center-modal__icon" aria-hidden="true">!</span>
             <p className="privacy-center-eyebrow privacy-center-eyebrow--danger">
               Confirmation finale
             </p>
-
             <h2 id="privacy-final-confirmation-title">
               Supprimer définitivement ce compte ?
             </h2>
-
             <p>
               Ton profil, tes photos et les données associées seront effacés.
               Cette décision est irréversible.
@@ -416,7 +378,6 @@ export function PrivacyCenterPage() {
               >
                 Annuler
               </button>
-
               <button
                 className="privacy-center-button privacy-center-button--danger"
                 type="button"
