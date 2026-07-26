@@ -14,6 +14,8 @@ import {
   updateDiscoveryPreferences,
 } from "../../api/discoveryPreferencesService";
 
+import "./DiscoveryPreferencesPage.css";
+
 import type {
   DiscoveryPreferences,
   PreferenceCity,
@@ -131,7 +133,11 @@ export function DiscoveryPreferencesPage() {
       return 0;
     }
 
+    // La tranche d’âge est toujours un critère actif, même si elle
+    // conserve les valeurs par défaut. Les filtres Premium ne sont
+    // comptés que lorsqu’ils sont réellement appliqués côté serveur.
     return (
+      1 +
       preferences.preferred_genders.length +
       (
         preferences.advanced_filters_effective
@@ -248,7 +254,7 @@ export function DiscoveryPreferencesPage() {
 
         <div className="discovery-preferences-page__summary">
           <strong>{selectedCriteriaCount}</strong>
-          <span>critère(s) actif(s)</span>
+          <span>{selectedCriteriaCount > 1 ? "préférences actives" : "préférence active"}</span>
         </div>
       </section>
 
@@ -415,7 +421,13 @@ export function DiscoveryPreferencesPage() {
           </div>
         </section>
 
-        <section className="discovery-preferences-section discovery-preferences-section--advanced">
+        <section
+          className={`discovery-preferences-section discovery-preferences-section--advanced${
+            preferences.advanced_filters_available
+              ? ""
+              : " discovery-preferences-section--locked"
+          }`}
+        >
           <div>
             <p className="section-heading__eyebrow">
               Proximité · Mbolo Plus
@@ -425,6 +437,9 @@ export function DiscoveryPreferencesPage() {
               Mbolo compare uniquement les centres des villes déclarées.
               Ta position GPS exacte n’est ni demandée ni affichée.
             </p>
+            {!preferences.advanced_filters_available ? (
+              <span className="premium-inline-badge">🔒 Filtre Premium verrouillé</span>
+            ) : null}
           </div>
 
           <label className="discovery-distance-control">
@@ -451,12 +466,21 @@ export function DiscoveryPreferencesPage() {
           </label>
         </section>
 
-        <section className="discovery-preferences-section discovery-preferences-section--advanced">
+        <section
+          className={`discovery-preferences-section discovery-preferences-section--advanced${
+            preferences.advanced_filters_available
+              ? ""
+              : " discovery-preferences-section--locked"
+          }`}
+        >
           <div>
             <p className="section-heading__eyebrow">
-              Intention
+              Intention · Mbolo Plus
             </p>
             <h2>Type de rencontre</h2>
+            {!preferences.advanced_filters_available ? (
+              <span className="premium-inline-badge">🔒 Filtre Premium verrouillé</span>
+            ) : null}
           </div>
 
           <div className="discovery-preferences-options">
@@ -486,12 +510,21 @@ export function DiscoveryPreferencesPage() {
           </div>
         </section>
 
-        <section className="discovery-preferences-section discovery-preferences-section--advanced">
+        <section
+          className={`discovery-preferences-section discovery-preferences-section--advanced${
+            preferences.advanced_filters_available
+              ? ""
+              : " discovery-preferences-section--locked"
+          }`}
+        >
           <div>
             <p className="section-heading__eyebrow">
-              Qualité des profils
+              Qualité des profils · Mbolo Plus
             </p>
             <h2>Filtres supplémentaires</h2>
+            {!preferences.advanced_filters_available ? (
+              <span className="premium-inline-badge">🔒 Filtres Premium verrouillés</span>
+            ) : null}
           </div>
 
           <div className="discovery-preferences-switches">
