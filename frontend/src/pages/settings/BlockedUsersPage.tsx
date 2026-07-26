@@ -381,6 +381,17 @@ export function BlockedUsersPage() {
         </section>
       ) : (
         <>
+          <section className="blocked-users-list-heading">
+            <div>
+              <p className="blocked-users-eyebrow">Liste privée</p>
+              <h2>Les profils que tu as écartés.</h2>
+            </div>
+            <p>
+              Cette liste n’est visible que par toi. Débloquer une personne
+              ne recrée ni match ni conversation.
+            </p>
+          </section>
+
           <section
             className="blocked-users-grid"
             aria-label="Liste des profils bloqués"
