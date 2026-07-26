@@ -740,3 +740,95 @@
     animation: none;
   }
 }
+
+/* Harmonisation 2026 avec les autres pages premium de Mon espace. */
+.profile-verification-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(164, 37, 91, 0.14);
+  border-radius: 2.2rem;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(241, 202, 221, 0.42), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(253, 242, 248, 0.94));
+  box-shadow: 0 26px 72px rgba(91, 29, 58, 0.08);
+  padding: clamp(1.6rem, 4vw, 3.5rem);
+}
+
+.profile-verification-hero::after {
+  position: absolute;
+  right: -5rem;
+  bottom: -7rem;
+  width: 19rem;
+  height: 19rem;
+  border: 1px solid rgba(164, 37, 91, 0.1);
+  border-radius: 999px;
+  content: "";
+  pointer-events: none;
+}
+
+.profile-verification-trust-card {
+  position: relative;
+  z-index: 1;
+  min-height: 230px;
+  flex-direction: column;
+  justify-content: space-between;
+  border-color: rgba(255, 255, 255, 0.22);
+  background: linear-gradient(145deg, #54102e, #8d1d50);
+  color: #fff8fb;
+  box-shadow: 0 24px 56px rgba(84, 16, 46, 0.22);
+}
+
+.profile-verification-trust-card__icon {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.profile-verification-trust-card p,
+.profile-verification-trust-card strong,
+.profile-verification-trust-card span {
+  color: inherit;
+}
+
+.profile-verification-trust-card span {
+  color: rgba(255, 248, 251, 0.82);
+}
+
+.profile-verification-grid {
+  margin-top: 1.5rem;
+}
+
+.profile-verification-card {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.profile-verification-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 28px 72px rgba(87, 30, 58, 0.11);
+}
+
+.profile-verification-upload {
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.profile-verification-upload:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 34px rgba(115, 32, 70, 0.08);
+}
+
+@media (max-width: 820px) {
+  .profile-verification-trust-card {
+    min-height: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-verification-card,
+  .profile-verification-upload {
+    transition: none;
+  }
+
+  .profile-verification-card:hover,
+  .profile-verification-upload:hover {
+    transform: none;
+  }
+}
