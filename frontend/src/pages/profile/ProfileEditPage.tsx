@@ -565,13 +565,13 @@ export function ProfileEditPage() {
             {previewAge !== null ? `, ${previewAge}` : ""}
           </h2>
           <p className="profile-edit-preview__location">
-            {labelFor(CITIES, form.city)} · {labelFor(INTENTS, form.dating_intent)}
+            {form.city ? labelFor(CITIES, form.city) : "Ville non renseignée"} · {form.dating_intent ? labelFor(INTENTS, form.dating_intent) : "Intention non renseignée"}
           </p>
           <p className="profile-edit-preview__biography">
             {form.biography.trim() || "Ta biographie apparaîtra ici. Quelques mots sincères suffisent pour donner envie de te connaître."}
           </p>
           <div className="profile-edit-preview__facts">
-            <span>{labelFor(GENDERS, form.gender)}</span>
+            <span>{form.gender ? labelFor(GENDERS, form.gender) : "Genre non renseigné"}</span>
             <span>
               {form.is_discoverable
                 ? user?.isEmailVerified && requiredProfileIsComplete
