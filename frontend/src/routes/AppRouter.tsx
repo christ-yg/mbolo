@@ -27,6 +27,7 @@ import { ProfileDetailPage } from "../pages/profiles/ProfileDetailPage";
 import { ProfileEditPage } from "../pages/profile/ProfileEditPage";
 import { ProfilePhotosPage } from "../pages/profile/ProfilePhotosPage";
 import { ProfileVerificationPage } from "../pages/profile/ProfileVerificationPage";
+import { MySpacePage } from "../pages/account/MySpacePage";
 import { PremiumPage } from "../pages/premium/PremiumPage";
 import { SafetyPage } from "../pages/settings/SafetyPage";
 import { AccountSecurityPage } from "../pages/settings/AccountSecurityPage";
@@ -119,6 +120,15 @@ export const appRouter = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      {
+        path: "/account",
+        element: (
+          <ProtectedRoute>
+            <MySpacePage />
+          </ProtectedRoute>
+        ),
+      },
+
       {
         path: "/profile/edit",
         element: (

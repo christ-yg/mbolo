@@ -80,6 +80,7 @@ export function PublicHeader() {
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
   const accountRoutes = [
+    "/account",
     "/discovery-preferences",
     "/profile/edit",
     "/profile/photos",
@@ -403,10 +404,13 @@ export function PublicHeader() {
                       role="menu"
                     >
                       <div className="premium-account-menu__heading">
-                        <span>Personnaliser</span>
-                        <small>Profil et préférences</small>
+                        <span>Mon espace</span>
+                        <small>Compte, profil et préférences</small>
                       </div>
 
+                      <NavLink to="/account" role="menuitem">
+                        Vue d’ensemble
+                      </NavLink>
                       <NavLink to="/profile/edit" role="menuitem">
                         Mon profil
                       </NavLink>
@@ -583,6 +587,12 @@ export function PublicHeader() {
                 Mon espace
               </p>
 
+              <NavLink
+                className={getMobileNavigationLinkClass}
+                to="/account"
+              >
+                Vue d’ensemble
+              </NavLink>
               <NavLink
                 className={getMobileNavigationLinkClass}
                 to="/profile/edit"
