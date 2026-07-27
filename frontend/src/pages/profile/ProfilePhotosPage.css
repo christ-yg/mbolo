@@ -524,16 +524,7 @@
   font-weight: 850;
 }
 
-  position: absolute;
-  z-index: 2;
-  right: 16px;
-  bottom: 16px;
-  left: 16px;
-  padding: 12px 16px;
-  background: rgba(115, 17, 61, 0.78);
-  color: white;
-  text-align: center;
-}
+
 
 .profile-photo-card__body {
   padding: 22px;
@@ -897,13 +888,15 @@
  * Les badges et informations placés sur la photo doivent rester
  * au-dessus du dégradé.
  */
+
 .profile-photo-card__topline,
 .profile-photo-card__position,
 .profile-photo-card__status,
-  position: relative;
 .profile-photo-card__primary-badge {
-  z-index: 2;
+    position: relative;
+    z-index: 2;
 }
+
 
 
 /* ------------------------------------------------------------
