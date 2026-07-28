@@ -166,6 +166,8 @@ class AdvancedDiscoveryPreferencesTests(APITestCase):
             image="profiles/test-photo.jpg",
             position=1,
             is_primary=True,
+            # Le moteur public ne doit afficher que les photos validées.
+            moderation_status=ProfilePhoto.ModerationStatus.APPROVED,
         )
 
         response = self.client.get(self.discovery_url)

@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -56,6 +56,10 @@ class PremiumFoundationTests(TestCase):
         self.assertEqual(state["plan"], "free")
         self.assertFalse(state["is_premium"])
 
+    @override_settings(
+        MBOLO_PAYMENT_PROVIDER="",
+        MBOLO_PAYMENT_TEST_MODE=False,
+    )
     def test_overview_returns_catalog_and_server_entitlements(self):
         response = self.client.get(
             reverse("subscriptions:premium-overview")

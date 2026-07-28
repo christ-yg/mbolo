@@ -114,8 +114,11 @@ DATABASES = {
         "NAME": env("POSTGRES_DB"),
         "USER": env("POSTGRES_USER"),
         "PASSWORD": env("POSTGRES_PASSWORD"),
-        "HOST": "127.0.0.1",
-        "PORT": env.int("POSTGRES_EXPOSED_PORT", default=5432),
+        "HOST": env("POSTGRES_HOST", default="127.0.0.1"),
+        "PORT": env.int(
+            "POSTGRES_PORT",
+            default=env.int("POSTGRES_EXPOSED_PORT", default=5432),
+        ),
         "CONN_MAX_AGE": 60,
         "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {
@@ -177,69 +180,90 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = "accounts.User"
 
 # ============================================================
-# HÔTES HTTP AUTORISÉS
+# SÉCURITÉ HTTP, COOKIES ET DÉPLOIEMENT
 # ============================================================
-#
-# Django vérifie l'en-tête HTTP Host afin d'empêcher certaines
-# attaques utilisant un nom d'hôte falsifié.
-#
-# En développement local, nous autorisons uniquement :
-#
-# - 127.0.0.1 ;
-# - localhost.
-#
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-]
 
+# Les hôtes et origines autorisés viennent exclusivement de l'environnement.
+# Cela évite qu'une valeur locale codée en dur écrase la configuration de
+# production.
+ALLOWED_HOSTS = env.list(
+    "DJANGO_ALLOWED_HOSTS",
+    default=["localhost", "127.0.0.1"],
+)
 
-# ============================================================
-# ORIGINES CSRF AUTORISÉES
-# ============================================================
-#
-# Le frontend React/Vite fonctionne actuellement sur le port 5173.
-#
-# Le navigateur peut utiliser :
-#
-# - http://127.0.0.1:5173 ;
-# - http://localhost:5173.
-#
-# Ces origines sont explicitement autorisées pour les requêtes
-# protégées par CSRF :
-#
-# - POST ;
-# - PUT ;
-# - PATCH ;
-# - DELETE.
-#
-# Nous n'utilisons jamais "*" ici, car cela affaiblirait
-# la vérification de l'origine.
-#
-CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-]
+CSRF_TRUSTED_ORIGINS = env.list(
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    default=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+)
+
+# Le domaine frontal utilisé dans les e-mails et redirections.
+FRONTEND_BASE_URL = env(
+    "FRONTEND_BASE_URL",
+    default="http://localhost:5173",
+).rstrip("/")
+
+# En production derrière Nginx, Traefik ou un load balancer TLS, Django doit
+# pouvoir reconnaître la requête HTTPS transmise par le proxy.
+SECURE_PROXY_SSL_HEADER = (
+    ("HTTP_X_FORWARDED_PROTO", "https")
+    if env.bool("DJANGO_TRUST_X_FORWARDED_PROTO", default=False)
+    else None
+)
+
+USE_HTTPS_SECURITY = env.bool(
+    "DJANGO_USE_HTTPS_SECURITY",
+    default=not DEBUG,
+)
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SECURE = USE_HTTPS_SECURITY
 
+# Le cookie CSRF doit rester lisible par le frontend afin qu'Axios puisse
+# envoyer l'en-tête X-CSRFToken. Il ne contient pas la session utilisateur.
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SECURE = USE_HTTPS_SECURITY
 
+SECURE_SSL_REDIRECT = env.bool(
+    "DJANGO_SECURE_SSL_REDIRECT",
+    default=USE_HTTPS_SECURITY,
+)
+SECURE_HSTS_SECONDS = env.int(
+    "DJANGO_SECURE_HSTS_SECONDS",
+    default=31536000 if USE_HTTPS_SECURITY else 0,
+)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(
+    "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS",
+    default=USE_HTTPS_SECURITY,
+)
+SECURE_HSTS_PRELOAD = env.bool(
+    "DJANGO_SECURE_HSTS_PRELOAD",
+    default=False,
+)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "same-origin"
+
+# Réduit l'exposition des pages sensibles dans les navigateurs et proxys.
+SESSION_SAVE_EVERY_REQUEST = False
 
 # ==========================================================
 # CACHE REDIS
 # ==========================================================
 
+REDIS_HOST = env("REDIS_HOST", default="127.0.0.1")
+REDIS_PORT = env.int(
+    "REDIS_PORT",
+    default=env.int("REDIS_EXPOSED_PORT", default=6379),
+)
+
 REDIS_CACHE_URL = (
     f"redis://:{env('REDIS_PASSWORD')}"
-    f"@127.0.0.1:"
-    f"{env.int('REDIS_EXPOSED_PORT', default=6379)}"
-    "/1"
+    f"@{REDIS_HOST}:{REDIS_PORT}/1"
 )
 
 CACHES = {
@@ -279,14 +303,6 @@ EMAIL_BACKEND = (
 )
 
 DEFAULT_FROM_EMAIL = "Mbolo <no-reply@mbolo.local>"
-
-FRONTEND_BASE_URL = env(
-    "FRONTEND_BASE_URL",
-    default="http://localhost:5173",
-)
-
-
-
 
 
 # ============================================================
@@ -366,9 +382,7 @@ PROFILE_PHOTO_WEBP_QUALITY = 88
 #
 REDIS_CHANNEL_URL = (
     f"redis://:{env('REDIS_PASSWORD')}"
-    f"@127.0.0.1:"
-    f"{env.int('REDIS_EXPOSED_PORT', default=6379)}"
-    "/2"
+    f"@{REDIS_HOST}:{REDIS_PORT}/2"
 )
 
 CHANNEL_LAYERS = {
@@ -382,16 +396,6 @@ CHANNEL_LAYERS = {
         },
     },
 }
-# Configuration du paiement Premium (désactivé tant que ces valeurs ne sont
-# pas fournies par un prestataire officiellement validé pour le Gabon).
-MBOLO_PAYMENT_PROVIDER = env(
-    "MBOLO_PAYMENT_PROVIDER", default=""
-).strip()
-MBOLO_PLUS_PRICE_XAF = env.int("MBOLO_PLUS_PRICE_XAF", default=0)
-MBOLO_PRESTIGE_PRICE_XAF = env.int(
-    "MBOLO_PRESTIGE_PRICE_XAF", default=0
-)
-
 # Les comptes gratuits disposent d'un quota journalier calculé et
 # contrôlé exclusivement par Django. Les abonnements actifs possédant
 # l'entitlement unlimited_likes ne sont pas concernés.
@@ -405,8 +409,8 @@ MBOLO_FREE_DAILY_LIKE_LIMIT = env.int(
 # MBOLO PREMIUM ET PAIEMENTS
 # ============================================================
 #
-# Mode test : aucune somme réelle n'est encaissée. La confirmation manuelle
-# simule un webhook serveur afin de tester l'activation des abonnements.
+# Le mode test doit être explicitement activé. En production, son activation
+# accidentelle provoque une erreur immédiate au démarrage.
 #
 MBOLO_PLUS_PRICE_XAF = env.int("MBOLO_PLUS_PRICE_XAF", default=5000)
 MBOLO_PRESTIGE_PRICE_XAF = env.int(
@@ -415,9 +419,19 @@ MBOLO_PRESTIGE_PRICE_XAF = env.int(
 )
 MBOLO_PAYMENT_PROVIDER = env(
     "MBOLO_PAYMENT_PROVIDER",
-    default="mbolo_test",
-)
+    default="mbolo_test" if DEBUG else "",
+).strip()
 MBOLO_PAYMENT_TEST_MODE = env.bool(
     "MBOLO_PAYMENT_TEST_MODE",
-    default=True,
+    default=DEBUG,
 )
+
+if not DEBUG and MBOLO_PAYMENT_TEST_MODE:
+    raise RuntimeError(
+        "MBOLO_PAYMENT_TEST_MODE ne peut pas être activé lorsque APP_DEBUG=false."
+    )
+
+if not MBOLO_PAYMENT_TEST_MODE and not MBOLO_PAYMENT_PROVIDER:
+    raise RuntimeError(
+        "MBOLO_PAYMENT_PROVIDER doit être défini lorsque le mode test est désactivé."
+    )
