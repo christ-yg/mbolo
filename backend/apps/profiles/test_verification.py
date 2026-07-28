@@ -66,6 +66,9 @@ class ProfileVerificationTests(TestCase):
             image=image_file("primary.jpg"),
             position=0,
             is_primary=True,
+            # Une vérification ne peut démarrer qu'avec une photo principale
+            # déjà approuvée par la modération.
+            moderation_status=ProfilePhoto.ModerationStatus.APPROVED,
         )
         self.url = reverse("profiles:current-profile-verification")
         self.csrf_url = reverse("core:csrf-token")

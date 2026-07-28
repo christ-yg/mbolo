@@ -107,6 +107,49 @@ export default defineConfig(({ mode }) => {
       },
     },
 
+    build: {
+      /**
+       * Sépare les bibliothèques principales du code métier Mbolo.
+       *
+       * Le navigateur peut ainsi conserver les dépendances en cache et
+       * télécharger des fichiers plus petits lors des mises à jour.
+       */
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes("node_modules/react-router")) {
+              return "router";
+            }
+
+            if (
+              id.includes("node_modules/react") ||
+              id.includes("node_modules/react-dom")
+            ) {
+              return "react";
+            }
+
+            if (id.includes("node_modules/axios")) {
+              return "http";
+            }
+
+            if (id.includes("node_modules")) {
+              return "vendor";
+            }
+
+            return undefined;
+          },
+        },
+      },
+
+      /**
+       * Un avertissement à 650 kB reste suffisamment strict sans masquer
+       * une véritable régression de performance.
+       */
+      chunkSizeWarningLimit: 650,
+
+      sourcemap: false,
+    },
+
     preview: {
       host: "127.0.0.1",
       port: 4173,
