@@ -9,8 +9,10 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { useNotification } from "../../hooks/useNotification";
-import type { BrowserNotificationPermission } from "../../context/notificationContextDefinition";
+import {
+  type BrowserNotificationPermission,
+  useNotification,
+} from "../../context/NotificationContext";
 
 import "./SafetyPage.css";
 
@@ -29,8 +31,6 @@ function getPermissionExplanation(
       return "Aucune décision n’a encore été enregistrée par le navigateur.";
     case "unsupported":
       return "Ce navigateur ne prend pas en charge les notifications natives.";
-    default:
-      return "État des notifications indisponible.";
   }
 }
 

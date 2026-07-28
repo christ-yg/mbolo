@@ -120,10 +120,8 @@ export function MatchesPage() {
   }, [lastEvent, loadMatches, revision]);
 
 
-  const matches = useMemo<MatchItem[]>(
-    () => matchesData?.results ?? [],
-    [matchesData?.results],
-  );
+  const matches: MatchItem[] =
+    matchesData?.results ?? [];
 
   const verifiedMatchesCount = useMemo(
     () =>

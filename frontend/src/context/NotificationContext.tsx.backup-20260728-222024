@@ -16,8 +16,10 @@
  */
 
 import {
+  createContext,
   type PropsWithChildren,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -31,12 +33,39 @@ import {
 import { useAccountRealtime } from "../hooks/useAccountRealtime";
 
 
-import {
-  NotificationContext,
-  type BrowserNotificationPermission,
-  type NotificationContextValue,
-  type RealtimeNotification,
-} from "./notificationContextDefinition";
+export interface RealtimeNotification {
+  id: string;
+  kind: "message" | "like" | "match" | "system" | "security";
+  title: string;
+  body: string;
+  targetPath: string;
+  displayName: string;
+  createdAt: string;
+}
+
+
+export type BrowserNotificationPermission =
+  | NotificationPermission
+  | "unsupported";
+
+
+interface NotificationContextValue {
+  notification: RealtimeNotification | null;
+  dismissNotification: () => void;
+  browserNotificationsSupported: boolean;
+  browserNotificationPermission:
+    BrowserNotificationPermission;
+  browserNotificationsEnabled: boolean;
+  enableBrowserNotifications: () => Promise<boolean>;
+  disableBrowserNotifications: () => void;
+}
+
+
+const NotificationContext =
+  createContext<NotificationContextValue | undefined>(
+    undefined,
+  );
+
 
 const MAX_SEEN_NOTIFICATION_IDS = 200;
 const BROWSER_NOTIFICATION_PREFERENCE_KEY =
@@ -478,4 +507,19 @@ export function NotificationProvider({
       {children}
     </NotificationContext.Provider>
   );
+}
+
+
+export function useNotification():
+NotificationContextValue {
+  const context =
+    useContext(NotificationContext);
+
+  if (context === undefined) {
+    throw new Error(
+      "useNotification doit être utilisé dans NotificationProvider.",
+    );
+  }
+
+  return context;
 }

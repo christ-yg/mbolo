@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 
 import {
   useNotification,
-} from "../../hooks/useNotification";
+} from "../../context/NotificationContext";
 
 
 function getInitial(displayName: string): string {

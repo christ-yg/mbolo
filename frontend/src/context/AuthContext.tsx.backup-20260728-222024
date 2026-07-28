@@ -19,6 +19,7 @@
  */
 
 import {
+  createContext,
   type PropsWithChildren,
   useCallback,
   useEffect,
@@ -43,7 +44,58 @@ import type {
   LoginResult,
 } from "../types/auth";
 
-import { AuthContext, type AuthContextValue } from "./authContextDefinition";
+/**
+ * Structure complète exposée aux composants React.
+ */
+export interface AuthContextValue {
+  /**
+   * Utilisateur actuellement connecté.
+   *
+   * null signifie qu'aucune session authentifiée
+   * n'est actuellement disponible.
+   */
+  user: AuthenticatedUser | null;
+
+  /**
+   * Vrai pendant la vérification initiale de la session.
+   */
+  isInitializing: boolean;
+
+  /**
+   * Raccourci pratique dérivé de user.
+   */
+  isAuthenticated: boolean;
+
+  /**
+   * Ouvre une session Django.
+   */
+  login: (
+    payload: LoginPayload,
+  ) => Promise<LoginResult>;
+
+  confirmTwoFactor: (
+    payload: EmailTwoFactorConfirmPayload,
+  ) => Promise<AuthenticatedUser>;
+
+  /**
+   * Ferme la session Django.
+   */
+  logout: () => Promise<void>;
+
+  /**
+   * Recharge l'utilisateur courant depuis le backend.
+   */
+  refreshCurrentUser: () => Promise<AuthenticatedUser | null>;
+}
+
+/**
+ * Le contexte commence avec undefined.
+ *
+ * Cela permet au hook useAuth de détecter une utilisation
+ * accidentelle en dehors du AuthProvider.
+ */
+export const AuthContext =
+  createContext<AuthContextValue | undefined>(undefined);
 
 /**
  * Fournisseur global d'authentification.
