@@ -9,8 +9,12 @@ from django.utils import timezone
 from .models import (
     PremiumPrivacyPreference,
     ProfileBoost,
+    PaymentMethod,
+    PaymentStatus,
+    PaymentTransaction,
     Subscription,
     SubscriptionPlan,
+    SubscriptionStatus,
 )
 
 
@@ -322,3 +326,222 @@ def activate_profile_boost(*, user) -> dict:
         ends_at=now + BOOST_DURATION,
     )
     return get_boost_state(locked_user, now=now)
+
+
+PAYMENT_DURATION = timedelta(days=30)
+
+
+def is_payment_test_mode_enabled() -> bool:
+    return bool(getattr(settings, "MBOLO_PAYMENT_TEST_MODE", False))
+
+
+def get_plan_amount_xaf(plan: str) -> int:
+    prices = {
+        SubscriptionPlan.PLUS: int(
+            getattr(settings, "MBOLO_PLUS_PRICE_XAF", 0)
+        ),
+        SubscriptionPlan.PRESTIGE: int(
+            getattr(settings, "MBOLO_PRESTIGE_PRICE_XAF", 0)
+        ),
+    }
+    amount = prices.get(plan, 0)
+    if amount <= 0:
+        raise ValueError("Le tarif de cette offre n'est pas encore configuré.")
+    return amount
+
+
+def serialize_payment_transaction(transaction: PaymentTransaction) -> dict:
+    return {
+        "id": transaction.id,
+        "plan": transaction.plan,
+        "plan_name": transaction.get_plan_display(),
+        "method": transaction.method,
+        "method_name": transaction.get_method_display(),
+        "status": transaction.status,
+        "amount_xaf": transaction.amount_xaf,
+        "currency": "XAF",
+        "provider": transaction.provider,
+        "provider_reference": transaction.provider_reference,
+        "created_at": transaction.created_at,
+        "updated_at": transaction.updated_at,
+        "verified_at": transaction.verified_at,
+        "can_confirm_in_test_mode": (
+            is_payment_test_mode_enabled()
+            and transaction.status in {
+                PaymentStatus.CREATED,
+                PaymentStatus.PENDING,
+            }
+        ),
+    }
+
+
+@transaction.atomic
+def create_payment_checkout(*, user, plan: str, method: str) -> PaymentTransaction:
+    """
+    Crée une transaction locale avec un montant décidé exclusivement côté serveur.
+
+    En mode test, aucun prestataire externe n'est contacté. En production, cette
+    fonction devra déléguer l'initialisation à un adaptateur de paiement dédié.
+    """
+
+    if plan not in {SubscriptionPlan.PLUS, SubscriptionPlan.PRESTIGE}:
+        raise ValueError("Offre Premium invalide.")
+
+    if method not in {
+        PaymentMethod.AIRTEL_MONEY,
+        PaymentMethod.MOOV_MONEY,
+        PaymentMethod.BANK_CARD,
+    }:
+        raise ValueError("Moyen de paiement invalide.")
+
+    amount = get_plan_amount_xaf(plan)
+    provider = (
+        "mbolo_test"
+        if is_payment_test_mode_enabled()
+        else str(getattr(settings, "MBOLO_PAYMENT_PROVIDER", "")).strip()
+    )
+    if not provider:
+        raise RuntimeError(
+            "Le prestataire de paiement n'est pas encore configuré."
+        )
+
+    transaction_obj = PaymentTransaction.objects.create(
+        user=user,
+        plan=plan,
+        method=method,
+        status=PaymentStatus.PENDING,
+        amount_xaf=amount,
+        provider=provider,
+    )
+    transaction_obj.provider_reference = f"{provider}:{transaction_obj.id}"
+    transaction_obj.save(
+        update_fields=("provider_reference", "updated_at")
+    )
+    return transaction_obj
+
+
+@transaction.atomic
+def confirm_test_payment(*, user, transaction_id) -> tuple[PaymentTransaction, Subscription]:
+    """
+    Confirme une transaction uniquement lorsque le mode test est activé.
+
+    Cette route simule la confirmation serveur d'un prestataire. Elle ne doit
+    jamais être utilisée en production à la place d'un webhook signé.
+    """
+
+    if not is_payment_test_mode_enabled():
+        raise PermissionError(
+            "La confirmation manuelle est disponible uniquement en mode test."
+        )
+
+    payment = (
+        PaymentTransaction.objects.select_for_update()
+        .filter(id=transaction_id, user=user)
+        .first()
+    )
+    if payment is None:
+        raise LookupError("Transaction introuvable.")
+
+    if payment.status == PaymentStatus.SUCCEEDED:
+        subscription = Subscription.objects.get(user=user)
+        return payment, subscription
+
+    if payment.status not in {
+        PaymentStatus.CREATED,
+        PaymentStatus.PENDING,
+    }:
+        raise ValueError(
+            "Cette transaction ne peut plus être confirmée."
+        )
+
+    expected_amount = get_plan_amount_xaf(payment.plan)
+    if payment.amount_xaf != expected_amount:
+        payment.status = PaymentStatus.FAILED
+        payment.failure_code = "amount_mismatch"
+        payment.save(
+            update_fields=(
+                "status",
+                "failure_code",
+                "updated_at",
+            )
+        )
+        raise ValueError("Le montant de la transaction est invalide.")
+
+    now = timezone.now()
+    payment.status = PaymentStatus.SUCCEEDED
+    payment.verified_at = now
+    payment.failure_code = ""
+    payment.save(
+        update_fields=(
+            "status",
+            "verified_at",
+            "failure_code",
+            "updated_at",
+        )
+    )
+
+    subscription, _created = Subscription.objects.select_for_update().get_or_create(
+        user=user,
+        defaults={
+            "plan": payment.plan,
+            "status": SubscriptionStatus.ACTIVE,
+            "starts_at": now,
+            "ends_at": now + PAYMENT_DURATION,
+            "auto_renew": False,
+            "provider_reference": payment.provider_reference,
+        },
+    )
+    subscription.plan = payment.plan
+    subscription.status = SubscriptionStatus.ACTIVE
+    subscription.starts_at = now
+    subscription.ends_at = now + PAYMENT_DURATION
+    subscription.auto_renew = False
+    subscription.provider_reference = payment.provider_reference
+    subscription.save(
+        update_fields=(
+            "plan",
+            "status",
+            "starts_at",
+            "ends_at",
+            "auto_renew",
+            "provider_reference",
+            "updated_at",
+        )
+    )
+
+    return payment, subscription
+
+
+@transaction.atomic
+def cancel_payment(*, user, transaction_id) -> PaymentTransaction:
+    payment = (
+        PaymentTransaction.objects.select_for_update()
+        .filter(id=transaction_id, user=user)
+        .first()
+    )
+    if payment is None:
+        raise LookupError("Transaction introuvable.")
+
+    if payment.status == PaymentStatus.SUCCEEDED:
+        raise ValueError(
+            "Une transaction déjà confirmée ne peut pas être annulée."
+        )
+
+    if payment.status in {
+        PaymentStatus.CANCELED,
+        PaymentStatus.FAILED,
+        PaymentStatus.EXPIRED,
+    }:
+        return payment
+
+    payment.status = PaymentStatus.CANCELED
+    payment.save(update_fields=("status", "updated_at"))
+    return payment
+
+
+def get_payment_history(user, *, limit: int = 20) -> list[dict]:
+    transactions = PaymentTransaction.objects.filter(user=user)[:limit]
+    return [
+        serialize_payment_transaction(item)
+        for item in transactions
+    ]

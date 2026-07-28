@@ -1,6 +1,14 @@
 from django.urls import path
 
-from .views import ProfileBoostView, PremiumOverviewView, PremiumPrivacyView
+from .views import (
+    PaymentCancelView,
+    PaymentCheckoutView,
+    PaymentConfirmTestView,
+    PaymentHistoryView,
+    ProfileBoostView,
+    PremiumOverviewView,
+    PremiumPrivacyView,
+)
 
 
 app_name = "subscriptions"
@@ -20,5 +28,25 @@ urlpatterns = [
         "boost/",
         ProfileBoostView.as_view(),
         name="premium-boost",
+    ),
+    path(
+        "payments/checkout/",
+        PaymentCheckoutView.as_view(),
+        name="premium-payment-checkout",
+    ),
+    path(
+        "payments/confirm-test/",
+        PaymentConfirmTestView.as_view(),
+        name="premium-payment-confirm-test",
+    ),
+    path(
+        "payments/cancel/",
+        PaymentCancelView.as_view(),
+        name="premium-payment-cancel",
+    ),
+    path(
+        "payments/history/",
+        PaymentHistoryView.as_view(),
+        name="premium-payment-history",
     ),
 ]

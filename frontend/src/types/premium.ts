@@ -66,3 +66,38 @@ export interface ProfileBoostState {
   remaining: number;
   next_available_at: string | null;
 }
+
+
+export type PremiumPaymentStatus =
+  | "created"
+  | "pending"
+  | "succeeded"
+  | "failed"
+  | "canceled"
+  | "expired";
+
+export interface PremiumPaymentTransaction {
+  id: string;
+  plan: "plus" | "prestige";
+  plan_name: string;
+  method: "airtel_money" | "moov_money" | "bank_card";
+  method_name: string;
+  status: PremiumPaymentStatus;
+  amount_xaf: number;
+  currency: "XAF";
+  provider: string;
+  provider_reference: string;
+  created_at: string;
+  updated_at: string;
+  verified_at: string | null;
+  can_confirm_in_test_mode: boolean;
+}
+
+export interface PremiumPaymentConfirmation {
+  transaction: PremiumPaymentTransaction;
+  subscription: SubscriptionState;
+}
+
+export interface PremiumPaymentHistory {
+  transactions: PremiumPaymentTransaction[];
+}
