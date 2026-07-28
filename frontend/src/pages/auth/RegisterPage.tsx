@@ -26,6 +26,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { normalizeApiError } from "../../api/apiError";
 import { registerUser } from "../../api/authService";
 
+import "./AuthPagesPremium.css";
+
 /**
  * Données locales contrôlées par le formulaire.
  */

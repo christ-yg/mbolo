@@ -4,6 +4,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { normalizeApiError } from "../../api/apiError";
 import { confirmPasswordReset } from "../../api/authService";
 
+import "./AuthPagesPremium.css";
+
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();

@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { normalizeApiError } from "../../api/apiError";
 import { submitSanctionAppeal } from "../../api/sanctionAppealService";
 
+import "./AuthPagesPremium.css";
+
 export function SanctionAppealPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

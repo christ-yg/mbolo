@@ -25,6 +25,8 @@ import {
 import { normalizeApiError } from "../../api/apiError";
 import { useAuth } from "../../hooks/useAuth";
 
+import "./AuthPagesPremium.css";
+
 /**
  * Valeurs du formulaire.
  */

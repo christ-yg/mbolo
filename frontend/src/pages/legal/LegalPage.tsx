@@ -1,5 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 
+import "./LegalPage.css";
+
 type LegalDocument = {
   eyebrow: string;
   title: string;
