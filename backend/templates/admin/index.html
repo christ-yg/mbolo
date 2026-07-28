@@ -1,0 +1,16 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static mbolo_admin_dashboard %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/css/mbolo_admin.css' %}?v=20260728-admin2">
+{% endblock %}
+
+{% block content %}
+  {% mbolo_admin_dashboard %}
+  <div id="content-main" class="mbolo-admin-apps">
+    {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+  </div>
+{% endblock %}
+
+{% block sidebar %}{% endblock %}

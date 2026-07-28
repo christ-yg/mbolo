@@ -1,0 +1,90 @@
+<section class="mbolo-dashboard" aria-labelledby="mbolo-dashboard-title">
+  <header class="mbolo-dashboard__hero">
+    <div>
+      <p class="mbolo-dashboard__eyebrow">Centre de pilotage sécurisé</p>
+      <h1 id="mbolo-dashboard-title">Administration et modération Mbolo</h1>
+      <p>
+        Traite les priorités opérationnelles sans exposer les messages privés,
+        les mots de passe ou les secrets de paiement.
+      </p>
+    </div>
+    <div class="mbolo-dashboard__shield">
+      <span>M</span>
+      <strong>Accès staff</strong>
+      <small>Actions journalisées par Django</small>
+    </div>
+  </header>
+
+  <div class="mbolo-dashboard__priority-grid">
+    <a href="{% url 'admin:safety_report_changelist' %}?status__in=pending,under_review">
+      <span>Signalements ouverts</span>
+      <strong>{{ stats.pending_reports }}</strong>
+      <small>À examiner ou finaliser</small>
+    </a>
+    <a href="{% url 'admin:profiles_profileverification_changelist' %}?status__exact=pending">
+      <span>Vérifications en attente</span>
+      <strong>{{ stats.pending_verifications }}</strong>
+      <small>Comparaison humaine requise</small>
+    </a>
+    <a href="{% url 'admin:photos_profilephoto_changelist' %}?moderation_status__exact=pending">
+      <span>Photos à modérer</span>
+      <strong>{{ stats.pending_photos }}</strong>
+      <small>Publication non encore autorisée</small>
+    </a>
+    <a href="{% url 'admin:safety_sanctionappeal_changelist' %}?status__exact=pending">
+      <span>Recours ouverts</span>
+      <strong>{{ stats.pending_appeals }}</strong>
+      <small>Révision indépendante</small>
+    </a>
+  </div>
+
+  <div class="mbolo-dashboard__metrics">
+    <article>
+      <span>Membres</span>
+      <strong>{{ stats.members }}</strong>
+      <small>+{{ stats.new_members_24h }} durant les dernières 24 h</small>
+    </article>
+    <article>
+      <span>Comptes suspendus</span>
+      <strong>{{ stats.suspended }}</strong>
+      <small>Hors comptes staff protégés</small>
+    </article>
+    <article>
+      <span>Abonnements actifs</span>
+      <strong>{{ stats.active_subscriptions }}</strong>
+      <small>Plus et Prestige</small>
+    </article>
+    <article>
+      <span>Paiements réussis — 30 j</span>
+      <strong>{{ stats.successful_payments_30d }}</strong>
+      <small>{{ stats.revenue_30d }} FCFA enregistrés</small>
+    </article>
+  </div>
+
+  <div class="mbolo-dashboard__operations">
+    <section>
+      <h2>Accès rapides</h2>
+      <div class="mbolo-dashboard__quick-links">
+        <a href="{% url 'admin:accounts_user_changelist' %}">Gérer les utilisateurs</a>
+        <a href="{% url 'admin:safety_report_changelist' %}">Traiter les signalements</a>
+        <a href="{% url 'admin:profiles_profileverification_changelist' %}">Vérifier les profils</a>
+        <a href="{% url 'admin:subscriptions_paymenttransaction_changelist' %}">Contrôler les transactions</a>
+      </div>
+    </section>
+
+    <section>
+      <h2>Dernières actions administratives</h2>
+      <div class="mbolo-dashboard__audit">
+        {% for entry in recent_actions %}
+          <div>
+            <strong>{{ entry.user }}</strong>
+            <span>{{ entry.object_repr|truncatechars:52 }}</span>
+            <small>{{ entry.action_time|date:"d/m/Y H:i" }}</small>
+          </div>
+        {% empty %}
+          <p>Aucune action administrative enregistrée.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</section>
