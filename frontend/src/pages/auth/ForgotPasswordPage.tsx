@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { normalizeApiError } from "../../api/apiError";
 import { requestPasswordReset } from "../../api/authService";
 
+import "./AuthPagesPremium.css";
+
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");

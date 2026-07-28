@@ -1,0 +1,99 @@
+/* ============================================================
+   MBOLO — PAGE 404 PREMIUM
+   ============================================================ */
+
+.placeholder-page {
+  display: grid;
+  width: min(calc(100% - 2rem), 1180px);
+  min-height: calc(100vh - 11rem);
+  place-items: center;
+  margin: 0 auto;
+  padding: 2rem 0 5rem;
+}
+
+.placeholder-card {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  padding: clamp(2rem, 7vw, 6rem);
+  border: 1px solid rgba(164, 37, 91, 0.13);
+  border-radius: 2.8rem;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(246, 205, 226, 0.8), transparent 30%),
+    linear-gradient(145deg, #fffafd, #fff2f8);
+  box-shadow: 0 30px 90px rgba(89, 28, 57, 0.1);
+  text-align: center;
+}
+
+.placeholder-card::after {
+  position: absolute;
+  right: -5rem;
+  bottom: -7rem;
+  width: 18rem;
+  height: 18rem;
+  border: 2rem solid rgba(179, 35, 98, 0.06);
+  border-radius: 50%;
+  content: "";
+}
+
+.placeholder-card__code {
+  margin: 0;
+  color: #b32261;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(5rem, 15vw, 11rem);
+  line-height: 0.8;
+}
+
+.placeholder-card h1 {
+  margin: 1.4rem 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+}
+
+.placeholder-card > p:not(.placeholder-card__code) {
+  max-width: 620px;
+  margin: 1.3rem auto 0;
+  color: #725b68;
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.placeholder-card a {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  min-height: 3.2rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.8rem;
+  padding: 0.8rem 1.35rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #bc2464, #861844);
+  color: white;
+  box-shadow: 0 16px 34px rgba(143, 25, 77, 0.2);
+  text-decoration: none;
+  font-weight: 900;
+}
+
+@media (max-width: 560px) {
+  .placeholder-page {
+    width: min(calc(100% - 1rem), 1180px);
+  }
+
+  .placeholder-card {
+    padding: 2rem 1.15rem;
+    border-radius: 1.5rem;
+  }
+}
+
+/* Correction du contraste du bouton principal de la page 404 */
+.placeholder-card a,
+.placeholder-card a:visited,
+.placeholder-card a:hover,
+.placeholder-card a:focus {
+  color: #ffffff;
+}

@@ -30,6 +30,8 @@ import {
 import { normalizeApiError } from "../../api/apiError";
 import { verifyEmailAddress } from "../../api/authService";
 
+import "./AuthPagesPremium.css";
+
 /**
  * États possibles de la vérification.
  *

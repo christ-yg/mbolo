@@ -1,0 +1,405 @@
+/* ============================================================
+   MBOLO — AUTHENTIFICATION PREMIUM
+   Feuille partagée par Login, Register, VerifyEmail,
+   ForgotPassword, ResetPassword et SanctionAppeal.
+   ============================================================ */
+
+.auth-page,
+.email-verification-page,
+.appeal-page {
+  width: min(calc(100% - 2rem), 1380px);
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 5.5rem) 0 6rem;
+  color: #2d1d27;
+}
+
+.auth-page {
+  min-height: calc(100vh - 10rem);
+}
+
+.auth-page__panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(360px, 0.7fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: stretch;
+  padding: clamp(1.5rem, 4vw, 4rem);
+  border: 1px solid rgba(164, 37, 91, 0.13);
+  border-radius: 2.6rem;
+  background:
+    radial-gradient(circle at 3% 5%, rgba(249, 218, 232, 0.65), transparent 34%),
+    radial-gradient(circle at 98% 10%, rgba(255, 236, 245, 0.9), transparent 30%),
+    rgba(255, 251, 253, 0.95);
+  box-shadow: 0 30px 90px rgba(89, 28, 57, 0.09);
+}
+
+.auth-page__intro {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(0.5rem, 2vw, 1.5rem);
+}
+
+.auth-page__intro h1 {
+  max-width: 11ch;
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(3.2rem, 7vw, 6.6rem);
+  font-weight: 500;
+  letter-spacing: -0.065em;
+  line-height: 0.92;
+}
+
+.auth-page__intro > p:not(.section-heading__eyebrow) {
+  max-width: 760px;
+  margin: 1.35rem 0 0;
+  color: #725b68;
+  font-size: clamp(1rem, 1.5vw, 1.18rem);
+  line-height: 1.75;
+}
+
+.auth-page__trust-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.auth-page__trust-list > * {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: fit-content;
+  margin: 0;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid rgba(164, 37, 91, 0.13);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #6f5160;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.auth-card,
+.appeal-card,
+.email-verification-card {
+  box-sizing: border-box;
+  align-self: center;
+  width: 100%;
+  padding: clamp(1.4rem, 3vw, 2.5rem);
+  border: 1px solid rgba(132, 49, 87, 0.14);
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24px 65px rgba(88, 30, 58, 0.1);
+}
+
+.auth-card__heading h2,
+.appeal-card h2,
+.email-verification-card h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.2rem, 4vw, 3.7rem);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.auth-card__heading p,
+.appeal-card > p,
+.email-verification-card__message {
+  color: #755f6b;
+  line-height: 1.65;
+}
+
+.auth-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.4rem;
+}
+
+.form-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.form-field label,
+.form-field__label-row {
+  color: #4d3542;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.form-field__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select,
+.password-input input {
+  width: 100%;
+  min-height: 3.2rem;
+  box-sizing: border-box;
+  padding: 0.78rem 0.95rem;
+  border: 1px solid rgba(132, 49, 87, 0.22);
+  border-radius: 1rem;
+  outline: none;
+  background: #fffafd;
+  color: #2d1d27;
+  font: inherit;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.form-field textarea {
+  min-height: 9rem;
+  resize: vertical;
+}
+
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field select:focus,
+.password-input input:focus {
+  border-color: #b32362;
+  background: #ffffff;
+  box-shadow: 0 0 0 0.25rem rgba(179, 35, 98, 0.1);
+}
+
+.password-input {
+  position: relative;
+}
+
+.password-input__toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.7rem;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0.35rem 0.55rem;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 999px;
+  background: #f5e7ee;
+  color: #8d214f;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.form-field__forgot-link,
+.email-verification-card__text-link,
+.appeal-card__back {
+  color: #9a1d52;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.form-field__error {
+  margin: 0;
+  color: #a61935;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.auth-form__submit,
+.link-button--primary,
+.link-button--secondary {
+  display: inline-flex;
+  min-height: 3.2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.8rem 1.2rem;
+  border: 0;
+  border-radius: 999px;
+  text-decoration: none;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.auth-form__submit,
+.link-button--primary {
+  color: #ffffff;
+  background: linear-gradient(135deg, #bc2464, #861844);
+  box-shadow: 0 16px 34px rgba(143, 25, 77, 0.2);
+}
+
+.link-button--secondary {
+  border: 1px solid rgba(164, 37, 91, 0.18);
+  background: #fbf1f6;
+  color: #8f1e4e;
+}
+
+.auth-form__submit:hover:not(:disabled),
+.link-button--primary:hover,
+.link-button--secondary:hover {
+  transform: translateY(-1px);
+}
+
+.auth-form__submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.auth-form__security-note,
+.email-verification-card__note {
+  margin: 0.2rem 0 0;
+  padding: 0.95rem 1rem;
+  border-left: 3px solid #b52360;
+  border-radius: 0.9rem;
+  background: #f8eef3;
+  color: #6d5260;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.legal-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.95rem;
+  border-radius: 1rem;
+  background: #fbf3f7;
+  color: #654d59;
+  line-height: 1.5;
+}
+
+.legal-confirmation input {
+  margin-top: 0.2rem;
+}
+
+.password-strength {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.password-strength__bars {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+}
+
+.password-strength__bars > * {
+  height: 0.32rem;
+  border-radius: 999px;
+  background: #eadbe3;
+}
+
+.password-strength__bars > *.is-active {
+  background: linear-gradient(90deg, #b92361, #d95e92);
+}
+
+.form-alert {
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  line-height: 1.55;
+}
+
+.form-alert--success {
+  border: 1px solid rgba(31, 128, 84, 0.17);
+  background: #eefaf4;
+  color: #176f49;
+}
+
+.form-alert--error {
+  border: 1px solid rgba(170, 27, 53, 0.17);
+  background: #fff1f3;
+  color: #951a32;
+}
+
+.auth-page--single,
+.email-verification-page,
+.appeal-page {
+  display: grid;
+  min-height: calc(100vh - 10rem);
+  place-items: center;
+}
+
+.auth-card--reset,
+.email-verification-card,
+.appeal-card {
+  max-width: 720px;
+}
+
+.email-verification-card {
+  text-align: center;
+}
+
+.email-verification-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  justify-content: center;
+  margin-top: 1.4rem;
+}
+
+.email-verification-card > [class*="status"],
+.email-verification-card > [class*="icon"] {
+  margin-inline: auto;
+}
+
+.appeal-page__intro {
+  max-width: 760px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.appeal-page__intro h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(3rem, 6vw, 5rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+}
+
+.appeal-page__intro > p:not(.section-heading__eyebrow) {
+  color: #725b68;
+  line-height: 1.7;
+}
+
+@media (max-width: 940px) {
+  .auth-page__panel {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-page__intro h1 {
+    max-width: 13ch;
+  }
+}
+
+@media (max-width: 620px) {
+  .auth-page,
+  .email-verification-page,
+  .appeal-page {
+    width: min(calc(100% - 1rem), 1380px);
+    padding-top: 1rem;
+  }
+
+  .auth-page__panel,
+  .auth-card,
+  .appeal-card,
+  .email-verification-card {
+    padding: 1.15rem;
+    border-radius: 1.35rem;
+  }
+
+  .auth-page__intro {
+    padding: 0.25rem;
+  }
+
+  .auth-page__intro h1 {
+    font-size: clamp(2.8rem, 14vw, 4.2rem);
+  }
+
+  .form-field__label-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .email-verification-card__actions {
+    display: grid;
+  }
+}
