@@ -123,10 +123,7 @@ export function MessagesPage() {
   }, [currentPage, lastEvent, loadConversations, revision]);
 
 
-  const conversations = useMemo<ConversationItem[]>(
-    () => data?.results ?? [],
-    [data?.results],
-  );
+  const conversations: ConversationItem[] = data?.results ?? [];
 
   const filteredConversations = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLocaleLowerCase("fr-FR");

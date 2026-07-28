@@ -12,7 +12,7 @@ import { useContext } from "react";
 import {
   AuthContext,
   type AuthContextValue,
-} from "../context/authContextDefinition";
+} from "../context/AuthContext";
 
 /**
  * Retourne le contexte global d'authentification.
