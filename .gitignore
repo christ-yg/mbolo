@@ -153,3 +153,7 @@ mbolo_*_installer.zip
 # ==========================================================
 
 *.local
+
+# Sauvegardes temporaires générées pendant les installations
+*.backup-*
+*.zip:Zone.Identifier
