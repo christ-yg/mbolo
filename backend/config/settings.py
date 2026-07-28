@@ -399,3 +399,25 @@ MBOLO_FREE_DAILY_LIKE_LIMIT = env.int(
     "MBOLO_FREE_DAILY_LIKE_LIMIT",
     default=20,
 )
+
+
+# ============================================================
+# MBOLO PREMIUM ET PAIEMENTS
+# ============================================================
+#
+# Mode test : aucune somme réelle n'est encaissée. La confirmation manuelle
+# simule un webhook serveur afin de tester l'activation des abonnements.
+#
+MBOLO_PLUS_PRICE_XAF = env.int("MBOLO_PLUS_PRICE_XAF", default=5000)
+MBOLO_PRESTIGE_PRICE_XAF = env.int(
+    "MBOLO_PRESTIGE_PRICE_XAF",
+    default=10000,
+)
+MBOLO_PAYMENT_PROVIDER = env(
+    "MBOLO_PAYMENT_PROVIDER",
+    default="mbolo_test",
+)
+MBOLO_PAYMENT_TEST_MODE = env.bool(
+    "MBOLO_PAYMENT_TEST_MODE",
+    default=True,
+)

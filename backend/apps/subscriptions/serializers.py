@@ -64,3 +64,35 @@ class PremiumPrivacySerializer(serializers.Serializer):
 
 class PremiumPrivacyUpdateSerializer(serializers.Serializer):
     incognito_enabled = serializers.BooleanField(required=True)
+
+
+class PaymentCheckoutCreateSerializer(serializers.Serializer):
+    plan = serializers.ChoiceField(choices=("plus", "prestige"))
+    method = serializers.ChoiceField(
+        choices=("airtel_money", "moov_money", "bank_card")
+    )
+
+
+class PaymentTransactionSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    plan = serializers.CharField()
+    plan_name = serializers.CharField()
+    method = serializers.CharField()
+    method_name = serializers.CharField()
+    status = serializers.CharField()
+    amount_xaf = serializers.IntegerField(min_value=0)
+    currency = serializers.CharField()
+    provider = serializers.CharField()
+    provider_reference = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+    verified_at = serializers.DateTimeField(allow_null=True)
+    can_confirm_in_test_mode = serializers.BooleanField()
+
+
+class PaymentConfirmationSerializer(serializers.Serializer):
+    transaction_id = serializers.UUIDField()
+
+
+class PaymentHistorySerializer(serializers.Serializer):
+    transactions = PaymentTransactionSerializer(many=True)

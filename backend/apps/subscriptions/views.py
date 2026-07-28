@@ -6,7 +6,11 @@ from rest_framework.views import APIView
 from apps.core.security_logging import log_security_event
 
 from .serializers import (
+    PaymentCheckoutCreateSerializer,
+    PaymentConfirmationSerializer,
+    PaymentHistorySerializer,
     PaymentMethodSerializer,
+    PaymentTransactionSerializer,
     PlanSerializer,
     PremiumPrivacySerializer,
     PremiumPrivacyUpdateSerializer,
@@ -21,6 +25,11 @@ from .services import (
     update_incognito_preference,
     get_boost_state,
     activate_profile_boost,
+    cancel_payment,
+    confirm_test_payment,
+    create_payment_checkout,
+    get_payment_history,
+    serialize_payment_transaction,
 )
 
 
@@ -152,4 +161,143 @@ class ProfileBoostView(APIView):
         return Response(
             {"data": ProfileBoostStateSerializer(state).data},
             status=status.HTTP_201_CREATED,
+        )
+
+
+
+class PaymentCheckoutView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request: Request) -> Response:
+        serializer = PaymentCheckoutCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            payment = create_payment_checkout(
+                user=request.user,
+                plan=serializer.validated_data["plan"],
+                method=serializer.validated_data["method"],
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except RuntimeError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        log_security_event(
+            request=request,
+            event="premium.payment.checkout.create",
+            outcome="success",
+            reason="transaction_created",
+            user=request.user,
+            email=request.user.email,
+        )
+        return Response(
+            {
+                "data": PaymentTransactionSerializer(
+                    serialize_payment_transaction(payment)
+                ).data
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PaymentConfirmTestView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request: Request) -> Response:
+        serializer = PaymentConfirmationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            payment, _subscription = confirm_test_payment(
+                user=request.user,
+                transaction_id=serializer.validated_data["transaction_id"],
+            )
+        except PermissionError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        except LookupError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        log_security_event(
+            request=request,
+            event="premium.payment.test_confirm",
+            outcome="success",
+            reason="server_confirmation_simulated",
+            user=request.user,
+            email=request.user.email,
+        )
+        return Response(
+            {
+                "data": {
+                    "transaction": PaymentTransactionSerializer(
+                        serialize_payment_transaction(payment)
+                    ).data,
+                    "subscription": SubscriptionStateSerializer(
+                        get_subscription_state(request.user)
+                    ).data,
+                }
+            }
+        )
+
+
+class PaymentCancelView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request: Request) -> Response:
+        serializer = PaymentConfirmationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            payment = cancel_payment(
+                user=request.user,
+                transaction_id=serializer.validated_data["transaction_id"],
+            )
+        except LookupError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return Response(
+            {
+                "data": PaymentTransactionSerializer(
+                    serialize_payment_transaction(payment)
+                ).data
+            }
+        )
+
+
+class PaymentHistoryView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request: Request) -> Response:
+        payload = {
+            "transactions": get_payment_history(request.user)
+        }
+        return Response(
+            {
+                "data": PaymentHistorySerializer(payload).data
+            }
         )
