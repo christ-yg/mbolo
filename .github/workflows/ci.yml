@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Récupérer le dépôt
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Contrôler les fichiers suivis
         run: bash scripts/check-sensitive-files.sh
@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Récupérer le dépôt
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Installer Node.js
         uses: actions/setup-node@v4
@@ -116,7 +116,7 @@ jobs:
 
     steps:
       - name: Récupérer le dépôt
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Installer Python
         uses: actions/setup-python@v5
