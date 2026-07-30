@@ -148,16 +148,27 @@ mbolo_*_context.zip
 mbolo_*_ready.zip
 mbolo_*_installer.zip
 
+# Les ZIP placés à la racine sont des paquets de transfert locaux.
+# Le code source qu'ils contiennent existe déjà dans l'arborescence Git.
+/*.zip
+
+# Dossiers générés lors de l'extraction d'anciens paquets de livraison.
+/*-package/
+/mbolo_*_fix/
+
+# Documentation temporaire livrée avec un ancien paquet.
+/INSTALLATION.txt
+
 # ==========================================================
 # FICHIERS DE DÉVELOPPEMENT LOCAUX
 # ==========================================================
 
 *.local
 
-# Sauvegardes temporaires générées pendant les installations
+# Sauvegardes temporaires générées pendant les installations.
 *.backup-*
 *.zip:Zone.Identifier
 
-# Environnement et artefacts de production
+# Environnement et artefacts de production.
 .env.production
 backups/
