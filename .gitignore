@@ -44,19 +44,11 @@ media/
 # MÉDIAS DJANGO ET DONNÉES UTILISATEURS
 # ==========================================================
 
-# Médias publics téléversés localement.
 backend/media/
-
-# Médias privés : documents de vérification, photos privées, etc.
-# Ils ne doivent jamais être envoyés sur GitHub.
 backend/private_media/
 private_media/
-
-# Fichiers temporaires créés pendant le traitement des images.
 backend/tmp/
 
-# Autoriser uniquement d'éventuels fichiers .gitkeep servant
-# à conserver une arborescence vide dans Git.
 !backend/media/.gitkeep
 !backend/private_media/.gitkeep
 
@@ -75,7 +67,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # ==========================================================
-# IDE ET ÉDITEURS
+# IDE, OS ET OUTILS
 # ==========================================================
 
 .vscode/*
@@ -85,33 +77,23 @@ pnpm-debug.log*
 .idea/
 *.swp
 *.swo
-
-# ==========================================================
-# SYSTÈMES D'EXPLOITATION
-# ==========================================================
-
 .DS_Store
 Thumbs.db
 desktop.ini
 
 # ==========================================================
-# DOCKER ET DONNÉES LOCALES
+# DOCKER ET TERRAFORM
 # ==========================================================
 
 docker-data/
 postgres-data/
 redis-data/
 
-# ==========================================================
-# TERRAFORM
-# ==========================================================
-
 .terraform/
 *.tfstate
 *.tfstate.*
 *.tfvars
 *.tfplan
-
 crash.log
 override.tf
 override.tf.json
@@ -129,34 +111,28 @@ temp/
 .cache/
 
 # ==========================================================
-# SAUVEGARDES LOCALES
+# SAUVEGARDES ET PAQUETS LOCAUX
 # ==========================================================
 
 *.bak
 *.backup
 *.old
-
-# Toutes les sauvegardes créées par les installateurs Mbolo.
-# Exemple : .super_like_backup_20260724_090824/
 .*_backup_*/
-
-# Variante de sécurité pour d'autres noms contenant "backup".
 .*backup*/
+
+# Sauvegardes Mbolo en clair et copies chiffrées.
+backups/
+encrypted-backups/
+*.gpg
+*.gpg.sha256
 
 # Archives locales de transfert ou d'installation.
 mbolo_*_context.zip
 mbolo_*_ready.zip
 mbolo_*_installer.zip
-
-# Les ZIP placés à la racine sont des paquets de transfert locaux.
-# Le code source qu'ils contiennent existe déjà dans l'arborescence Git.
 /*.zip
-
-# Dossiers générés lors de l'extraction d'anciens paquets de livraison.
 /*-package/
 /mbolo_*_fix/
-
-# Documentation temporaire livrée avec un ancien paquet.
 /INSTALLATION.txt
 
 # ==========================================================
@@ -164,11 +140,6 @@ mbolo_*_installer.zip
 # ==========================================================
 
 *.local
-
-# Sauvegardes temporaires générées pendant les installations.
 *.backup-*
 *.zip:Zone.Identifier
-
-# Environnement et artefacts de production.
 .env.production
-backups/
