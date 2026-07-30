@@ -1,47 +1,129 @@
 version: 2
 
+# Dependabot reste un outil de proposition : aucune fusion automatique.
+# Les mises à jour compatibles sont regroupées pour réduire le bruit, tandis
+# que les migrations majeures restent isolées et doivent être étudiées.
 updates:
-  # Dépendances Python du backend.
+  # ==========================================================
+  # BACKEND PYTHON / DJANGO
+  # ==========================================================
   - package-ecosystem: pip
     directory: /backend/requirements
     schedule:
       interval: weekly
       day: monday
       time: "06:00"
-      timezone: Europe/Paris
-    open-pull-requests-limit: 5
+      timezone: Europe/Moscow
+
+    # Trois PR backend ouvertes au maximum. Les mises à jour de sécurité
+    # urgentes restent gérées indépendamment par GitHub.
+    open-pull-requests-limit: 3
+
+    # Une version doit exister depuis plusieurs jours avant d'être proposée.
+    # Cela réduit l'exposition aux publications cassées ou retirées.
+    cooldown:
+      default-days: 7
+
+    groups:
+      backend-compatible:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
     labels:
       - dependencies
       - backend
+
     commit-message:
       prefix: "chore(deps-backend)"
 
-  # Dépendances npm du frontend.
+  # ==========================================================
+  # FRONTEND REACT / VITE
+  # ==========================================================
   - package-ecosystem: npm
     directory: /frontend
     schedule:
       interval: weekly
       day: monday
       time: "06:15"
-      timezone: Europe/Paris
-    open-pull-requests-limit: 5
+      timezone: Europe/Moscow
+
+    open-pull-requests-limit: 3
+
+    cooldown:
+      default-days: 7
+
+    groups:
+      frontend-production-compatible:
+        applies-to: version-updates
+        dependency-type: production
+        patterns:
+          - "*"
+        exclude-patterns:
+          - react-router
+          - react-router-dom
+        update-types:
+          - minor
+          - patch
+
+      frontend-development-compatible:
+        applies-to: version-updates
+        dependency-type: development
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+    # Décision de risque temporaire :
+    # GHSA-qwww-vcr4-c8h2 affecte les API RSC instables que Mbolo n'utilise
+    # pas. La version corrigée 8.3.0 n'est pas encore publiée dans npm.
+    # Cette règle empêche Dependabot de remplacer notre verrou 7.18.2 par une
+    # autre version vulnérable de la même plage. Elle devra être retirée dès
+    # qu'une version corrigée compatible sera réellement disponible.
+    ignore:
+      - dependency-name: react-router-dom
+        versions:
+          - ">=7.12.0 <8.3.0"
+
     labels:
       - dependencies
       - frontend
+
     commit-message:
       prefix: "chore(deps-frontend)"
 
-  # Actions réutilisées par les workflows GitHub.
+  # ==========================================================
+  # GITHUB ACTIONS
+  # ==========================================================
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
       time: "06:30"
-      timezone: Europe/Paris
-    open-pull-requests-limit: 5
+      timezone: Europe/Moscow
+
+    open-pull-requests-limit: 2
+
+    cooldown:
+      default-days: 7
+
+    groups:
+      github-actions-compatible:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
     labels:
       - dependencies
       - ci
+
     commit-message:
       prefix: "chore(deps-ci)"
