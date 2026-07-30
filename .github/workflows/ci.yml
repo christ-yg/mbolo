@@ -1,0 +1,183 @@
+name: Mbolo CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Une seule exécution reste active par branche. Lorsqu'un nouveau commit
+# arrive, l'ancien contrôle est annulé afin d'économiser les minutes CI.
+concurrency:
+  group: mbolo-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Principe du moindre privilège : le workflow peut uniquement lire le dépôt.
+permissions:
+  contents: read
+
+jobs:
+  repository-safety:
+    name: Secrets et artefacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Contrôler les fichiers suivis
+        run: bash scripts/check-sensitive-files.sh
+
+  frontend:
+    name: Frontend React
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installer les dépendances verrouillées
+        run: npm ci
+
+      - name: Vérifier TypeScript
+        run: npm run typecheck
+
+      - name: Vérifier le lint
+        run: npm run lint
+
+      - name: Construire le frontend
+        env:
+          VITE_API_BASE_URL: /api/v1
+          VITE_API_PROXY_TARGET: http://127.0.0.1:8000
+        run: npm run build
+
+      - name: Auditer les dépendances de production
+        run: npm audit --omit=dev --audit-level=high
+
+  backend:
+    name: Backend Django
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_DB: mbolo_ci
+          POSTGRES_USER: mbolo_ci
+          POSTGRES_PASSWORD: mbolo-ci-database-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mbolo_ci -d mbolo_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      APP_DEBUG: "false"
+      DJANGO_SECRET_KEY: ci-only-secret-key-not-used-outside-github-actions
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost
+      DJANGO_USE_HTTPS_SECURITY: "false"
+      DJANGO_SECURE_SSL_REDIRECT: "false"
+      DJANGO_TRUST_X_FORWARDED_PROTO: "false"
+      DJANGO_SECURE_HSTS_SECONDS: "0"
+      DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS: "false"
+      DJANGO_SECURE_HSTS_PRELOAD: "false"
+      FRONTEND_BASE_URL: http://localhost
+      SERVE_MEDIA_LOCALLY: "false"
+      POSTGRES_DB: mbolo_ci
+      POSTGRES_USER: mbolo_ci
+      POSTGRES_PASSWORD: mbolo-ci-database-password
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: mbolo-ci-redis-password
+      MBOLO_PAYMENT_PROVIDER: mbolo_test
+      MBOLO_PAYMENT_TEST_MODE: "true"
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements/development.txt
+            backend/requirements/realtime.txt
+
+      - name: Installer les dépendances Python
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            -r backend/requirements/development.txt \
+            -r backend/requirements/realtime.txt \
+            pip-audit
+
+      # Redis est lancé explicitement avec un mot de passe. Les conteneurs
+      # "services" de GitHub Actions ne permettent pas de transmettre
+      # proprement la commande redis-server complète.
+      - name: Démarrer Redis sécurisé
+        run: |
+          docker run --detach \
+            --name mbolo-ci-redis \
+            --publish 127.0.0.1:6379:6379 \
+            redis:8.8-alpine \
+            redis-server \
+            --save "" \
+            --appendonly no \
+            --requirepass "${REDIS_PASSWORD}"
+
+      - name: Attendre Redis
+        run: |
+          for attempt in {1..20}; do
+            if docker exec mbolo-ci-redis \
+              redis-cli --no-auth-warning \
+              -a "${REDIS_PASSWORD}" ping | grep -q PONG; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Redis n'est pas devenu disponible." >&2
+          docker logs mbolo-ci-redis
+          exit 1
+
+      - name: Vérifier Django
+        run: python backend/manage.py check
+
+      - name: Vérifier les migrations
+        run: python backend/manage.py makemigrations --check --dry-run
+
+      - name: Compiler le code Python
+        run: python -m compileall -q backend/apps backend/config
+
+      - name: Exécuter les tests backend
+        run: python backend/manage.py test apps --noinput
+
+      - name: Auditer les dépendances Python
+        run: >-
+          pip-audit
+          -r backend/requirements/development.txt
+          -r backend/requirements/realtime.txt
+
