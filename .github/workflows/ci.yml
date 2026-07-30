@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Récupérer le dépôt
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Contrôler les fichiers suivis
         run: bash scripts/check-sensitive-files.sh
@@ -43,10 +43,10 @@ jobs:
 
     steps:
       - name: Récupérer le dépôt
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Installer Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
@@ -68,7 +68,7 @@ jobs:
         run: npm run build
 
       - name: Auditer les dépendances de production
-        run: npm audit --omit=dev --audit-level=high
+        run: npm run audit:production
 
   backend:
     name: Backend Django
@@ -91,7 +91,10 @@ jobs:
           --health-retries 10
 
     env:
-      APP_DEBUG: "false"
+      # Le fournisseur de paiement factice est strictement réservé aux tests.
+      # APP_DEBUG=true est donc limité à ce runner CI éphémère. La production
+      # conserve APP_DEBUG=false et refuse toujours MBOLO_PAYMENT_TEST_MODE.
+      APP_DEBUG: "true"
       DJANGO_SECRET_KEY: ci-only-secret-key-not-used-outside-github-actions
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
       DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost
@@ -116,10 +119,10 @@ jobs:
 
     steps:
       - name: Récupérer le dépôt
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Installer Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
@@ -180,4 +183,3 @@ jobs:
           pip-audit
           -r backend/requirements/development.txt
           -r backend/requirements/realtime.txt
-

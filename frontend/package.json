@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint src",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "audit:production": "node scripts/audit-production.mjs",
     "preview": "vite preview",
     "check": "npm run typecheck && npm run lint && npm run build"
   },
@@ -16,7 +17,7 @@
     "axios": "^1.18.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.18.1"
+    "react-router-dom": "7.18.2"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
