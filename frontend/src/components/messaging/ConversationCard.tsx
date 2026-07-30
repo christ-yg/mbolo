@@ -146,7 +146,7 @@ export function ConversationCard({ conversation }: ConversationCardProps) {
 
         <div className="conversation-card__footer">
           <div className="conversation-card__metadata">
-            <span>{profile.city}</span>
+            <span>{profile.city_label || profile.city}</span>
             <span aria-hidden="true">·</span>
             <span>{profile.age} ans</span>
           </div>

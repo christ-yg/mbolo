@@ -10,7 +10,21 @@ export interface AccountSocketEvent {
 function buildAccountSocketUrl(): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const configuredHost = import.meta.env.VITE_WEBSOCKET_HOST?.trim();
-  const backendHost = configuredHost || "127.0.0.1:8000";
+  /**
+   * Par défaut, le WebSocket utilise exactement le même hôte et le même
+   * port que la page courante.
+   *
+   * Exemples :
+   *
+   * - Vite local : ws://127.0.0.1:5173/ws/account/
+   * - préproduction : ws://127.0.0.1:8080/ws/account/
+   * - production TLS : wss://mbolo.ga/ws/account/
+   *
+   * Le proxy Vite ou Nginx transmet ensuite la connexion à Daphne.
+   * Cette stratégie conserve automatiquement le cookie de session Django
+   * et évite d'exposer directement le port interne 8000.
+   */
+  const backendHost = configuredHost || window.location.host;
   return `${protocol}//${backendHost}/ws/account/`;
 }
 

@@ -140,6 +140,7 @@ export function MessagesPage() {
       const lastMessage = conversation.last_message?.body ?? "";
       const searchableText = [
         profile.display_name,
+        profile.city_label,
         profile.city,
         String(profile.age ?? ""),
         lastMessage,

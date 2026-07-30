@@ -116,8 +116,14 @@ function getProfileMetadata(
     metadata.push(`${conversation.other_profile.age} ans`);
   }
 
-  if (conversation.other_profile.city) {
-    metadata.push(conversation.other_profile.city);
+  if (
+    conversation.other_profile.city_label ||
+    conversation.other_profile.city
+  ) {
+    metadata.push(
+      conversation.other_profile.city_label ||
+        conversation.other_profile.city,
+    );
   }
 
   return metadata.join(" · ");

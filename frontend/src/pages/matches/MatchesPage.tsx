@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom";
 
 import { normalizeApiError } from "../../api/apiError";
 import { deactivateMatch } from "../../api/interactionService";
+import { openConversation } from "../../api/messagingService";
 import {
   DEFAULT_MATCHES_PAGE_SIZE,
   getMatches,
@@ -64,6 +65,9 @@ export function MatchesPage() {
 
   const [isRemovingMatch, setIsRemovingMatch] =
     useState(false);
+
+  const [openingMatchId, setOpeningMatchId] =
+    useState<string | null>(null);
 
 
   /**
@@ -155,6 +159,28 @@ export function MatchesPage() {
       );
     } finally {
       setIsRemovingMatch(false);
+    }
+  }
+
+  async function handleOpenConversation(
+    match: MatchItem,
+  ): Promise<void> {
+    if (openingMatchId !== null) {
+      return;
+    }
+
+    setOpeningMatchId(match.id);
+    setErrorMessage("");
+
+    try {
+      const conversation = await openConversation({
+        match_id: match.id,
+      });
+
+      navigate(`/messages/${conversation.id}`);
+    } catch (error: unknown) {
+      setErrorMessage(normalizeApiError(error).message);
+      setOpeningMatchId(null);
     }
   }
 
@@ -357,8 +383,9 @@ export function MatchesPage() {
           <MatchCard
             key={match.id}
             match={match}
+            isOpeningConversation={openingMatchId === match.id}
             onOpenConversation={() => {
-              navigate("/messages");
+              void handleOpenConversation(match);
             }}
             onOpenProfile={() => {
               navigate(`/profiles/${match.other_profile.id}`);

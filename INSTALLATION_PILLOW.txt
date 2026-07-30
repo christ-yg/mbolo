@@ -1,0 +1,60 @@
+MBOLO — CORRECTIF DE LA DÉPENDANCE PILLOW
+==========================================
+
+ERREUR CORRIGÉE
+----------------
+
+    ModuleNotFoundError: No module named 'PIL'
+
+
+FICHIER REMPLACÉ
+----------------
+
+    backend/requirements/development.txt
+
+
+MODIFICATION
+------------
+
+La dépendance suivante a été ajoutée :
+
+    Pillow==12.3.0
+
+Pillow fournit le module Python "PIL" utilisé par Mbolo pour le traitement,
+la validation et la sécurisation des photos de profil.
+
+
+INSTALLATION
+------------
+
+1. Copier le ZIP directement dans :
+
+       \\wsl.localhost\Ubuntu\home\christ\projects\mbolo
+
+2. Dans Ubuntu :
+
+       cd ~/projects/mbolo
+       unzip -o mbolo_pillow_dependency_fix.zip
+
+3. Vérifier la dépendance :
+
+       grep -n "Pillow" backend/requirements/development.txt
+
+   Résultat attendu :
+
+       6:Pillow==12.3.0
+
+4. Relancer le contrôle :
+
+       bash scripts/preproduction-check.sh
+
+
+SÉCURITÉ ET CONFORMITÉ
+----------------------
+
+- La version est fixée explicitement pour rendre la construction reproductible.
+- Aucun secret, fichier .env ou mot de passe n'est inclus.
+- Le correctif permet au traitement sécurisé des images de fonctionner dans
+  l'environnement Docker.
+- La modification est isolée, vérifiable et traçable conformément aux principes
+  de gestion des changements et de maîtrise des composants logiciels.

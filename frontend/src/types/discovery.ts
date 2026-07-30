@@ -55,9 +55,19 @@ export interface DiscoveryProfile {
   gender: string;
 
   /**
+   * Libellé humain calculé par Django.
+   */
+  gender_label: string;
+
+  /**
    * Ville affichée dans le moteur de découverte.
    */
   city: string;
+
+  /**
+   * Libellé humain de la ville calculé par Django.
+   */
+  city_label: string;
 
   /**
    * Description publique du profil.
@@ -68,6 +78,11 @@ export interface DiscoveryProfile {
    * Intention relationnelle publique.
    */
   dating_intent: string;
+
+  /**
+   * Libellé humain de l'intention calculé par Django.
+   */
+  dating_intent_label: string;
 
   /**
    * Indique que la vérification humaine du profil a été approuvée.

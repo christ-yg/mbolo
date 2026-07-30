@@ -14,6 +14,7 @@ interface MatchCardProps {
   onOpenConversation: () => void;
   onOpenProfile: () => void;
   onRequestUnmatch: () => void;
+  isOpeningConversation?: boolean;
 }
 
 
@@ -93,6 +94,7 @@ export function MatchCard({
   onOpenConversation,
   onOpenProfile,
   onRequestUnmatch,
+  isOpeningConversation = false,
 }: MatchCardProps) {
   const profile = match.other_profile;
   const primaryPhotoUrl = getPrimaryPhotoUrl(match);
@@ -150,7 +152,9 @@ export function MatchCard({
           </div>
 
           <p>
-            {formatPublicValue(profile.city)} · {formatPublicValue(profile.dating_intent)}
+            {profile.city_label || formatPublicValue(profile.city)} ·{" "}
+            {profile.dating_intent_label ||
+              formatPublicValue(profile.dating_intent)}
           </p>
         </div>
       </div>
@@ -158,7 +162,10 @@ export function MatchCard({
       <div className="match-premium-card__content">
         <div className="match-premium-card__meta-row">
           <span>Connectés le {formatMatchDate(match.created_at)}</span>
-          <span>{formatPublicValue(profile.gender)}</span>
+          <span>
+            {profile.gender_label ||
+              formatPublicValue(profile.gender)}
+          </span>
         </div>
 
         <p className="match-premium-card__biography">
@@ -178,8 +185,12 @@ export function MatchCard({
             type="button"
             className="match-premium-card__message"
             onClick={onOpenConversation}
+            disabled={isOpeningConversation}
+            aria-busy={isOpeningConversation}
           >
-            Envoyer un message
+            {isOpeningConversation
+              ? "Ouverture…"
+              : "Envoyer un message"}
             <span aria-hidden="true">→</span>
           </button>
 

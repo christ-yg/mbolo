@@ -347,14 +347,14 @@ export function ProfileCard({
          */}
         <div className="discovery-profile-card__visual-copy">
           <p>
-            {profile.city.trim() ||
+            {profile.city_label.trim() ||
               "Ville non précisée"}
           </p>
 
           <h2>
             {profile.display_name}
 
-            <span>{profile.age}</span>
+            <span>, {profile.age} ans</span>
           </h2>
         </div>
       </div>
@@ -368,13 +368,13 @@ export function ProfileCard({
          */}
         <div className="discovery-profile-card__metadata">
           <span>
-            {formatChoiceLabel(profile.gender)}
+            {profile.gender_label ||
+              formatChoiceLabel(profile.gender)}
           </span>
 
           <span>
-            {formatChoiceLabel(
-              profile.dating_intent,
-            )}
+            {profile.dating_intent_label ||
+              formatChoiceLabel(profile.dating_intent)}
           </span>
 
           {profile.distance_label ? (

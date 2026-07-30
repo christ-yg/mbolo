@@ -31,6 +31,7 @@ import {
   getSuperLikeState,
   rewindLastPass,
 } from "../../api/interactionService";
+import { openConversation } from "../../api/messagingService";
 import { MatchModal } from "../../components/discovery/MatchModal";
 import { ProfileCard } from "../../components/discovery/ProfileCard";
 import { useAuth } from "../../hooks/useAuth";
@@ -91,6 +92,9 @@ export function DiscoveryPage() {
    */
   const [matchCelebration, setMatchCelebration] =
     useState<MatchCelebrationData | null>(null);
+
+  const [isOpeningConversation, setIsOpeningConversation] =
+    useState(false);
 
   const [rewindState, setRewindState] = useState<RewindState>({
     entitled: false,
@@ -336,6 +340,32 @@ export function DiscoveryPage() {
   function handleMatchModalClose(): void {
     setMatchCelebration(null);
     void moveToNextProfile();
+  }
+
+  async function handleMatchConversation(): Promise<void> {
+    const matchId = matchCelebration?.matchId;
+
+    if (
+      !matchId ||
+      isOpeningConversation
+    ) {
+      return;
+    }
+
+    setIsOpeningConversation(true);
+    setActionError(null);
+
+    try {
+      const conversation = await openConversation({
+        match_id: matchId,
+      });
+
+      setMatchCelebration(null);
+      navigate(`/messages/${conversation.id}`);
+    } catch (error: unknown) {
+      setActionError(normalizeApiError(error).message);
+      setIsOpeningConversation(false);
+    }
   }
 
   if (status === "loading") {
@@ -648,6 +678,10 @@ export function DiscoveryPage() {
         <MatchModal
           match={matchCelebration}
           onClose={handleMatchModalClose}
+          onOpenConversation={() => {
+            void handleMatchConversation();
+          }}
+          isOpeningConversation={isOpeningConversation}
         />
       ) : null}
     </main>

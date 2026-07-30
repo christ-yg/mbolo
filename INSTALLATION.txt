@@ -1,0 +1,69 @@
+MBOLO — CORRECTIF DOCKER BACKEND DE PRODUCTION
+================================================
+
+CONTENU DE L'ARCHIVE
+--------------------
+
+backend/Dockerfile.production
+
+
+OBJECTIF
+--------
+
+Ce correctif résout l'erreur :
+
+    Aucun requirements.txt trouvé
+
+Le Dockerfile copie maintenant le dossier :
+
+    backend/requirements/
+
+et installe :
+
+    requirements/development.txt
+    requirements/realtime.txt
+
+
+INSTALLATION DEPUIS UBUNTU / WSL
+--------------------------------
+
+1. Télécharge l'archive ZIP.
+
+2. Copie l'archive directement dans le dossier du projet Mbolo :
+
+       \\wsl.localhost\Ubuntu\home\christ\projects\mbolo
+
+3. Dans Ubuntu, entre dans le projet :
+
+       cd ~/projects/mbolo
+
+4. Décompresse l'archive directement dans le projet :
+
+       unzip -o mbolo_docker_backend_fix.zip
+
+   L'option -o autorise le remplacement du fichier existant sans poser
+   plusieurs questions.
+
+5. Vérifie la présence du correctif :
+
+       grep -n "COPY backend/requirements" backend/Dockerfile.production
+
+   Résultat attendu :
+
+       COPY backend/requirements/ ./requirements/
+
+6. Relance le contrôle de préproduction :
+
+       bash scripts/preproduction-check.sh
+
+
+SÉCURITÉ
+--------
+
+- Aucun fichier .env ni aucun secret n'est contenu dans cette archive.
+- Le conteneur continue de fonctionner avec l'utilisateur non privilégié
+  "mbolo".
+- Le cache APT et le cache pip ne sont pas conservés inutilement.
+- Les répertoires media, private_media et staticfiles restent préparés avec
+  les permissions nécessaires.
+- Le port 8000 reste un port interne destiné à être placé derrière Nginx.

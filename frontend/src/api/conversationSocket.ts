@@ -49,7 +49,9 @@ export interface ConversationSocketEvent {
  *
  * http://127.0.0.1:5173
  * devient
- * ws://127.0.0.1:8000
+ * ws://127.0.0.1:5173
+ *
+ * Vite transmet ensuite /ws/ à Django/Daphne.
  *
  * En production HTTPS :
  *
@@ -73,14 +75,18 @@ function buildSocketUrl(
    *
    * VITE_WEBSOCKET_HOST=api.mbolo.example
    *
-   * En développement local, la valeur par défaut est
-   * 127.0.0.1:8000.
+   * Sans valeur explicite, le même hôte et le même port que la page
+   * courante sont utilisés. Le proxy Vite ou Nginx transmet ensuite
+   * la connexion vers Django/Daphne.
+   *
+   * Cette architecture « même origine » permet au navigateur de joindre
+   * automatiquement le cookie de session Django au handshake WebSocket.
    */
   const configuredHost =
     import.meta.env.VITE_WEBSOCKET_HOST?.trim();
 
   const backendHost =
-    configuredHost || "127.0.0.1:8000";
+    configuredHost || window.location.host;
 
   const encodedConversationId =
     encodeURIComponent(conversationId);

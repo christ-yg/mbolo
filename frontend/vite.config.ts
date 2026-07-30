@@ -104,6 +104,20 @@ export default defineConfig(({ mode }) => {
            */
           secure: false,
         },
+
+        /**
+         * Les connexions WebSocket utilisent elles aussi la même origine
+         * que le frontend. Vite relaie ensuite le handshake vers Daphne.
+         *
+         * Cela reproduit fidèlement l'architecture Nginx de production et
+         * garantit l'envoi du cookie de session Django.
+         */
+        "/ws": {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+          ws: true,
+        },
       },
     },
 

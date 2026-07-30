@@ -16,11 +16,15 @@ import type { MatchCelebrationData } from "../../types/interactions";
 interface MatchModalProps {
   match: MatchCelebrationData;
   onClose: () => void;
+  onOpenConversation: () => void;
+  isOpeningConversation?: boolean;
 }
 
 export function MatchModal({
   match,
   onClose,
+  onOpenConversation,
+  isOpeningConversation = false,
 }: MatchModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -109,14 +113,29 @@ export function MatchModal({
           </p>
         </div>
 
-        <button
-          type="button"
-          className="match-modal__continue"
-          onClick={handleClose}
-        >
-          Continuer la découverte
-          <span aria-hidden="true">→</span>
-        </button>
+        <div className="match-modal__actions">
+          <button
+            type="button"
+            className="match-modal__message"
+            disabled={isOpeningConversation}
+            aria-busy={isOpeningConversation}
+            onClick={onOpenConversation}
+          >
+            {isOpeningConversation
+              ? "Ouverture…"
+              : "Envoyer un message"}
+            <span aria-hidden="true">→</span>
+          </button>
+
+          <button
+            type="button"
+            className="match-modal__continue"
+            disabled={isOpeningConversation}
+            onClick={handleClose}
+          >
+            Continuer la découverte
+          </button>
+        </div>
       </div>
     </dialog>
   );

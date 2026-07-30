@@ -37,6 +37,21 @@ class ProfileSerializer(serializers.ModelSerializer):
         read_only=True,
     )
 
+    gender_label = serializers.CharField(
+        source="get_gender_display",
+        read_only=True,
+    )
+
+    city_label = serializers.CharField(
+        source="get_city_display",
+        read_only=True,
+    )
+
+    dating_intent_label = serializers.CharField(
+        source="get_dating_intent_display",
+        read_only=True,
+    )
+
     is_complete = serializers.BooleanField(
         read_only=True,
     )
@@ -59,9 +74,12 @@ class ProfileSerializer(serializers.ModelSerializer):
             "birth_date",
             "age",
             "gender",
+            "gender_label",
             "city",
+            "city_label",
             "biography",
             "dating_intent",
+            "dating_intent_label",
             "interests",
             "is_discoverable",
             "is_complete",

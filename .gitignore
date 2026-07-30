@@ -157,3 +157,7 @@ mbolo_*_installer.zip
 # Sauvegardes temporaires générées pendant les installations
 *.backup-*
 *.zip:Zone.Identifier
+
+# Environnement et artefacts de production
+.env.production
+backups/
