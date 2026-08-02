@@ -1,4 +1,5 @@
 import json
+from uuid import uuid4
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -6,6 +7,11 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
+
+from apps.accounts.throttles import (
+    LoginEmailThrottle,
+    LoginIPThrottle,
+)
 
 
 User = get_user_model()
@@ -25,6 +31,27 @@ class SecurityLoggingTests(TestCase):
 
     def setUp(self) -> None:
         cache.clear()
+
+        # Chaque test reçoit son propre espace de clés Redis. Cette
+        # isolation empêche un test précédent, une exécution parallèle ou
+        # un compteur local résiduel d'influencer la journalisation testée.
+        self.redis_test_namespace = (
+            f"security-logging-{uuid4().hex}"
+        )
+
+        self.original_ip_cache_prefix = (
+            LoginIPThrottle.cache_prefix
+        )
+        self.original_email_cache_prefix = (
+            LoginEmailThrottle.cache_prefix
+        )
+
+        LoginIPThrottle.cache_prefix = (
+            f"{self.redis_test_namespace}:ip"
+        )
+        LoginEmailThrottle.cache_prefix = (
+            f"{self.redis_test_namespace}:email"
+        )
 
         self.client = APIClient(
             enforce_csrf_checks=True,
@@ -58,6 +85,13 @@ class SecurityLoggingTests(TestCase):
 
     def tearDown(self) -> None:
         cache.clear()
+
+        LoginIPThrottle.cache_prefix = (
+            self.original_ip_cache_prefix
+        )
+        LoginEmailThrottle.cache_prefix = (
+            self.original_email_cache_prefix
+        )
 
     def get_csrf_token(self) -> str:
         response = self.client.get(

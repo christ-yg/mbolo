@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import time
 from typing import Final
 
 from django.conf import settings
@@ -42,15 +41,10 @@ class AtomicRedisThrottle(BaseThrottle):
             digestmod=hashlib.sha256,
         ).hexdigest()
 
-        current_window = (
-            int(time.time()) // self.window_seconds
-        )
-
         return (
             f"{self.cache_prefix}:"
             f"{self.__class__.__name__}:"
-            f"{digest}:"
-            f"{current_window}"
+            f"{digest}"
         )
 
     def allow_request(

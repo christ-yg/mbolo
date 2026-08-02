@@ -15,8 +15,11 @@ Chaque test utilise un espace de clés Redis unique afin d'éviter
 les contaminations entre plusieurs tests ou plusieurs exécutions.
 """
 
+import hashlib
+import hmac
 from uuid import uuid4
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase
@@ -216,6 +219,42 @@ class LoginThrottlingTests(TestCase):
             response.status_code,
             status.HTTP_400_BAD_REQUEST,
         )
+
+    def test_cache_key_is_stable_during_the_complete_window(
+        self,
+    ) -> None:
+        """
+        La clé ne doit pas dépendre de la minute de l'horloge système.
+
+        La durée commence lorsque Redis crée le compteur. Cela empêche un
+        attaquant de profiter d'un changement de minute pour obtenir une
+        nouvelle série immédiate de tentatives et évite un test CI aléatoire.
+        """
+
+        throttle = LoginEmailThrottle()
+        identifier = "stable-window@example.com"
+
+        expected_digest = hmac.new(
+            key=settings.SECRET_KEY.encode("utf-8"),
+            msg=identifier.encode("utf-8"),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+
+        expected_key = (
+            f"{throttle.cache_prefix}:"
+            f"{throttle.__class__.__name__}:"
+            f"{expected_digest}"
+        )
+
+        first_key = throttle.build_cache_key(identifier)
+        second_key = throttle.build_cache_key(identifier)
+
+        self.assertEqual(first_key, second_key)
+        self.assertEqual(first_key, expected_key)
+
+        # La valeur brute ne doit jamais être exposée dans Redis : seule son
+        # empreinte HMAC, calculée avec SECRET_KEY, fait partie de la clé.
+        self.assertNotIn(identifier, first_key)
 
     def test_email_is_throttled_after_five_attempts(
         self,
