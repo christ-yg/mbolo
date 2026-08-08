@@ -295,14 +295,62 @@ REST_FRAMEWORK = {
 
 
 # ==========================================================
-# E-MAILS DE DÉVELOPPEMENT
+# E-MAILS : CONSOLE LOCALE, SMTP DE TEST OU FOURNISSEUR PUBLIC
 # ==========================================================
+#
+# Par défaut, les messages restent affichés dans les logs Django. Le fichier
+# Compose Mailpit remplace ces variables à l'intérieur du conteneur backend
+# afin de tester un vrai échange SMTP sans envoyer de données sur Internet.
+#
+# Sur le futur VPS, les mêmes variables recevront les paramètres du fournisseur
+# choisi. Aucun mot de passe SMTP ne doit être écrit dans Git.
+EMAIL_BACKEND = env(
+    "DJANGO_EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+EMAIL_HOST = env("DJANGO_EMAIL_HOST", default="")
+EMAIL_PORT = env.int("DJANGO_EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("DJANGO_EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("DJANGO_EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("DJANGO_EMAIL_USE_TLS", default=True)
+EMAIL_USE_SSL = env.bool("DJANGO_EMAIL_USE_SSL", default=False)
+EMAIL_TIMEOUT = env.int("DJANGO_EMAIL_TIMEOUT", default=10)
 
-EMAIL_BACKEND = (
-    "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = env(
+    "DJANGO_DEFAULT_FROM_EMAIL",
+    default="Mbolo <no-reply@mbolo.local>",
+)
+SERVER_EMAIL = env(
+    "DJANGO_SERVER_EMAIL",
+    default=DEFAULT_FROM_EMAIL,
 )
 
-DEFAULT_FROM_EMAIL = "Mbolo <no-reply@mbolo.local>"
+# Cette barrière sera activée uniquement sur le futur VPS public. Elle empêche
+# de démarrer accidentellement une production qui afficherait les e-mails dans
+# les logs au lieu de les remettre à un serveur SMTP.
+DJANGO_REQUIRE_SMTP_EMAIL = env.bool(
+    "DJANGO_REQUIRE_SMTP_EMAIL",
+    default=False,
+)
+
+if EMAIL_USE_TLS and EMAIL_USE_SSL:
+    raise RuntimeError(
+        "DJANGO_EMAIL_USE_TLS et DJANGO_EMAIL_USE_SSL ne peuvent pas être "
+        "activés simultanément."
+    )
+
+if (
+    DJANGO_REQUIRE_SMTP_EMAIL
+    and EMAIL_BACKEND != "django.core.mail.backends.smtp.EmailBackend"
+):
+    raise RuntimeError(
+        "La production publique exige le backend SMTP Django."
+    )
+
+if DJANGO_REQUIRE_SMTP_EMAIL and not EMAIL_HOST:
+    raise RuntimeError(
+        "DJANGO_EMAIL_HOST doit être défini pour la production publique."
+    )
 
 
 # ============================================================
