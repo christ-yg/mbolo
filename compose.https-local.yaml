@@ -1,0 +1,25 @@
+services:
+  # Proxy TLS réservé à la simulation locale. Il ne publie ses ports que sur
+  # 127.0.0.1 et ne rend donc pas Mbolo accessible depuis Internet.
+  edge:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MBOLO_HTTPS_HTTP_PORT:-8081}:80"
+      - "127.0.0.1:${MBOLO_HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+    networks:
+      - app_network
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  caddy_data:
+  caddy_config:
+
