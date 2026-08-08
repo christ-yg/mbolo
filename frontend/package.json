@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "check": "npm run typecheck && npm run lint && npm run build",
     "test:e2e": "playwright test",
-    "test:e2e:public": "playwright test e2e/public-launch.spec.ts"
+    "test:e2e:public": "playwright test e2e/public-launch.spec.ts",
+    "test:e2e:auth-core": "playwright test e2e/authenticated-core.spec.ts"
   },
   "dependencies": {
     "axios": "^1.18.1",
