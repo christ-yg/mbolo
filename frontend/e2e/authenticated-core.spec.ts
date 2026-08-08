@@ -75,6 +75,11 @@ async function installAuthenticatedApi(page: Page): Promise<void> {
     const path = new URL(request.url()).pathname;
     const method = request.method();
 
+    if (path.includes("/api/v1/v1/")) {
+      await json(route, { detail: "Préfixe API dupliqué détecté" }, 500);
+      return;
+    }
+
     if (path.endsWith("/auth/me/") && method === "GET") {
       await json(route, USER);
       return;
