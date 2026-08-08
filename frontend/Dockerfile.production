@@ -9,8 +9,10 @@ COPY frontend/ ./
 
 # Vite valide cette variable pendant le build, même si le proxy de production
 # est assuré ensuite par Nginx.
+ARG VITE_API_BASE_URL=/api
 ARG VITE_API_PROXY_TARGET=http://backend:8000
-ENV VITE_API_PROXY_TARGET=${VITE_API_PROXY_TARGET}
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
+    VITE_API_PROXY_TARGET=${VITE_API_PROXY_TARGET}
 
 RUN npm run check
 
