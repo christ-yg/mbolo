@@ -1,0 +1,25 @@
+# Simulation HTTPS entièrement locale et gratuite.
+#
+# Le certificat est signé par l'autorité interne de Caddy. Le navigateur ne le
+# reconnaîtra pas automatiquement, ce qui est normal pour ce test local. Le
+# script de validation utilise curl -k uniquement contre localhost.
+
+http://localhost {
+	redir https://localhost:8443{uri} permanent
+}
+
+https://localhost {
+	tls internal
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
+	}
+
+	reverse_proxy frontend:80
+}
+
