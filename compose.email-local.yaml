@@ -1,0 +1,29 @@
+services:
+  # Mailpit capture localement les e-mails SMTP. Aucun message n'est envoyé
+  # vers Internet. Son interface web reste accessible uniquement depuis le PC.
+  mailpit:
+    image: axllent/mailpit:v1.30.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MBOLO_MAILPIT_UI_PORT:-8025}:8025"
+    networks:
+      - app_network
+    security_opt:
+      - no-new-privileges:true
+
+  backend:
+    environment:
+      DJANGO_EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      DJANGO_EMAIL_HOST: mailpit
+      DJANGO_EMAIL_PORT: 1025
+      DJANGO_EMAIL_HOST_USER: ""
+      DJANGO_EMAIL_HOST_PASSWORD: ""
+      DJANGO_EMAIL_USE_TLS: "false"
+      DJANGO_EMAIL_USE_SSL: "false"
+      DJANGO_EMAIL_TIMEOUT: 10
+      DJANGO_DEFAULT_FROM_EMAIL: "Mbolo <no-reply@mbolo.local>"
+      DJANGO_SERVER_EMAIL: "Mbolo <no-reply@mbolo.local>"
+      DJANGO_REQUIRE_SMTP_EMAIL: "false"
+    depends_on:
+      mailpit:
+        condition: service_started
