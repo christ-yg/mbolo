@@ -1,15 +1,11 @@
-/**
- * Routeur principal de Mbolo.
- *
- * Les routes publiques restent accessibles à tous.
- * Les routes privées sont entourées par ProtectedRoute.
- */
+/** Routeur principal de Mbolo. */
 
 import type { ReactNode } from "react";
 import { createBrowserRouter } from "react-router-dom";
 
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 import { PublicLayout } from "../layouts/PublicLayout";
+import { AccessibilityPage } from "../pages/accessibility/AccessibilityPage";
 import { AboutPage } from "../pages/about/AboutPage";
 import { MySpacePage } from "../pages/account/MySpacePage";
 import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
@@ -18,6 +14,7 @@ import { RegisterPage } from "../pages/auth/RegisterPage";
 import { ResetPasswordPage } from "../pages/auth/ResetPasswordPage";
 import { SanctionAppealPage } from "../pages/auth/SanctionAppealPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
+import { ContactPage } from "../pages/contact/ContactPage";
 import { DiscoveryPage } from "../pages/discovery/DiscoveryPage";
 import { HelpPage } from "../pages/help/HelpPage";
 import { HomePage } from "../pages/home/HomePage";
@@ -53,6 +50,8 @@ export const appRouter = createBrowserRouter([
       { path: "/about", element: <AboutPage /> },
       { path: "/how-it-works", element: <HowItWorksPage /> },
       { path: "/help", element: <HelpPage /> },
+      { path: "/contact", element: <ContactPage /> },
+      { path: "/accessibility", element: <AccessibilityPage /> },
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
       { path: "/forgot-password", element: <ForgotPasswordPage /> },
