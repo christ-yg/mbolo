@@ -9,13 +9,10 @@ on:
       - main
   workflow_dispatch:
 
-# Une seule exécution reste active par branche. Lorsqu'un nouveau commit
-# arrive, l'ancien contrôle est annulé afin d'économiser les minutes CI.
 concurrency:
   group: mbolo-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Principe du moindre privilège : le workflow peut uniquement lire le dépôt.
 permissions:
   contents: read
 
@@ -70,6 +67,57 @@ jobs:
       - name: Auditer les dépendances de production
         run: npm run audit:production
 
+  public-e2e:
+    name: Parcours publics E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installer les dépendances verrouillées
+        run: npm ci
+
+      - name: Installer Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Construire le frontend public
+        env:
+          VITE_API_BASE_URL: /api/v1
+          VITE_API_PROXY_TARGET: http://127.0.0.1:8000
+        run: npm run build
+
+      - name: Démarrer la prévisualisation locale
+        env:
+          VITE_API_PROXY_TARGET: http://127.0.0.1:8000
+        run: |
+          npm run preview > /tmp/mbolo-vite-preview.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/mbolo-vite-preview.log
+          exit 1
+
+      - name: Exécuter les parcours publics
+        env:
+          MBOLO_E2E_BASE_URL: http://127.0.0.1:4173
+        run: npm run test:e2e:public
+
   backend:
     name: Backend Django
     runs-on: ubuntu-latest
@@ -91,9 +139,6 @@ jobs:
           --health-retries 10
 
     env:
-      # Le fournisseur de paiement factice est strictement réservé aux tests.
-      # APP_DEBUG=true est donc limité à ce runner CI éphémère. La production
-      # conserve APP_DEBUG=false et refuse toujours MBOLO_PAYMENT_TEST_MODE.
       APP_DEBUG: "true"
       DJANGO_SECRET_KEY: ci-only-secret-key-not-used-outside-github-actions
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
@@ -138,9 +183,6 @@ jobs:
             -r backend/requirements/realtime.txt \
             pip-audit
 
-      # Redis est lancé explicitement avec un mot de passe. Les conteneurs
-      # "services" de GitHub Actions ne permettent pas de transmettre
-      # proprement la commande redis-server complète.
       - name: Démarrer Redis sécurisé
         run: |
           docker run --detach \
