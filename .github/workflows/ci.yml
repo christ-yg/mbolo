@@ -60,7 +60,7 @@ jobs:
 
       - name: Construire le frontend
         env:
-          VITE_API_BASE_URL: /api/v1
+          VITE_API_BASE_URL: /api
           VITE_API_PROXY_TARGET: http://127.0.0.1:8000
         run: npm run build
 
@@ -68,7 +68,7 @@ jobs:
         run: npm run audit:production
 
   public-e2e:
-    name: Parcours publics E2E
+    name: Parcours navigateur E2E
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -93,9 +93,9 @@ jobs:
       - name: Installer Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Construire le frontend public
+      - name: Construire le frontend
         env:
-          VITE_API_BASE_URL: /api/v1
+          VITE_API_BASE_URL: /api
           VITE_API_PROXY_TARGET: http://127.0.0.1:8000
         run: npm run build
 
@@ -117,6 +117,11 @@ jobs:
         env:
           MBOLO_E2E_BASE_URL: http://127.0.0.1:4173
         run: npm run test:e2e:public
+
+      - name: Exécuter les parcours privés simulés
+        env:
+          MBOLO_E2E_BASE_URL: http://127.0.0.1:4173
+        run: npm run test:e2e:auth-core
 
   backend:
     name: Backend Django
