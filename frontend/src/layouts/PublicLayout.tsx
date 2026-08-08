@@ -1,7 +1,4 @@
-/**
- * Structure commune des pages Mbolo.
- * Outlet représente la page correspondant à la route courante.
- */
+/** Structure commune de toutes les pages publiques et privées. */
 
 import { Link, Outlet } from "react-router-dom";
 
@@ -24,6 +21,9 @@ export function PublicLayout() {
             <Link to="/about">À propos</Link>
             <Link to="/how-it-works">Comment ça marche</Link>
             <Link to="/help">Aide</Link>
+            <Link to="/contact">Contact</Link>
+            <Link to="/accessibility">Accessibilité</Link>
+            <Link to="/legal/notice">Mentions légales</Link>
             <Link to="/legal/terms">Conditions</Link>
             <Link to="/legal/privacy">Confidentialité</Link>
             <Link to="/legal/cookies">Cookies</Link>
