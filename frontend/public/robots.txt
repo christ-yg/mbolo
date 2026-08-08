@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Le sitemap référence uniquement les pages publiques utiles au lancement.
+Sitemap: https://mbolo.ga/sitemap.xml
