@@ -1,0 +1,28 @@
+services:
+  # Point d'entrée HTTPS public de Mbolo. Ce fichier ne sera utilisé que sur
+  # le futur VPS. La préproduction locale continue d'utiliser le port 8080.
+  edge:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile.production:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+    networks:
+      - app_network
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  # Caddy conserve ici les certificats et informations nécessaires à leur
+  # renouvellement automatique. Ces volumes ne doivent jamais être supprimés
+  # sans sauvegarde sur le serveur public.
+  caddy_data:
+  caddy_config:
+

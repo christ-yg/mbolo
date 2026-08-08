@@ -1,0 +1,30 @@
+# Point d'entrée HTTPS public prévu pour le futur VPS Mbolo.
+#
+# Caddy obtiendra et renouvellera automatiquement un certificat public lorsque
+# les DNS de mbolo.ga et www.mbolo.ga pointeront vers le VPS et que les ports
+# 80/443 seront accessibles.
+#
+# Première activation Cloudflare : laisser temporairement les entrées DNS en
+# mode « DNS only » le temps que le certificat soit émis. Activer ensuite le
+# proxy Cloudflare et choisir SSL/TLS « Full (strict) ».
+
+mbolo.ga, www.mbolo.ga {
+	encode zstd gzip
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
+	}
+
+	log {
+		output stdout
+		format json
+	}
+
+	reverse_proxy frontend:80
+}
+
