@@ -1,0 +1,259 @@
+.launch-info-page {
+  --launch-ink: #2c1923;
+  --launch-muted: #765f6a;
+  --launch-primary: #a32f61;
+  --launch-primary-dark: #742044;
+  --launch-border: rgb(113 50 78 / 14%);
+  width: min(calc(100% - 2rem), 1180px);
+  margin-inline: auto;
+  padding: clamp(3rem, 7vw, 6.5rem) 0 clamp(4rem, 9vw, 8rem);
+  color: var(--launch-ink);
+}
+
+.launch-info-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(240px, .65fr);
+  gap: clamp(2rem, 6vw, 6rem);
+  align-items: center;
+  min-height: 50vh;
+}
+
+.launch-info-hero--centered {
+  display: block;
+  min-height: 0;
+  max-width: 900px;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.launch-info-hero h1,
+.launch-info-section h2,
+.launch-info-band h2,
+.launch-info-callout h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 500;
+  letter-spacing: -.045em;
+}
+
+.launch-info-hero h1 {
+  margin: .65rem 0 1.35rem;
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: .96;
+}
+
+.launch-info-hero--centered h1 {
+  font-size: clamp(2.8rem, 6.4vw, 5.3rem);
+}
+
+.launch-info-eyebrow {
+  margin: 0;
+  color: var(--launch-primary);
+  font-size: .78rem;
+  font-weight: 850;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.launch-info-lead {
+  max-width: 760px;
+  margin: 0;
+  color: var(--launch-muted);
+  font-size: clamp(1.03rem, 1.5vw, 1.2rem);
+  line-height: 1.75;
+}
+
+.launch-info-hero--centered .launch-info-lead {
+  margin-inline: auto;
+}
+
+.launch-info-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .8rem;
+  margin-top: 1.8rem;
+}
+
+.launch-info-button {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  padding: .7rem 1.2rem;
+  border: 1px solid rgb(163 47 97 / 22%);
+  border-radius: 999px;
+  color: var(--launch-primary-dark);
+  background: #fff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.launch-info-button--primary {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, var(--launch-primary), var(--launch-primary-dark));
+  box-shadow: 0 14px 34px rgb(116 32 68 / 18%);
+}
+
+.launch-info-quote {
+  padding: clamp(2rem, 5vw, 3.5rem);
+  border: 1px solid var(--launch-border);
+  border-radius: 2.2rem;
+  background: linear-gradient(145deg, #fff, #fff5f9);
+  box-shadow: 0 28px 70px rgb(90 32 60 / 9%);
+}
+
+.launch-info-quote > span {
+  display: grid;
+  width: 4rem;
+  height: 4rem;
+  place-items: center;
+  border-radius: 1.25rem;
+  color: #fff;
+  background: var(--launch-primary-dark);
+  font-family: Georgia, serif;
+  font-size: 2rem;
+}
+
+.launch-info-quote p {
+  margin: 1.5rem 0 0;
+  font-family: Georgia, serif;
+  font-size: 1.5rem;
+  line-height: 1.4;
+}
+
+.launch-info-section {
+  margin-top: clamp(4rem, 9vw, 8rem);
+}
+
+.launch-info-section > header {
+  max-width: 760px;
+  margin-bottom: 2rem;
+}
+
+.launch-info-section > header h2,
+.launch-info-band h2,
+.launch-info-callout h2 {
+  margin: .6rem 0 0;
+  font-size: clamp(2.2rem, 4.5vw, 4rem);
+  line-height: 1;
+}
+
+.launch-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.launch-info-card {
+  min-height: 230px;
+  padding: clamp(1.4rem, 3vw, 2.2rem);
+  border: 1px solid var(--launch-border);
+  border-radius: 1.7rem;
+  background: rgb(255 255 255 / 88%);
+}
+
+.launch-info-card > span {
+  color: var(--launch-primary);
+  font-size: .8rem;
+  font-weight: 850;
+}
+
+.launch-info-card h3 { margin: 3rem 0 .7rem; font-size: 1.35rem; }
+.launch-info-card p,
+.launch-info-band > p,
+.launch-info-callout p,
+.launch-info-timeline p,
+.launch-info-faq p,
+.launch-info-help-panel p { color: var(--launch-muted); line-height: 1.7; }
+
+.launch-info-band,
+.launch-info-callout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(2rem, 6vw, 6rem);
+  align-items: center;
+  margin-top: clamp(4rem, 9vw, 8rem);
+  padding: clamp(2rem, 5vw, 4rem);
+  border-radius: 2rem;
+  background: #fff4f8;
+}
+
+.launch-info-timeline { max-width: 880px; margin-inline: auto; }
+.launch-info-timeline article {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 1.5rem;
+  padding: 1.6rem 0;
+  border-bottom: 1px solid var(--launch-border);
+}
+.launch-info-timeline__number {
+  display: grid;
+  width: 3.4rem;
+  height: 3.4rem;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--launch-primary-dark);
+  font-weight: 850;
+}
+.launch-info-timeline h2 { margin: 0 0 .4rem; font-size: clamp(1.6rem, 3vw, 2.3rem); }
+.launch-info-timeline p { margin: 0; }
+
+.launch-info-section--faq {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 2rem;
+  align-items: start;
+}
+.launch-info-faq { display: grid; gap: .8rem; }
+.launch-info-faq details {
+  padding: 1.25rem 1.4rem;
+  border: 1px solid var(--launch-border);
+  border-radius: 1.2rem;
+  background: #fff;
+}
+.launch-info-faq summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  font-weight: 800;
+  list-style: none;
+}
+.launch-info-faq summary::-webkit-details-marker { display: none; }
+.launch-info-faq summary span { color: var(--launch-primary); font-size: 1.3rem; }
+.launch-info-faq details[open] summary span { transform: rotate(45deg); }
+.launch-info-faq p { margin: 1rem 0 0; }
+
+.launch-info-help-panel {
+  position: sticky;
+  top: 6.5rem;
+  padding: 1.7rem;
+  border-radius: 1.6rem;
+  background: #33202a;
+  color: #fff;
+}
+.launch-info-help-panel h2 { color: #fff; }
+.launch-info-help-panel p { color: #e2d4da; }
+.launch-info-help-panel a { display: block; margin-top: .9rem; color: #ffd8e8; font-weight: 800; }
+
+@media (max-width: 820px) {
+  .launch-info-hero,
+  .launch-info-grid,
+  .launch-info-band,
+  .launch-info-callout,
+  .launch-info-section--faq { grid-template-columns: 1fr; }
+  .launch-info-hero { min-height: 0; }
+  .launch-info-help-panel { position: static; }
+}
+
+@media (max-width: 560px) {
+  .launch-info-page { width: min(calc(100% - 1rem), 1180px); padding-top: 2rem; }
+  .launch-info-hero h1 { font-size: clamp(2.55rem, 14vw, 4rem); }
+  .launch-info-timeline article { grid-template-columns: 3.5rem 1fr; gap: .8rem; }
+  .launch-info-timeline__number { width: 2.8rem; height: 2.8rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launch-info-faq summary span { transition: none; }
+}

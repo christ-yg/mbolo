@@ -5,235 +5,81 @@
  * Les routes privées sont entourées par ProtectedRoute.
  */
 
+import type { ReactNode } from "react";
 import { createBrowserRouter } from "react-router-dom";
 
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 import { PublicLayout } from "../layouts/PublicLayout";
-import { LoginPage } from "../pages/auth/LoginPage";
+import { AboutPage } from "../pages/about/AboutPage";
+import { MySpacePage } from "../pages/account/MySpacePage";
 import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
-import { ResetPasswordPage } from "../pages/auth/ResetPasswordPage";
+import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
-import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
+import { ResetPasswordPage } from "../pages/auth/ResetPasswordPage";
 import { SanctionAppealPage } from "../pages/auth/SanctionAppealPage";
+import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
 import { DiscoveryPage } from "../pages/discovery/DiscoveryPage";
+import { HelpPage } from "../pages/help/HelpPage";
 import { HomePage } from "../pages/home/HomePage";
+import { HowItWorksPage } from "../pages/howItWorks/HowItWorksPage";
+import { LegalPage } from "../pages/legal/LegalPage";
 import { ReceivedLikesPage } from "../pages/likes/ReceivedLikesPage";
 import { MatchesPage } from "../pages/matches/MatchesPage";
-import { MessagesPage } from "../pages/messages/MessagesPage";
 import { ConversationPage } from "../pages/messages/ConversationPage";
+import { MessagesPage } from "../pages/messages/MessagesPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { NotificationsPage } from "../pages/notifications/NotificationsPage";
-import { ProfileDetailPage } from "../pages/profiles/ProfileDetailPage";
+import { PremiumPage } from "../pages/premium/PremiumPage";
 import { ProfileEditPage } from "../pages/profile/ProfileEditPage";
 import { ProfilePhotosPage } from "../pages/profile/ProfilePhotosPage";
 import { ProfileVerificationPage } from "../pages/profile/ProfileVerificationPage";
-import { MySpacePage } from "../pages/account/MySpacePage";
-import { PremiumPage } from "../pages/premium/PremiumPage";
-import { SafetyPage } from "../pages/settings/SafetyPage";
+import { ProfileDetailPage } from "../pages/profiles/ProfileDetailPage";
 import { AccountSecurityPage } from "../pages/settings/AccountSecurityPage";
-import { PrivacyCenterPage } from "../pages/settings/PrivacyCenterPage";
 import { BlockedUsersPage } from "../pages/settings/BlockedUsersPage";
 import { DiscoveryPreferencesPage } from "../pages/settings/DiscoveryPreferencesPage";
+import { PrivacyCenterPage } from "../pages/settings/PrivacyCenterPage";
 import { ReportsPage } from "../pages/settings/ReportsPage";
-import { LegalPage } from "../pages/legal/LegalPage";
+import { SafetyPage } from "../pages/settings/SafetyPage";
+
+function protectedPage(page: ReactNode) {
+  return <ProtectedRoute>{page}</ProtectedRoute>;
+}
 
 export const appRouter = createBrowserRouter([
   {
     element: <PublicLayout />,
-
     children: [
-      /**
-       * Routes publiques.
-       */
-      {
-        path: "/",
-        element: <HomePage />,
-      },
-      {
-        path: "/login",
-        element: <LoginPage />,
-      },
-      {
-        path: "/register",
-        element: <RegisterPage />,
-      },
-      {
-        path: "/forgot-password",
-        element: <ForgotPasswordPage />,
-      },
-      {
-        path: "/reset-password",
-        element: <ResetPasswordPage />,
-      },
-      {
-        path: "/verify-email",
-        element: <VerifyEmailPage />,
-      },
-      {
-        path: "/safety",
-        element: <SafetyPage />,
-      },
-      {
-        path: "/sanction-appeal",
-        element: <SanctionAppealPage />,
-      },
-      {
-        path: "/legal/:document",
-        element: <LegalPage />,
-      },
+      { path: "/", element: <HomePage /> },
+      { path: "/about", element: <AboutPage /> },
+      { path: "/how-it-works", element: <HowItWorksPage /> },
+      { path: "/help", element: <HelpPage /> },
+      { path: "/login", element: <LoginPage /> },
+      { path: "/register", element: <RegisterPage /> },
+      { path: "/forgot-password", element: <ForgotPasswordPage /> },
+      { path: "/reset-password", element: <ResetPasswordPage /> },
+      { path: "/verify-email", element: <VerifyEmailPage /> },
+      { path: "/safety", element: <SafetyPage /> },
+      { path: "/sanction-appeal", element: <SanctionAppealPage /> },
+      { path: "/legal/:document", element: <LegalPage /> },
 
-      /**
-       * Route privée.
-       *
-       * Un visiteur sans session est redirigé vers /login.
-       */
-      {
-        path: "/discovery",
-        element: (
-          <ProtectedRoute>
-            <DiscoveryPage />
-          </ProtectedRoute>
-        ),
-      },
-
-      {
-        path: "/matches",
-        element: (
-          <ProtectedRoute>
-            <MatchesPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/likes-received",
-        element: (
-          <ProtectedRoute>
-            <ReceivedLikesPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/profiles/:profileId",
-        element: (
-          <ProtectedRoute>
-            <ProfileDetailPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/account",
-        element: (
-          <ProtectedRoute>
-            <MySpacePage />
-          </ProtectedRoute>
-        ),
-      },
-
-      {
-        path: "/profile/edit",
-        element: (
-          <ProtectedRoute>
-            <ProfileEditPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/profile/photos",
-        element: (
-          <ProtectedRoute>
-            <ProfilePhotosPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/profile/verification",
-        element: (
-          <ProtectedRoute>
-            <ProfileVerificationPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/messages",
-        element: (
-          <ProtectedRoute>
-            <MessagesPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/messages/:conversationId",
-        element: (
-          <ProtectedRoute>
-            <ConversationPage />
-          </ProtectedRoute>
-        ),
-      },
-
-      {
-        path: "/notifications",
-        element: (
-          <ProtectedRoute>
-            <NotificationsPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/blocked-users",
-        element: (
-          <ProtectedRoute>
-            <BlockedUsersPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/reports",
-        element: (
-          <ProtectedRoute>
-            <ReportsPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/account/security",
-        element: (
-          <ProtectedRoute>
-            <AccountSecurityPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/account/privacy",
-        element: (
-          <ProtectedRoute>
-            <PrivacyCenterPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/premium",
-        element: (
-          <ProtectedRoute>
-            <PremiumPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/discovery-preferences",
-        element: (
-          <ProtectedRoute>
-            <DiscoveryPreferencesPage />
-          </ProtectedRoute>
-        ),
-      },
-
-      /**
-       * Toute route inconnue affiche la page 404.
-       */
-      {
-        path: "*",
-        element: <NotFoundPage />,
-      },
+      { path: "/discovery", element: protectedPage(<DiscoveryPage />) },
+      { path: "/matches", element: protectedPage(<MatchesPage />) },
+      { path: "/likes-received", element: protectedPage(<ReceivedLikesPage />) },
+      { path: "/profiles/:profileId", element: protectedPage(<ProfileDetailPage />) },
+      { path: "/account", element: protectedPage(<MySpacePage />) },
+      { path: "/profile/edit", element: protectedPage(<ProfileEditPage />) },
+      { path: "/profile/photos", element: protectedPage(<ProfilePhotosPage />) },
+      { path: "/profile/verification", element: protectedPage(<ProfileVerificationPage />) },
+      { path: "/messages", element: protectedPage(<MessagesPage />) },
+      { path: "/messages/:conversationId", element: protectedPage(<ConversationPage />) },
+      { path: "/notifications", element: protectedPage(<NotificationsPage />) },
+      { path: "/blocked-users", element: protectedPage(<BlockedUsersPage />) },
+      { path: "/reports", element: protectedPage(<ReportsPage />) },
+      { path: "/account/security", element: protectedPage(<AccountSecurityPage />) },
+      { path: "/account/privacy", element: protectedPage(<PrivacyCenterPage />) },
+      { path: "/premium", element: protectedPage(<PremiumPage />) },
+      { path: "/discovery-preferences", element: protectedPage(<DiscoveryPreferencesPage />) },
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ]);
