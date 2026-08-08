@@ -1,6 +1,5 @@
 /**
  * Structure commune des pages Mbolo.
- *
  * Outlet représente la page correspondant à la route courante.
  */
 
@@ -16,14 +15,15 @@ export function PublicLayout() {
     <NotificationProvider>
       <div className="public-layout">
         <PublicHeader />
-
         <RealtimeNotificationToast />
-
         <Outlet />
 
         <footer className="public-footer">
           <p>© 2026 Mbolo · Rencontres adultes, respectueuses et sécurisées.</p>
-          <nav aria-label="Informations légales">
+          <nav aria-label="Informations Mbolo">
+            <Link to="/about">À propos</Link>
+            <Link to="/how-it-works">Comment ça marche</Link>
+            <Link to="/help">Aide</Link>
             <Link to="/legal/terms">Conditions</Link>
             <Link to="/legal/privacy">Confidentialité</Link>
             <Link to="/legal/cookies">Cookies</Link>
