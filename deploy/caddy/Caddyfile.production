@@ -1,23 +1,16 @@
-# Point d'entrée HTTPS public prévu pour le futur VPS Mbolo.
-#
-# Caddy obtiendra et renouvellera automatiquement un certificat public lorsque
-# les DNS de mbolo.ga et www.mbolo.ga pointeront vers le VPS et que les ports
-# 80/443 seront accessibles.
-#
-# Première activation Cloudflare : laisser temporairement les entrées DNS en
-# mode « DNS only » le temps que le certificat soit émis. Activer ensuite le
-# proxy Cloudflare et choisir SSL/TLS « Full (strict) ».
-
+# Point d'entrée HTTPS public du futur VPS Mbolo.
+# Caddy gère automatiquement l'émission et le renouvellement TLS.
 mbolo.ga, www.mbolo.ga {
 	encode zstd gzip
 
 	header {
 		-Server
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "same-origin"
-		X-Frame-Options "DENY"
+		Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'"
 		Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
+		Referrer-Policy "same-origin"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
 	}
 
 	log {
@@ -26,8 +19,7 @@ mbolo.ga, www.mbolo.ga {
 	}
 
 	reverse_proxy frontend:80 {
-		# Écrase toute valeur fournie par le visiteur avec l'IP réellement
-		# observée par le point d'entrée public.
+		# Écrase toute valeur contrôlée par le visiteur avec l'IP observée.
 		header_up X-Mbolo-Client-IP {http.request.remote.host}
 	}
 }

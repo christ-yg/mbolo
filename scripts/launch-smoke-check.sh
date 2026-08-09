@@ -14,10 +14,7 @@ tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 request() {
-  local path="$1"
-  local expected="$2"
-  local label="$3"
-  local code
+  local path="$1" expected="$2" label="$3" code
   code="$(curl --silent --show-error --location --output "$tmp_dir/body" --write-out '%{http_code}' "${BASE_URL}${path}")"
   if [[ "$code" != "$expected" ]]; then
     echo "❌ ${label}: HTTP ${code}, attendu ${expected}"
@@ -28,10 +25,7 @@ request() {
 
 echo "[1/5] Santé du proxy"
 request "/healthz" "200" "Healthcheck Nginx"
-if ! grep -qx "ok" "$tmp_dir/body"; then
-  echo "❌ /healthz ne renvoie pas la réponse attendue."
-  exit 1
-fi
+grep -qx "ok" "$tmp_dir/body"
 
 echo "[2/5] Santé applicative"
 request "/api/v1/health/live/" "200" "Liveness Django"
@@ -53,9 +47,14 @@ if [[ "$admin_code" != "200" && "$admin_code" != "302" ]]; then
 fi
 echo "✅ Admin: HTTP ${admin_code}"
 
-echo "[5/5] En-têtes de sécurité essentiels"
+echo "[5/5] En-têtes de sécurité navigateur"
 curl --silent --show-error --dump-header "$tmp_dir/headers" --output /dev/null "${BASE_URL}/"
-for header in "x-content-type-options: nosniff" "x-frame-options: deny" "referrer-policy: same-origin"; do
+for header in \
+  "content-security-policy:" \
+  "permissions-policy:" \
+  "x-content-type-options: nosniff" \
+  "x-frame-options: deny" \
+  "referrer-policy: same-origin"; do
   if ! grep -Fqi "$header" "$tmp_dir/headers"; then
     echo "❌ En-tête absent ou inattendu : $header"
     exit 1

@@ -1,9 +1,4 @@
-# Simulation HTTPS entièrement locale et gratuite.
-#
-# Le certificat est signé par l'autorité interne de Caddy. Le navigateur ne le
-# reconnaîtra pas automatiquement, ce qui est normal pour ce test local. Le
-# script de validation utilise curl -k uniquement contre localhost.
-
+# Simulation HTTPS locale gratuite avec certificat interne Caddy.
 http://localhost {
 	redir https://localhost:8443{uri} permanent
 }
@@ -14,10 +9,11 @@ https://localhost {
 
 	header {
 		-Server
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "same-origin"
-		X-Frame-Options "DENY"
+		Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'"
 		Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
+		Referrer-Policy "same-origin"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
 	}
 
 	reverse_proxy frontend:80 {
