@@ -3,6 +3,7 @@ import hmac
 import json
 import logging
 import re
+from ipaddress import ip_address
 from datetime import UTC, datetime
 from typing import Any
 
@@ -120,18 +121,35 @@ def get_client_ip(
     request: Request,
 ) -> str:
     """
-    Récupère REMOTE_ADDR avant pseudonymisation.
+    Retourne une adresse IP validée avant pseudonymisation.
+
+    Par défaut, seul REMOTE_ADDR est accepté. L'en-tête privé transmis par
+    Caddy puis Nginx n'est utilisé que lorsque la confiance est explicitement
+    activée dans l'environnement HTTPS. Une valeur absente ou invalide retombe
+    sur REMOTE_ADDR afin d'éviter qu'un en-tête arbitraire contourne les
+    limites de sécurité.
     """
+    candidates: list[object] = []
 
-    client_ip = request.META.get(
-        "REMOTE_ADDR",
-        "",
-    )
+    if settings.TRUST_MBOLO_CLIENT_IP_HEADER:
+        candidates.append(
+            request.META.get("HTTP_X_MBOLO_CLIENT_IP", "")
+        )
 
-    if not isinstance(client_ip, str):
-        return ""
+    candidates.append(request.META.get("REMOTE_ADDR", ""))
 
-    return client_ip.strip()
+    for candidate in candidates:
+        if not isinstance(candidate, str):
+            continue
+
+        normalized = candidate.strip()
+
+        try:
+            return str(ip_address(normalized))
+        except ValueError:
+            continue
+
+    return ""
 
 
 def _persist_user_visible_security_event(

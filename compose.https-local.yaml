@@ -1,4 +1,8 @@
 services:
+  backend:
+    environment:
+      DJANGO_TRUST_MBOLO_CLIENT_IP_HEADER: "true"
+
   # Proxy TLS réservé à la simulation locale. Il ne publie ses ports que sur
   # 127.0.0.1 et ne rend donc pas Mbolo accessible depuis Internet.
   edge:
@@ -22,4 +26,3 @@ services:
 volumes:
   caddy_data:
   caddy_config:
-

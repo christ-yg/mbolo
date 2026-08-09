@@ -7,6 +7,8 @@ from django.core.cache import cache
 from rest_framework.request import Request
 from rest_framework.throttling import BaseThrottle
 
+from apps.core.security_logging import get_client_ip
+
 
 class AtomicRedisThrottle(BaseThrottle):
     """
@@ -103,12 +105,7 @@ class LoginIPThrottle(AtomicRedisThrottle):
         request: Request,
         view,
     ) -> str:
-        return str(
-            request.META.get(
-                "REMOTE_ADDR",
-                "",
-            )
-        )
+        return get_client_ip(request)
 
 
 class LoginEmailThrottle(AtomicRedisThrottle):
@@ -147,12 +144,7 @@ class EmailVerificationRequestIPThrottle(AtomicRedisThrottle):
         request: Request,
         view,
     ) -> str:
-        return str(
-            request.META.get(
-                "REMOTE_ADDR",
-                "",
-            )
-        )
+        return get_client_ip(request)
 
 
 class EmailVerificationRequestEmailThrottle(AtomicRedisThrottle):
@@ -195,4 +187,39 @@ class PasswordResetConfirmIPThrottle(AtomicRedisThrottle):
     window_seconds = 300
 
     def get_identifier(self, request: Request, view) -> str:
-        return str(request.META.get("REMOTE_ADDR", ""))
+        return get_client_ip(request)
+
+
+class RegistrationIPThrottle(AtomicRedisThrottle):
+    """Dix créations de compte maximum par heure pour une IP."""
+
+    limit = 10
+    window_seconds = 3600
+
+    def get_identifier(self, request: Request, view) -> str:
+        return get_client_ip(request)
+
+
+class EmailTwoFactorConfirmIPThrottle(AtomicRedisThrottle):
+    """Vingt validations 2FA par cinq minutes pour une IP."""
+
+    limit = 20
+    window_seconds = 300
+
+    def get_identifier(self, request: Request, view) -> str:
+        return get_client_ip(request)
+
+
+class EmailTwoFactorChallengeThrottle(AtomicRedisThrottle):
+    """Cinq essais par cinq minutes pour un même challenge signé."""
+
+    limit = 5
+    window_seconds = 300
+
+    def get_identifier(self, request: Request, view) -> str:
+        token = request.data.get("challenge_token", "")
+
+        if not isinstance(token, str):
+            return ""
+
+        return token.strip()

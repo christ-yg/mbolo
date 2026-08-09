@@ -25,6 +25,9 @@ mbolo.ga, www.mbolo.ga {
 		format json
 	}
 
-	reverse_proxy frontend:80
+	reverse_proxy frontend:80 {
+		# Écrase toute valeur fournie par le visiteur avec l'IP réellement
+		# observée par le point d'entrée public.
+		header_up X-Mbolo-Client-IP {http.request.remote.host}
+	}
 }
-

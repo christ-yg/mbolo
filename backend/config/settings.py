@@ -248,6 +248,15 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "same-origin"
 
+# Cet en-tête privé n'est fiable que lorsque Caddy l'écrase puis que Nginx le
+# transmet au backend sur le réseau Docker. Il reste refusé par défaut afin
+# qu'un client direct ne puisse jamais choisir lui-même l'identité IP utilisée
+# par les limites anti-abus et les journaux pseudonymisés.
+TRUST_MBOLO_CLIENT_IP_HEADER = env.bool(
+    "DJANGO_TRUST_MBOLO_CLIENT_IP_HEADER",
+    default=False,
+)
+
 # Réduit l'exposition des pages sensibles dans les navigateurs et proxys.
 SESSION_SAVE_EVERY_REQUEST = False
 
