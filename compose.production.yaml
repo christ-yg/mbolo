@@ -1,7 +1,16 @@
 name: mbolo-production
 
+# Politique commune de rotation des journaux Docker.
+# Elle limite l'espace disque consommé sans service externe payant.
+x-logging: &mbolo-logging
+  driver: json-file
+  options:
+    max-size: "${MBOLO_LOG_MAX_SIZE:-10m}"
+    max-file: "${MBOLO_LOG_MAX_FILES:-5}"
+
 services:
   postgres:
+    logging: *mbolo-logging
     image: postgres:18.4-alpine
     restart: unless-stopped
     env_file:
@@ -26,6 +35,7 @@ services:
       - no-new-privileges:true
 
   redis:
+    logging: *mbolo-logging
     image: redis:8.8-alpine
     restart: unless-stopped
     env_file:
@@ -56,6 +66,7 @@ services:
       - no-new-privileges:true
 
   backend:
+    logging: *mbolo-logging
     build:
       context: .
       dockerfile: backend/Dockerfile.production
@@ -110,6 +121,7 @@ services:
       - no-new-privileges:true
 
   frontend:
+    logging: *mbolo-logging
     build:
       context: .
       dockerfile: frontend/Dockerfile.production
