@@ -26,19 +26,25 @@ request() {
   echo "✅ ${label}: HTTP ${code}"
 }
 
-echo "[1/4] Santé du proxy"
-request "/healthz" "200" "Healthcheck"
+echo "[1/5] Santé du proxy"
+request "/healthz" "200" "Healthcheck Nginx"
 if ! grep -qx "ok" "$tmp_dir/body"; then
   echo "❌ /healthz ne renvoie pas la réponse attendue."
   exit 1
 fi
 
-echo "[2/4] Pages publiques de lancement"
+echo "[2/5] Santé applicative"
+request "/api/v1/health/live/" "200" "Liveness Django"
+grep -Fq '"status":"ok"' "$tmp_dir/body"
+request "/api/v1/health/ready/" "200" "Readiness PostgreSQL + Redis"
+grep -Fq '"status":"ok"' "$tmp_dir/body"
+
+echo "[3/5] Pages publiques de lancement"
 for path in / /about /how-it-works /help /safety /legal/privacy; do
   request "$path" "200" "$path"
 done
 
-echo "[3/4] API et administration"
+echo "[4/5] API et administration"
 request "/api/v1/csrf/" "200" "CSRF API"
 admin_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "${BASE_URL}/admin/")"
 if [[ "$admin_code" != "200" && "$admin_code" != "302" ]]; then
@@ -47,7 +53,7 @@ if [[ "$admin_code" != "200" && "$admin_code" != "302" ]]; then
 fi
 echo "✅ Admin: HTTP ${admin_code}"
 
-echo "[4/4] En-têtes de sécurité essentiels"
+echo "[5/5] En-têtes de sécurité essentiels"
 curl --silent --show-error --dump-header "$tmp_dir/headers" --output /dev/null "${BASE_URL}/"
 for header in "x-content-type-options: nosniff" "x-frame-options: deny" "referrer-policy: same-origin"; do
   if ! grep -Fqi "$header" "$tmp_dir/headers"; then
