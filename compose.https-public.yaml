@@ -1,4 +1,8 @@
 services:
+  backend:
+    environment:
+      DJANGO_TRUST_MBOLO_CLIENT_IP_HEADER: "true"
+
   # Point d'entrée HTTPS public de Mbolo. Ce fichier ne sera utilisé que sur
   # le futur VPS. La préproduction locale continue d'utiliser le port 8080.
   edge:
@@ -25,4 +29,3 @@ volumes:
   # sans sauvegarde sur le serveur public.
   caddy_data:
   caddy_config:
-

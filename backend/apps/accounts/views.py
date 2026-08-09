@@ -54,6 +54,8 @@ from .serializers import (
     RegistrationSerializer,
 )
 from .throttles import (
+    EmailTwoFactorChallengeThrottle,
+    EmailTwoFactorConfirmIPThrottle,
     EmailVerificationRequestEmailThrottle,
     EmailVerificationRequestIPThrottle,
     LoginEmailThrottle,
@@ -61,6 +63,7 @@ from .throttles import (
     PasswordResetConfirmIPThrottle,
     PasswordResetRequestEmailThrottle,
     PasswordResetRequestIPThrottle,
+    RegistrationIPThrottle,
 )
 
 
@@ -68,6 +71,7 @@ from .throttles import (
 class RegisterView(APIView):
     authentication_classes: tuple = ()
     permission_classes = (AllowAny,)
+    throttle_classes = (RegistrationIPThrottle,)
 
     def post(
         self,
@@ -243,6 +247,10 @@ class LoginView(APIView):
 class EmailTwoFactorConfirmView(APIView):
     authentication_classes: tuple = ()
     permission_classes = (AllowAny,)
+    throttle_classes = (
+        EmailTwoFactorConfirmIPThrottle,
+        EmailTwoFactorChallengeThrottle,
+    )
 
     def post(self, request: Request) -> Response:
         serializer = EmailTwoFactorConfirmSerializer(data=request.data)
