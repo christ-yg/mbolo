@@ -1,0 +1,72 @@
+name: Mbolo Container Security
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: mbolo-container-security-${{ github.ref }}
+  cancel-in-progress: true
+
+# Le workflow construit et lit les images, sans modifier le dépôt ni publier
+# de paquet. Le principe du moindre privilège reste donc appliqué.
+permissions:
+  contents: read
+
+jobs:
+  scan-production-images:
+    name: Vulnérabilités des images Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+
+      # Les images sont construites exactement depuis les Dockerfiles utilisés
+      # par compose.production.yaml. Aucun secret de production n'est requis.
+      - name: Construire l'image backend
+        run: >-
+          docker build
+          --file backend/Dockerfile.production
+          --tag mbolo-backend-security:${{ github.sha }}
+          .
+
+      - name: Construire l'image frontend
+        run: >-
+          docker build
+          --file frontend/Dockerfile.production
+          --tag mbolo-frontend-security:${{ github.sha }}
+          .
+
+      # Le contrôle bloque uniquement une vulnérabilité critique disposant
+      # déjà d'un correctif. Cela évite les échecs impossibles à résoudre tout
+      # en empêchant la fusion d'une image dangereuse et corrigeable.
+      - name: Scanner l'image backend avec Trivy
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: mbolo-backend-security:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL
+          scanners: vuln
+          timeout: 10m0s
+
+      - name: Scanner l'image frontend avec Trivy
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: mbolo-frontend-security:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL
+          scanners: vuln
+          timeout: 10m0s
