@@ -18,16 +18,17 @@ concurrency:
   group: mbolo-container-security-${{ github.ref }}
   cancel-in-progress: true
 
-# Le workflow construit et lit les images, sans modifier le dépôt ni publier
-# de paquet. Le principe du moindre privilège reste donc appliqué.
+# Le workflow construit et analyse les images sans les publier. Les SBOM sont
+# de simples artefacts temporaires du workflow : aucun registre ni secret de
+# production n'est nécessaire.
 permissions:
   contents: read
 
 jobs:
   scan-production-images:
-    name: Vulnérabilités des images Docker
+    name: Vulnérabilités et SBOM des images Docker
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Récupérer le dépôt
@@ -48,6 +49,44 @@ jobs:
           --file frontend/Dockerfile.production
           --tag mbolo-frontend-security:${{ github.sha }}
           .
+
+      # Les runners GitHub sont éphémères : le dossier de destination doit être
+      # créé explicitement avant que Syft puisse y écrire les deux inventaires.
+      - name: Préparer le dossier des SBOM
+        run: mkdir -p sbom
+
+      # Chaque nomenclature CycloneDX inventorie les paquets du système et les
+      # bibliothèques applicatives réellement présentes dans l'image finale.
+      - name: Générer le SBOM CycloneDX du backend
+        uses: anchore/sbom-action@v0
+        with:
+          image: mbolo-backend-security:${{ github.sha }}
+          format: cyclonedx-json
+          output-file: sbom/mbolo-backend.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          syft-version: v1.44.0
+
+      - name: Générer le SBOM CycloneDX du frontend
+        uses: anchore/sbom-action@v0
+        with:
+          image: mbolo-frontend-security:${{ github.sha }}
+          format: cyclonedx-json
+          output-file: sbom/mbolo-frontend.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          syft-version: v1.44.0
+
+      # Un seul artefact facilite le téléchargement et réduit le stockage. La
+      # conservation courte suffit pour les audits ponctuels et reste gratuite.
+      - name: Publier les SBOM du contrôle
+        uses: actions/upload-artifact@v4
+        with:
+          name: mbolo-production-sbom-${{ github.sha }}
+          path: sbom/*.cdx.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 9
 
       # Le contrôle bloque uniquement une vulnérabilité critique disposant
       # déjà d'un correctif. Cela évite les échecs impossibles à résoudre tout
