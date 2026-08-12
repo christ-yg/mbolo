@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Récupérer le dépôt
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Les images sont construites exactement depuis les Dockerfiles utilisés
       # par compose.production.yaml. Aucun secret de production n'est requis.
@@ -58,7 +58,7 @@ jobs:
       # Chaque nomenclature CycloneDX inventorie les paquets du système et les
       # bibliothèques applicatives réellement présentes dans l'image finale.
       - name: Générer le SBOM CycloneDX du backend
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           image: mbolo-backend-security:${{ github.sha }}
           format: cyclonedx-json
@@ -68,7 +68,7 @@ jobs:
           syft-version: v1.44.0
 
       - name: Générer le SBOM CycloneDX du frontend
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           image: mbolo-frontend-security:${{ github.sha }}
           format: cyclonedx-json
@@ -80,7 +80,7 @@ jobs:
       # Un seul artefact facilite le téléchargement et réduit le stockage. La
       # conservation courte suffit pour les audits ponctuels et reste gratuite.
       - name: Publier les SBOM du contrôle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: mbolo-production-sbom-${{ github.sha }}
           path: sbom/*.cdx.json
@@ -92,7 +92,7 @@ jobs:
       # déjà d'un correctif. Cela évite les échecs impossibles à résoudre tout
       # en empêchant la fusion d'une image dangereuse et corrigeable.
       - name: Scanner l'image backend avec Trivy
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: mbolo-backend-security:${{ github.sha }}
           format: table
@@ -102,9 +102,8 @@ jobs:
           severity: CRITICAL
           scanners: vuln
           timeout: 10m0s
-
       - name: Scanner l'image frontend avec Trivy
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: mbolo-frontend-security:${{ github.sha }}
           format: table
