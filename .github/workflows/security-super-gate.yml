@@ -1,0 +1,82 @@
+name: Mbolo Security Super Gate 20-29
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: "15 4 * * 3"
+  workflow_dispatch:
+
+concurrency:
+  group: mbolo-security-super-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  repository-policy:
+    name: Politiques du dépôt (lots 24 à 29)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Exécuter les contrôles locaux sans dépendance
+        run: bash scripts/security-super-gate-check.sh
+
+  python-sast:
+    name: SAST Python avec Bandit (lot 20)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Installer Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements/development.txt
+            backend/requirements/realtime.txt
+
+      - name: Installer Bandit dans une version verrouillée
+        run: python -m pip install --disable-pip-version-check "bandit==1.9.4"
+
+      - name: Rechercher les failles Python graves et certaines
+        run: >-
+          bandit
+          --recursive backend/apps backend/config
+          --exclude '*/migrations/*,*/tests/*'
+          --severity-level high
+          --confidence-level high
+
+  repository-scan:
+    name: Vulnérabilités, secrets et configurations (lots 21 à 23)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scanner le système de fichiers avec Trivy
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          timeout: 10m0s
