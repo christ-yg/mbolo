@@ -1,8 +1,8 @@
 asgiref==3.12.1
-Django==6.0.7
+Django==6.1
 django-environ==0.14.0
-djangorestframework==3.17.1
-packaging==26.2
+djangorestframework==3.18.0
+packaging==26.3
 Pillow==12.3.0
 psycopg==3.3.4
 psycopg-binary==3.3.4
