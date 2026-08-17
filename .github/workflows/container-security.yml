@@ -92,7 +92,7 @@ jobs:
       # déjà d'un correctif. Cela évite les échecs impossibles à résoudre tout
       # en empêchant la fusion d'une image dangereuse et corrigeable.
       - name: Scanner l'image backend avec Trivy
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
           image-ref: mbolo-backend-security:${{ github.sha }}
           format: table
@@ -103,7 +103,7 @@ jobs:
           scanners: vuln
           timeout: 10m0s
       - name: Scanner l'image frontend avec Trivy
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
           image-ref: mbolo-frontend-security:${{ github.sha }}
           format: table
