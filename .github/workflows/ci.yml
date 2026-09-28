@@ -121,6 +121,11 @@ jobs:
           MBOLO_E2E_BASE_URL: http://127.0.0.1:4173
         run: npm run test:e2e:public
 
+      - name: Exécuter l'arrivée des nouveaux membres
+        env:
+          MBOLO_E2E_BASE_URL: http://127.0.0.1:4173
+        run: npm run test:e2e:onboarding
+
       - name: Exécuter les parcours privés simulés
         env:
           MBOLO_E2E_BASE_URL: http://127.0.0.1:4173
