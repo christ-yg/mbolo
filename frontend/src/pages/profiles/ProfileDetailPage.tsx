@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -95,6 +96,54 @@ export function ProfileDetailPage() {
 
   const [selectedPhotoId, setSelectedPhotoId] =
     useState<string | null>(null);
+
+  const safetyMenuTriggerRef =
+    useRef<HTMLButtonElement | null>(null);
+  const blockCancelButtonRef =
+    useRef<HTMLButtonElement | null>(null);
+  const reportReasonSelectRef =
+    useRef<HTMLSelectElement | null>(null);
+
+
+  useEffect(() => {
+    if (isBlockDialogOpen) {
+      blockCancelButtonRef.current?.focus();
+    }
+  }, [isBlockDialogOpen]);
+
+
+  useEffect(() => {
+    if (isReportDialogOpen) {
+      reportReasonSelectRef.current?.focus();
+    }
+  }, [isReportDialogOpen]);
+
+
+  function restoreSafetyMenuFocus(): void {
+    window.requestAnimationFrame(() => {
+      safetyMenuTriggerRef.current?.focus();
+    });
+  }
+
+
+  function closeBlockDialog(): void {
+    if (isSafetyActionPending) {
+      return;
+    }
+
+    setIsBlockDialogOpen(false);
+    restoreSafetyMenuFocus();
+  }
+
+
+  function closeReportDialog(): void {
+    if (isSafetyActionPending) {
+      return;
+    }
+
+    setIsReportDialogOpen(false);
+    restoreSafetyMenuFocus();
+  }
 
 
   useEffect(() => {
@@ -334,6 +383,7 @@ export function ProfileDetailPage() {
           </p>
 
           <button
+            ref={safetyMenuTriggerRef}
             type="button"
             onClick={() => navigate(-1)}
           >
@@ -623,7 +673,7 @@ export function ProfileDetailPage() {
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
-              setIsBlockDialogOpen(false);
+              closeBlockDialog();
             }
           }}
         >
@@ -632,6 +682,12 @@ export function ProfileDetailPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="block-profile-title"
+            aria-describedby="block-profile-description"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                closeBlockDialog();
+              }
+            }}
           >
             <p className="profile-detail-eyebrow">
               Action de sécurité
@@ -641,7 +697,7 @@ export function ProfileDetailPage() {
               Bloquer {profile.display_name} ?
             </h2>
 
-            <p>
+            <p id="block-profile-description">
               Vous ne pourrez plus vous voir, vous liker ni
               continuer une conversation. Un match actif sera
               désactivé.
@@ -649,11 +705,10 @@ export function ProfileDetailPage() {
 
             <div className="profile-safety-dialog__actions">
               <button
+                ref={blockCancelButtonRef}
                 type="button"
                 disabled={isSafetyActionPending}
-                onClick={() => {
-                  setIsBlockDialogOpen(false);
-                }}
+                onClick={closeBlockDialog}
               >
                 Annuler
               </button>
@@ -682,7 +737,7 @@ export function ProfileDetailPage() {
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
-              setIsReportDialogOpen(false);
+              closeReportDialog();
             }
           }}
         >
@@ -691,6 +746,12 @@ export function ProfileDetailPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="report-profile-title"
+            aria-describedby="report-profile-description"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                closeReportDialog();
+              }
+            }}
           >
             <p className="profile-detail-eyebrow">
               Signalement confidentiel
@@ -700,10 +761,15 @@ export function ProfileDetailPage() {
               Signaler ce profil
             </h2>
 
+            <p id="report-profile-description">
+              Décris uniquement les faits utiles. Ton brouillon reste conservé si tu fermes cette fenêtre.
+            </p>
+
             <label>
               Motif
 
               <select
+                ref={reportReasonSelectRef}
                 value={reportReason}
                 onChange={(event) => {
                   setReportReason(
@@ -768,9 +834,7 @@ export function ProfileDetailPage() {
               <button
                 type="button"
                 disabled={isSafetyActionPending}
-                onClick={() => {
-                  setIsReportDialogOpen(false);
-                }}
+                onClick={closeReportDialog}
               >
                 Annuler
               </button>
