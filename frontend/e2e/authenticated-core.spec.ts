@@ -115,6 +115,29 @@ async function installAuthenticatedApi(page: Page): Promise<void> {
       return;
     }
 
+    if (
+      path.endsWith(`/profiles/public/${PROFILE.id}/`) &&
+      method === "GET"
+    ) {
+      await json(route, {
+        ...PROFILE,
+        relationship: "match",
+        current_decision: "like",
+      });
+      return;
+    }
+
+    if (
+      path.endsWith(`/safety/profiles/${PROFILE.id}/report/`) &&
+      method === "POST"
+    ) {
+      await json(route, {
+        created: true,
+        message: "Signalement transmis depuis la conversation.",
+      }, 201);
+      return;
+    }
+
     if (path.endsWith("/interactions/rewind/") && method === "GET") {
       await json(route, {
         entitled: false,
@@ -406,6 +429,24 @@ test.describe("Parcours privés essentiels Mbolo", () => {
     await expect(page.getByText("Arielle Test", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Bonsoir depuis le test Mbolo", { exact: true }).first()).toBeVisible();
     await expect(page.getByLabel("1 message non lu")).toBeVisible();
+  });
+
+  test("une conversation mène au profil puis au signalement confidentiel", async ({ page }) => {
+    await page.goto(`/messages/${CONVERSATION.id}`);
+    await page.getByRole("link", { name: "Voir le profil" }).click();
+
+    await expect(page).toHaveURL(`/profiles/${PROFILE.id}`);
+    await page.getByRole("button", { name: "Actions de sécurité" }).click();
+    await page.getByRole("button", { name: "Signaler ce profil" }).click();
+    await page.getByLabel("Motif").selectOption("harassment");
+    await page.getByLabel("Informations complémentaires").fill(
+      "Messages insistants reçus dans la conversation.",
+    );
+    await page.getByRole("button", { name: "Envoyer le signalement" }).click();
+
+    await expect(
+      page.getByText("Signalement transmis depuis la conversation."),
+    ).toBeVisible();
   });
 
   test("Photos affiche la galerie privée et le statut de modération", async ({ page }) => {
