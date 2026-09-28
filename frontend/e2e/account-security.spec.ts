@@ -13,6 +13,7 @@ async function json(route: Route, body: unknown, status = 200): Promise<void> {
 
 async function installSecurityApi(page: Page): Promise<void> {
   let twoFactorEnabled = false;
+  let otherDeviceRevoked = false;
 
   await page.route("**/api/**", async (route) => {
     const request = route.request();
@@ -45,7 +46,39 @@ async function installSecurityApi(page: Page): Promise<void> {
     }
 
     if (path.endsWith("/auth/security/sessions/") && method === "GET") {
-      await json(route, { data: [] });
+      await json(route, {
+        data: [
+          {
+            id: "current-device",
+            device: "Chrome · Windows",
+            ipFingerprint: "ab12cd34",
+            createdAt: "2026-09-28T12:00:00Z",
+            lastSeenAt: "2026-09-28T15:00:00Z",
+            isCurrent: true,
+          },
+          ...(!otherDeviceRevoked
+            ? [{
+                id: "other-device",
+                device: "Safari · iPhone",
+                ipFingerprint: "ef56gh78",
+                createdAt: "2026-09-27T12:00:00Z",
+                lastSeenAt: "2026-09-28T11:00:00Z",
+                isCurrent: false,
+              }]
+            : []),
+        ],
+      });
+      return;
+    }
+
+    if (
+      path.endsWith("/auth/security/sessions/other-device/revoke/") &&
+      method === "POST"
+    ) {
+      expect(request.postDataJSON()).toEqual({ current_password: ACCOUNT_PASSWORD });
+      expect(request.headers()["x-csrftoken"]).toBe("e2e-account-security-csrf");
+      otherDeviceRevoked = true;
+      await json(route, { data: { revoked: true } });
       return;
     }
 
@@ -90,6 +123,16 @@ async function installSecurityApi(page: Page): Promise<void> {
       });
       expect(request.headers()["x-csrftoken"]).toBe("e2e-account-security-csrf");
       await json(route, { data: { loginAlertEmailsEnabled: false } });
+      return;
+    }
+
+    if (path.endsWith("/auth/security/deactivate/") && method === "POST") {
+      expect(request.postDataJSON()).toEqual({
+        current_password: ACCOUNT_PASSWORD,
+        confirmation: "DESACTIVER",
+      });
+      expect(request.headers()["x-csrftoken"]).toBe("e2e-account-security-csrf");
+      await json(route, { data: { deactivated: true } });
       return;
     }
 
@@ -162,5 +205,27 @@ test.describe("Centre de sécurité du compte Mbolo", () => {
       ),
     ).toBeVisible();
     await expect(form.getByRole("button", { name: "Activer les e-mails d’alerte" })).toBeVisible();
+  });
+
+  test("un appareil inconnu peut être déconnecté individuellement", async ({ page }) => {
+    const device = page.getByText("Safari · iPhone").locator("../..");
+
+    await device.getByLabel("Mot de passe actuel").fill(ACCOUNT_PASSWORD);
+    await device.getByRole("button", { name: "Déconnecter cet appareil" }).click();
+
+    await expect(page.getByText("L’appareil sélectionné a été déconnecté.")).toBeVisible();
+    await expect(page.getByText("Safari · iPhone")).toHaveCount(0);
+    await expect(page.getByText("Chrome · Windows")).toBeVisible();
+  });
+
+  test("la désactivation exige le mot-clé exact avant l'appel sensible", async ({ page }) => {
+    const form = page.locator(".security-danger-zone__form");
+
+    await form.getByLabel("Mot de passe actuel").fill(ACCOUNT_PASSWORD);
+    await form.getByLabel("Écris DESACTIVER").fill("desactiver");
+    await form.getByRole("button", { name: "Désactiver mon compte" }).click();
+
+    await expect(page.getByText("Écris exactement DESACTIVER pour confirmer.")).toBeVisible();
+    await expect(page).toHaveURL("/account/security");
   });
 });
