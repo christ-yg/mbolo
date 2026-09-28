@@ -143,3 +143,6 @@ mbolo_*_installer.zip
 *.backup-*
 *.zip:Zone.Identifier
 .env.production
+
+# Preuves locales de release (peuvent contenir des identifiants techniques)
+release-evidence/
