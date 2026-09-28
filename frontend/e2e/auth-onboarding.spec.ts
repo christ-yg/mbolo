@@ -10,6 +10,7 @@ const NEW_MEMBER = {
 const STRONG_PASSWORD = "Mbolo!Afrique2026";
 const TWO_FACTOR_EMAIL = "securite@mbolo.invalid";
 const TWO_FACTOR_CHALLENGE = "e2e-two-factor-challenge";
+const EMAIL_VERIFICATION_TOKEN = "e2e-email-verification-token";
 
 async function json(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({
@@ -98,6 +99,18 @@ async function installAnonymousApi(page: Page): Promise<void> {
       expect(request.headers()["x-csrftoken"]).toBe("e2e-onboarding-csrf-token");
       isAuthenticated = true;
       await json(route, { data: NEW_MEMBER });
+      return;
+    }
+
+    if (path.endsWith("/auth/email-verification/confirm/") && method === "POST") {
+      expect(request.postDataJSON()).toEqual({ token: EMAIL_VERIFICATION_TOKEN });
+      expect(request.headers()["x-csrftoken"]).toBe("e2e-onboarding-csrf-token");
+      await json(route, {
+        data: {
+          email: NEW_MEMBER.email,
+          isEmailVerified: true,
+        },
+      });
       return;
     }
 
@@ -203,5 +216,30 @@ test.describe("Arrivée d'un nouveau membre Mbolo", () => {
         name: "Tu as vu tous les profils disponibles pour le moment.",
       }),
     ).toBeVisible();
+  });
+
+  test("un lien incomplet est refusé sans appel de confirmation", async ({ page }) => {
+    await page.goto("/verify-email");
+
+    await expect(
+      page.getByRole("heading", { name: "Vérification impossible" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Le lien de vérification est incomplet ou invalide."),
+    ).toBeVisible();
+  });
+
+  test("un jeton valide confirme l'adresse e-mail", async ({ page }) => {
+    await page.goto(`/verify-email?token=${EMAIL_VERIFICATION_TOKEN}`);
+
+    await expect(
+      page.getByRole("heading", { name: "Adresse confirmée" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(`L’adresse ${NEW_MEMBER.email} est maintenant vérifiée.`),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /Continuer vers la connexion/ }),
+    ).toHaveAttribute("href", "/login");
   });
 });
