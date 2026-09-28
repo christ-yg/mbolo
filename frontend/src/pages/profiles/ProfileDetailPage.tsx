@@ -40,6 +40,18 @@ type DetailStatus =
   | "error";
 
 
+function getSafetyActionErrorMessage(error: unknown): string {
+  if (
+    error instanceof Error &&
+    error.message.trim().length > 0
+  ) {
+    return error.message;
+  }
+
+  return normalizeApiError(error).message;
+}
+
+
 export function ProfileDetailPage() {
   const navigate = useNavigate();
   const { profileId = "" } = useParams();
@@ -251,8 +263,7 @@ export function ProfileDetailPage() {
         },
       );
     } catch (error: unknown) {
-      const normalized = normalizeApiError(error);
-      setErrorMessage(normalized.message);
+      setErrorMessage(getSafetyActionErrorMessage(error));
     } finally {
       setIsSafetyActionPending(false);
     }
@@ -284,8 +295,7 @@ export function ProfileDetailPage() {
       setIsSafetyMenuOpen(false);
       setReportDescription("");
     } catch (error: unknown) {
-      const normalized = normalizeApiError(error);
-      setErrorMessage(normalized.message);
+      setErrorMessage(getSafetyActionErrorMessage(error));
     } finally {
       setIsSafetyActionPending(false);
     }
