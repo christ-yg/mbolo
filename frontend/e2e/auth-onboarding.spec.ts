@@ -138,7 +138,7 @@ test.describe("Arrivée d'un nouveau membre Mbolo", () => {
     await page.goto("/login");
 
     await page.getByLabel("Adresse e-mail").fill(TWO_FACTOR_EMAIL);
-    await page.getByLabel("Mot de passe").fill(STRONG_PASSWORD);
+    await page.getByLabel("Mot de passe", { exact: true }).fill(STRONG_PASSWORD);
     await page.getByRole("button", { name: "Se connecter" }).click();
 
     await expect(page.getByLabel("Code temporaire")).toBeVisible();
