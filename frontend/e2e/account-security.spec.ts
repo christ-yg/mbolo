@@ -65,6 +65,13 @@ async function installSecurityApi(page: Page): Promise<void> {
       return;
     }
 
+    if (path.endsWith("/auth/security/revoke-sessions/") && method === "POST") {
+      expect(request.postDataJSON()).toEqual({ current_password: ACCOUNT_PASSWORD });
+      expect(request.headers()["x-csrftoken"]).toBe("e2e-account-security-csrf");
+      await json(route, { data: { revoked: true } });
+      return;
+    }
+
     if (path.endsWith("/auth/security/email-2fa/") && method === "PATCH") {
       expect(request.postDataJSON()).toEqual({
         current_password: ACCOUNT_PASSWORD,
@@ -73,6 +80,16 @@ async function installSecurityApi(page: Page): Promise<void> {
       expect(request.headers()["x-csrftoken"]).toBe("e2e-account-security-csrf");
       twoFactorEnabled = true;
       await json(route, { data: { emailTwoFactorEnabled: true } });
+      return;
+    }
+
+    if (path.endsWith("/auth/security/login-alert-emails/") && method === "PATCH") {
+      expect(request.postDataJSON()).toEqual({
+        current_password: ACCOUNT_PASSWORD,
+        enabled: false,
+      });
+      expect(request.headers()["x-csrftoken"]).toBe("e2e-account-security-csrf");
+      await json(route, { data: { loginAlertEmailsEnabled: false } });
       return;
     }
 
@@ -119,5 +136,31 @@ test.describe("Centre de sécurité du compte Mbolo", () => {
     await expect(
       form.getByRole("button", { name: "Désactiver la double authentification" }),
     ).toBeVisible();
+  });
+
+  test("le membre ferme toutes les autres sessions", async ({ page }) => {
+    const form = page.getByRole("heading", { name: "Fermer les autres sessions" }).locator("..");
+
+    await form.getByLabel("Mot de passe actuel").fill(ACCOUNT_PASSWORD);
+    await form.getByRole("button", { name: "Déconnecter les autres appareils" }).click();
+
+    await expect(page.getByText("Les autres appareils ont été déconnectés.")).toBeVisible();
+    await expect(form.getByLabel("Mot de passe actuel")).toHaveValue("");
+  });
+
+  test("les e-mails d'alerte peuvent être coupés sans désactiver les notifications internes", async ({ page }) => {
+    const form = page
+      .getByRole("heading", { name: "Nouvelles connexions par e-mail" })
+      .locator("..");
+
+    await form.getByLabel("Mot de passe actuel").fill(ACCOUNT_PASSWORD);
+    await form.getByRole("button", { name: "Désactiver les e-mails d’alerte" }).click();
+
+    await expect(
+      page.getByText(
+        "Les alertes par e-mail sont désactivées. Les notifications internes restent actives.",
+      ),
+    ).toBeVisible();
+    await expect(form.getByRole("button", { name: "Activer les e-mails d’alerte" })).toBeVisible();
   });
 });
