@@ -379,7 +379,6 @@ export function ProfileDetailPage() {
           </p>
 
           <button
-            ref={safetyMenuTriggerRef}
             type="button"
             onClick={() => navigate(-1)}
           >
@@ -410,6 +409,7 @@ export function ProfileDetailPage() {
           </span>
 
           <button
+            ref={safetyMenuTriggerRef}
             type="button"
             className="profile-detail-safety-menu__trigger"
             aria-label="Actions de sécurité"
