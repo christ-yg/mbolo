@@ -458,6 +458,10 @@
   cursor: pointer;
 }
 
+.blocked-users-dialog-layer > .blocked-users-dialog-backdrop {
+  z-index: 0;
+}
+
 .blocked-users-dialog {
   position: relative;
   z-index: 1;
@@ -469,6 +473,10 @@
   box-shadow: 0 34px 100px rgba(37, 15, 28, 0.3);
   padding: clamp(1.5rem, 4vw, 2.4rem);
   text-align: center;
+}
+
+.blocked-users-dialog-layer > .blocked-users-dialog {
+  z-index: 1;
 }
 
 .blocked-users-dialog__icon {
@@ -689,9 +697,4 @@
     gap: .8rem;
     align-items: start;
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .blocked-user-card { transition: none; }
-  .blocked-user-card:hover { transform: none; }
 }
