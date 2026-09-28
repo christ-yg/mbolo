@@ -41,6 +41,10 @@ type DetailStatus =
 
 
 function getSafetyActionErrorMessage(error: unknown): string {
+  if (error instanceof TypeError) {
+    return "Le service est temporairement indisponible. Vérifie ta connexion puis réessaie.";
+  }
+
   if (
     error instanceof Error &&
     error.message.trim().length > 0
