@@ -154,6 +154,107 @@ async function installAuthenticatedApi(page: Page): Promise<void> {
       return;
     }
 
+    if (path.endsWith("/subscriptions/overview/") && method === "GET") {
+      await json(route, {
+        data: {
+          subscription: {
+            plan: "free",
+            plan_name: "Mbolo Gratuit",
+            status: "none",
+            is_premium: false,
+            starts_at: null,
+            ends_at: null,
+            auto_renew: false,
+            entitlements: {
+              unlimited_likes: false,
+              see_likers: false,
+              advanced_filters: false,
+              rewind_pass: false,
+              read_receipts: false,
+              priority_profile: false,
+              incognito_mode: false,
+              priority_support: false,
+              profile_boost: false,
+              boosts_per_window: 0,
+              super_like: false,
+              super_likes_per_day: 0,
+            },
+          },
+          plans: [
+            {
+              code: "free",
+              name: "Mbolo Gratuit",
+              description: "L’essentiel pour créer de vraies connexions.",
+              features: ["Likes et matchs"],
+              price_label: "Gratuit",
+              amount_xaf: 0,
+              payment_available: false,
+            },
+            {
+              code: "plus",
+              name: "Mbolo Plus",
+              description: "Plus de contrôle sur tes rencontres.",
+              features: ["Voir les personnes qui t’ont liké"],
+              price_label: "Tarif en cours de validation",
+              amount_xaf: 0,
+              payment_available: false,
+            },
+            {
+              code: "prestige",
+              name: "Mbolo Prestige",
+              description: "L’expérience Mbolo la plus complète.",
+              features: ["Mode navigation discrète"],
+              price_label: "Tarif en cours de validation",
+              amount_xaf: 0,
+              payment_available: false,
+            },
+          ],
+          payment_methods: [
+            {
+              code: "airtel_money",
+              name: "Airtel Money",
+              description: "Paiement depuis un portefeuille Airtel Money Gabon.",
+              available: false,
+            },
+            {
+              code: "moov_money",
+              name: "Moov Money",
+              description: "Paiement depuis un portefeuille Moov Money Gabon.",
+              available: false,
+            },
+            {
+              code: "bank_card",
+              name: "Carte bancaire",
+              description: "Visa ou Mastercard via un prestataire sécurisé.",
+              available: false,
+            },
+          ],
+          currency: "XAF",
+          payment_notice: "Les paiements réels ne sont pas encore configurés.",
+          privacy: {
+            incognito_enabled: false,
+            incognito_available: false,
+            effective_incognito: false,
+          },
+          boost: {
+            entitled: false,
+            active: false,
+            active_until: null,
+            duration_minutes: 30,
+            allowance_per_7_days: 0,
+            remaining: 0,
+            next_available_at: null,
+          },
+        },
+      });
+      return;
+    }
+
+    if (path.endsWith("/subscriptions/payments/history/") && method === "GET") {
+      await json(route, { data: { transactions: [] } });
+      return;
+    }
+
     await json(route, { detail: `Endpoint E2E non simulé: ${method} ${path}` }, 501);
   });
 }
@@ -194,5 +295,18 @@ test.describe("Parcours privés essentiels Mbolo", () => {
     ).toBeVisible();
     await expect(page.getByText("1/6", { exact: true })).toBeVisible();
     await expect(page.getByText("Approuvée", { exact: true })).toBeVisible();
+  });
+
+  test("Premium n'ouvre pas un paiement non configuré", async ({ page }) => {
+    await page.goto("/premium");
+
+    await expect(
+      page.getByRole("heading", { name: "Une offre pour chaque étape" }),
+    ).toBeVisible();
+    await expect(page.getByText("Mbolo Plus", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Bientôt disponible" }).first(),
+    ).toBeDisabled();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 });
