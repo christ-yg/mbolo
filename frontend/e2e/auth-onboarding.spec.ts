@@ -10,6 +10,7 @@ const NEW_MEMBER = {
 const STRONG_PASSWORD = "Mbolo!Afrique2026";
 const TWO_FACTOR_EMAIL = "securite@mbolo.invalid";
 const TWO_FACTOR_CHALLENGE = "e2e-two-factor-challenge";
+const STANDARD_LOGIN_EMAIL = "connexion@mbolo.invalid";
 const EMAIL_VERIFICATION_TOKEN = "e2e-email-verification-token";
 const PASSWORD_RESET_UID = "e2e-password-reset-user";
 const PASSWORD_RESET_TOKEN = "e2e-password-reset-token";
@@ -90,11 +91,29 @@ async function installAnonymousApi(page: Page): Promise<void> {
     }
 
     if (path.endsWith("/auth/login/") && method === "POST") {
-      expect(request.postDataJSON()).toEqual({
+      const payload = request.postDataJSON() as Record<string, unknown>;
+      expect(request.headers()["x-csrftoken"]).toBe("e2e-onboarding-csrf-token");
+
+      if (payload.email === STANDARD_LOGIN_EMAIL) {
+        expect(payload).toEqual({
+          email: STANDARD_LOGIN_EMAIL,
+          password: STRONG_PASSWORD,
+        });
+        isAuthenticated = true;
+        await json(route, {
+          data: {
+            ...NEW_MEMBER,
+            email: STANDARD_LOGIN_EMAIL,
+            is_email_verified: true,
+          },
+        });
+        return;
+      }
+
+      expect(payload).toEqual({
         email: TWO_FACTOR_EMAIL,
         password: STRONG_PASSWORD,
       });
-      expect(request.headers()["x-csrftoken"]).toBe("e2e-onboarding-csrf-token");
       await json(route, {
         data: {
           requiresTwoFactor: true,
@@ -253,6 +272,44 @@ test.describe("Arrivée d'un nouveau membre Mbolo", () => {
         name: "Tu as vu tous les profils disponibles pour le moment.",
       }),
     ).toBeVisible();
+  });
+
+  test("la connexion classique restaure la route privée demandée", async ({ page }) => {
+    await page.goto("/discovery");
+
+    await expect(page).toHaveURL("/login");
+    await page.getByLabel("Adresse e-mail").fill(STANDARD_LOGIN_EMAIL);
+    await page.getByLabel("Mot de passe", { exact: true }).fill(STRONG_PASSWORD);
+    await page.getByRole("button", { name: "Se connecter" }).click();
+
+    await expect(page).toHaveURL("/discovery");
+    await expect(
+      page.getByRole("heading", {
+        name: "Tu as vu tous les profils disponibles pour le moment.",
+      }),
+    ).toBeVisible();
+  });
+
+  test("la connexion refuse une redirection vers un domaine externe", async ({ page }) => {
+    await page.goto("/login");
+    await page.evaluate(() => {
+      window.history.replaceState(
+        {
+          ...window.history.state,
+          usr: { from: "//exemple-malvaillant.invalid" },
+        },
+        "",
+        "/login",
+      );
+    });
+    await page.reload();
+
+    await page.getByLabel("Adresse e-mail").fill(STANDARD_LOGIN_EMAIL);
+    await page.getByLabel("Mot de passe", { exact: true }).fill(STRONG_PASSWORD);
+    await page.getByRole("button", { name: "Se connecter" }).click();
+
+    await expect(page).toHaveURL("/discovery");
+    await expect(page).not.toHaveURL(/exemple-malvaillant/);
   });
 
   test("un lien incomplet est refusé sans appel de confirmation", async ({ page }) => {
