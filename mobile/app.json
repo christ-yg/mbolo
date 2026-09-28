@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "MBOLO",
+    "slug": "mbolo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "mbolo",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "africa.mbolo.app"
+    },
+    "android": {
+      "package": "africa.mbolo.app",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {},
+    "plugins": ["expo-router"]
+  }
+}
