@@ -220,7 +220,7 @@ async function installAuthenticatedApi(page: Page): Promise<void> {
       return;
     }
 
-    if (path.endsWith("/subscriptions/overview/") && method === "GET") {
+    if (path.endsWith("/premium/overview/") && method === "GET") {
       await json(route, {
         data: {
           subscription: {
@@ -316,8 +316,29 @@ async function installAuthenticatedApi(page: Page): Promise<void> {
       return;
     }
 
-    if (path.endsWith("/subscriptions/payments/history/") && method === "GET") {
+    if (path.endsWith("/premium/payments/history/") && method === "GET") {
       await json(route, { data: { transactions: [] } });
+      return;
+    }
+
+    if (
+      path.endsWith(`/matches/${CONVERSATION.match_id}/`)
+      && method === "DELETE"
+    ) {
+      await json(route, {
+        match_id: CONVERSATION.match_id,
+        deactivated: true,
+      });
+      return;
+    }
+
+    if (path.endsWith("/matches/") && method === "GET") {
+      await json(route, {
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      });
       return;
     }
 
@@ -365,6 +386,17 @@ test.describe("Parcours privés essentiels Mbolo", () => {
     await expect(
       page.getByRole("textbox", { name: "Écrire à Arielle Test" }),
     ).toHaveValue("");
+
+    await page.getByRole("button", { name: "Options de la conversation" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Supprimer le match avec Arielle Test ?" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Supprimer le match" }).click();
+
+    await expect(page).toHaveURL("/matches");
+    await expect(
+      page.getByRole("textbox", { name: "Écrire à Arielle Test" }),
+    ).toHaveCount(0);
   });
 
   test("Messages affiche une conversation privée et son état non lu", async ({ page }) => {
