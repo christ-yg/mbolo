@@ -61,6 +61,16 @@ const PHOTO = {
   updated_at: "2026-08-08T16:30:00Z",
 };
 
+const FIRST_SENT_MESSAGE = {
+  id: "88888888-8888-4888-8888-888888888888",
+  body: "Bonsoir Arielle, ravi de faire ta connaissance !",
+  created_at: "2026-09-28T14:10:00Z",
+  read_at: null,
+  is_read: false,
+  read_receipts_available: false,
+  is_mine: true,
+};
+
 async function json(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({
     status,
@@ -153,6 +163,21 @@ async function installAuthenticatedApi(page: Page): Promise<void> {
 
     if (
       path.endsWith(`/conversations/${CONVERSATION.id}/messages/`)
+      && method === "POST"
+    ) {
+      const payload = request.postDataJSON() as { body?: string };
+
+      if (payload.body !== FIRST_SENT_MESSAGE.body) {
+        await json(route, { detail: "Corps du premier message invalide" }, 400);
+        return;
+      }
+
+      await json(route, FIRST_SENT_MESSAGE, 201);
+      return;
+    }
+
+    if (
+      path.endsWith(`/conversations/${CONVERSATION.id}/messages/`)
       && method === "GET"
     ) {
       await json(route, {
@@ -168,7 +193,22 @@ async function installAuthenticatedApi(page: Page): Promise<void> {
       path.endsWith(`/conversations/${CONVERSATION.id}/typing/`)
       && method === "GET"
     ) {
-      await json(route, { is_typing: false, expires_at: null });
+      await json(route, {
+        conversation_id: CONVERSATION.id,
+        other_is_typing: false,
+      });
+      return;
+    }
+
+    if (
+      path.endsWith(`/conversations/${CONVERSATION.id}/typing/`)
+      && method === "POST"
+    ) {
+      await json(route, {
+        conversation_id: CONVERSATION.id,
+        is_typing: Boolean(request.postDataJSON()?.is_typing),
+        expires_in_seconds: 5,
+      });
       return;
     }
 
@@ -313,6 +353,18 @@ test.describe("Parcours privés essentiels Mbolo", () => {
     await expect(
       page.getByText("Cette conversation est privée.", { exact: false }),
     ).toBeVisible();
+
+    await page
+      .getByRole("textbox", { name: "Écrire à Arielle Test" })
+      .fill(FIRST_SENT_MESSAGE.body);
+    await page.getByRole("button", { name: "Envoyer le message" }).click();
+
+    await expect(
+      page.getByText(FIRST_SENT_MESSAGE.body, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Écrire à Arielle Test" }),
+    ).toHaveValue("");
   });
 
   test("Messages affiche une conversation privée et son état non lu", async ({ page }) => {
