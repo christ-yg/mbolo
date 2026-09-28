@@ -8,6 +8,8 @@ const NEW_MEMBER = {
 };
 
 const STRONG_PASSWORD = "Mbolo!Afrique2026";
+const TWO_FACTOR_EMAIL = "securite@mbolo.invalid";
+const TWO_FACTOR_CHALLENGE = "e2e-two-factor-challenge";
 
 async function json(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({
@@ -65,6 +67,22 @@ async function installAnonymousApi(page: Page): Promise<void> {
       return;
     }
 
+    if (path.endsWith("/auth/login/") && method === "POST") {
+      expect(request.postDataJSON()).toEqual({
+        email: TWO_FACTOR_EMAIL,
+        password: STRONG_PASSWORD,
+      });
+      expect(request.headers()["x-csrftoken"]).toBe("e2e-onboarding-csrf-token");
+      await json(route, {
+        data: {
+          requiresTwoFactor: true,
+          challengeToken: TWO_FACTOR_CHALLENGE,
+          maskedEmail: "s*******@mbolo.invalid",
+        },
+      });
+      return;
+    }
+
     await json(route, { detail: `Endpoint E2E non simulé: ${method} ${path}` }, 501);
   });
 }
@@ -114,5 +132,20 @@ test.describe("Arrivée d'un nouveau membre Mbolo", () => {
       ),
     ).toBeVisible();
     await expect(page.getByText("Demande traitée.")).toHaveCount(0);
+  });
+
+  test("la connexion 2FA exige exactement six chiffres", async ({ page }) => {
+    await page.goto("/login");
+
+    await page.getByLabel("Adresse e-mail").fill(TWO_FACTOR_EMAIL);
+    await page.getByLabel("Mot de passe").fill(STRONG_PASSWORD);
+    await page.getByRole("button", { name: "Se connecter" }).click();
+
+    await expect(page.getByLabel("Code temporaire")).toBeVisible();
+    await expect(page.getByText("s*******@mbolo.invalid", { exact: false })).toBeVisible();
+    await page.getByLabel("Code temporaire").fill("12345");
+    await page.getByRole("button", { name: "Confirmer la connexion" }).click();
+
+    await expect(page.getByText("Saisis le code à six chiffres reçu par e-mail.")).toBeVisible();
   });
 });
