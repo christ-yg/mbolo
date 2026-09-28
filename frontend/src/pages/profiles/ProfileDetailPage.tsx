@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -38,6 +39,22 @@ type DetailStatus =
   | "loading"
   | "success"
   | "error";
+
+
+function getSafetyActionErrorMessage(error: unknown): string {
+  if (error instanceof TypeError) {
+    return "Le service est temporairement indisponible. Vérifie ta connexion puis réessaie.";
+  }
+
+  if (
+    error instanceof Error &&
+    error.message.trim().length > 0
+  ) {
+    return error.message;
+  }
+
+  return normalizeApiError(error).message;
+}
 
 
 export function ProfileDetailPage() {
@@ -79,6 +96,50 @@ export function ProfileDetailPage() {
 
   const [selectedPhotoId, setSelectedPhotoId] =
     useState<string | null>(null);
+
+  const safetyMenuTriggerRef =
+    useRef<HTMLButtonElement | null>(null);
+  const blockCancelButtonRef =
+    useRef<HTMLButtonElement | null>(null);
+  const reportReasonSelectRef =
+    useRef<HTMLSelectElement | null>(null);
+
+  useEffect(() => {
+    if (isBlockDialogOpen) {
+      blockCancelButtonRef.current?.focus();
+    }
+  }, [isBlockDialogOpen]);
+
+
+  useEffect(() => {
+    if (isReportDialogOpen) {
+      reportReasonSelectRef.current?.focus();
+    }
+  }, [isReportDialogOpen]);
+
+
+  function closeBlockDialog(): void {
+    if (isSafetyActionPending) {
+      return;
+    }
+
+    setIsBlockDialogOpen(false);
+    window.setTimeout(() => {
+      safetyMenuTriggerRef.current?.focus();
+    }, 0);
+  }
+
+
+  function closeReportDialog(): void {
+    if (isSafetyActionPending) {
+      return;
+    }
+
+    setIsReportDialogOpen(false);
+    window.setTimeout(() => {
+      safetyMenuTriggerRef.current?.focus();
+    }, 0);
+  }
 
 
   useEffect(() => {
@@ -251,8 +312,7 @@ export function ProfileDetailPage() {
         },
       );
     } catch (error: unknown) {
-      const normalized = normalizeApiError(error);
-      setErrorMessage(normalized.message);
+      setErrorMessage(getSafetyActionErrorMessage(error));
     } finally {
       setIsSafetyActionPending(false);
     }
@@ -284,8 +344,7 @@ export function ProfileDetailPage() {
       setIsSafetyMenuOpen(false);
       setReportDescription("");
     } catch (error: unknown) {
-      const normalized = normalizeApiError(error);
-      setErrorMessage(normalized.message);
+      setErrorMessage(getSafetyActionErrorMessage(error));
     } finally {
       setIsSafetyActionPending(false);
     }
@@ -350,6 +409,7 @@ export function ProfileDetailPage() {
           </span>
 
           <button
+            ref={safetyMenuTriggerRef}
             type="button"
             className="profile-detail-safety-menu__trigger"
             aria-label="Actions de sécurité"
@@ -609,7 +669,7 @@ export function ProfileDetailPage() {
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
-              setIsBlockDialogOpen(false);
+              closeBlockDialog();
             }
           }}
         >
@@ -618,6 +678,14 @@ export function ProfileDetailPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="block-profile-title"
+            aria-describedby="block-profile-description"
+            onKeyUp={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                closeBlockDialog();
+              }
+            }}
           >
             <p className="profile-detail-eyebrow">
               Action de sécurité
@@ -627,7 +695,7 @@ export function ProfileDetailPage() {
               Bloquer {profile.display_name} ?
             </h2>
 
-            <p>
+            <p id="block-profile-description">
               Vous ne pourrez plus vous voir, vous liker ni
               continuer une conversation. Un match actif sera
               désactivé.
@@ -635,11 +703,10 @@ export function ProfileDetailPage() {
 
             <div className="profile-safety-dialog__actions">
               <button
+                ref={blockCancelButtonRef}
                 type="button"
                 disabled={isSafetyActionPending}
-                onClick={() => {
-                  setIsBlockDialogOpen(false);
-                }}
+                onClick={closeBlockDialog}
               >
                 Annuler
               </button>
@@ -668,7 +735,7 @@ export function ProfileDetailPage() {
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
-              setIsReportDialogOpen(false);
+              closeReportDialog();
             }
           }}
         >
@@ -677,6 +744,14 @@ export function ProfileDetailPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="report-profile-title"
+            aria-describedby="report-profile-description"
+            onKeyUp={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                closeReportDialog();
+              }
+            }}
           >
             <p className="profile-detail-eyebrow">
               Signalement confidentiel
@@ -686,10 +761,15 @@ export function ProfileDetailPage() {
               Signaler ce profil
             </h2>
 
+            <p id="report-profile-description">
+              Décris uniquement les faits utiles. Ton brouillon reste conservé si tu fermes cette fenêtre.
+            </p>
+
             <label>
               Motif
 
               <select
+                ref={reportReasonSelectRef}
                 value={reportReason}
                 onChange={(event) => {
                   setReportReason(
@@ -754,9 +834,7 @@ export function ProfileDetailPage() {
               <button
                 type="button"
                 disabled={isSafetyActionPending}
-                onClick={() => {
-                  setIsReportDialogOpen(false);
-                }}
+                onClick={closeReportDialog}
               >
                 Annuler
               </button>

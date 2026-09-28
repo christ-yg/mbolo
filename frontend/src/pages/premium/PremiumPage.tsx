@@ -105,6 +105,14 @@ export function PremiumPage() {
     [overview, selectedPlan],
   );
 
+  const selectedPaymentMethod = useMemo(
+    () =>
+      overview?.payment_methods.find(
+        (method) => method.code === selectedMethod,
+      ) ?? null,
+    [overview, selectedMethod],
+  );
+
   async function handleActivateBoost(): Promise<void> {
     if (!overview || isActivatingBoost) return;
     setIsActivatingBoost(true);
@@ -269,6 +277,9 @@ export function PremiumPage() {
                       "premium-redesign-plan-card",
                       `premium-redesign-plan-card--${plan.code}`,
                       isCurrent ? "premium-redesign-plan-card--current" : "",
+                      plan.code !== "free" && !plan.payment_available
+                        ? "premium-redesign-plan-card--unavailable"
+                        : "",
                     ].join(" ")}
                   >
                     <div className="premium-redesign-plan-card__top">
@@ -306,7 +317,11 @@ export function PremiumPage() {
 
                     <button
                       type="button"
-                      disabled={isCurrent || plan.code === "free"}
+                      disabled={
+                        isCurrent
+                        || plan.code === "free"
+                        || !plan.payment_available
+                      }
                       onClick={() => {
                         if (plan.code === "plus" || plan.code === "prestige") {
                           setSelectedPlan(plan.code);
@@ -319,6 +334,8 @@ export function PremiumPage() {
                         ? "Offre actuelle"
                         : plan.code === "free"
                           ? "Offre gratuite"
+                          : !plan.payment_available
+                            ? "Bientôt disponible"
                           : "Choisir cette offre"}
                     </button>
                   </article>
@@ -478,24 +495,31 @@ export function PremiumPage() {
                         name="premium-payment-method"
                         value={method.code}
                         checked={selectedMethod === method.code}
+                        disabled={!method.available}
                         onChange={() => setSelectedMethod(method.code)}
                       />
                       <span>
                         <strong>{method.name}</strong>
                         <small>{method.description}</small>
+                        {!method.available ? (
+                          <small>Indisponible pour le moment</small>
+                        ) : null}
                       </span>
                     </label>
                   ))}
                 </fieldset>
 
                 <div className="premium-checkout-dialog__notice">
-                  Aucun débit réel. Aucun PIN, OTP, PAN ou CVV ne sera demandé.
+                  {overview.payment_notice} Aucun PIN, OTP, PAN ou CVV ne sera
+                  demandé par Mbolo.
                 </div>
 
                 <button
                   type="button"
                   className="premium-checkout-dialog__primary"
-                  disabled={isPaymentBusy}
+                  disabled={
+                    isPaymentBusy || !selectedPaymentMethod?.available
+                  }
                   onClick={() => void handleCreateCheckout()}
                 >
                   {isPaymentBusy

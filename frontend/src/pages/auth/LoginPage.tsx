@@ -65,6 +65,24 @@ const INITIAL_FORM_VALUES: LoginFormValues = {
 const BASIC_EMAIL_PATTERN =
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * N'accepte qu'un chemin absolu interne à Mbolo.
+ *
+ * Une valeur commençant par `//` est une URL relative au protocole et peut
+ * pointer vers un autre domaine. Elle ne doit donc jamais être utilisée
+ * comme destination après authentification.
+ */
+function getSafeLoginDestination(from: unknown): string {
+  return (
+    typeof from === "string" &&
+    from.startsWith("/") &&
+    !from.startsWith("//") &&
+    !from.includes("\\")
+  )
+    ? from
+    : "/discovery";
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -184,11 +202,9 @@ export function LoginPage() {
        *
        * Sinon, destination par défaut : /discovery.
        */
-      const destination =
-        typeof locationState?.from === "string" &&
-        locationState.from.startsWith("/")
-          ? locationState.from
-          : "/discovery";
+      const destination = getSafeLoginDestination(
+        locationState?.from,
+      );
 
       navigate(destination, {
         replace: true,
@@ -220,11 +236,9 @@ export function LoginPage() {
         challenge_token: challengeToken,
         code: twoFactorCode,
       });
-      const destination =
-        typeof locationState?.from === "string" &&
-        locationState.from.startsWith("/")
-          ? locationState.from
-          : "/discovery";
+      const destination = getSafeLoginDestination(
+        locationState?.from,
+      );
       navigate(destination, { replace: true });
     } catch (error: unknown) {
       setFormErrors({ general: normalizeApiError(error).message });
