@@ -147,4 +147,47 @@ test.describe("Actions de sécurité depuis un profil Mbolo", () => {
     );
     await expect(page).toHaveURL(new RegExp(`/profiles/${PROFILE_ID}$`));
   });
+
+  test("une coupure réseau affiche un message sûr et conserve le signalement", async ({ page }) => {
+    await page.route(`**/api/v1/safety/profiles/${PROFILE_ID}/report/`, async (route) => {
+      await route.abort("failed");
+    });
+
+    await page.goto(`/profiles/${PROFILE_ID}`);
+    await openSafetyAction(page, "Signaler ce profil");
+    await page.getByLabel("Informations complémentaires").fill(
+      "Comportement observé avant la coupure.",
+    );
+    await page.getByRole("button", { name: "Envoyer le signalement" }).click();
+
+    await expect(page.getByRole("alert")).toContainText(
+      "Le service est temporairement indisponible. Vérifie ta connexion puis réessaie.",
+    );
+    await expect(page.getByLabel("Informations complémentaires")).toHaveValue(
+      "Comportement observé avant la coupure.",
+    );
+    await expect(page.getByText("Failed to fetch")).toHaveCount(0);
+  });
+
+  test("le bouton est verrouillé pendant l'envoi pour éviter les doublons", async ({ page }) => {
+    let requestCount = 0;
+
+    await page.route(`**/api/v1/safety/profiles/${PROFILE_ID}/report/`, async (route) => {
+      requestCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      await json(route, {
+        created: true,
+        message: "Signalement unique transmis.",
+      }, 201);
+    });
+
+    await page.goto(`/profiles/${PROFILE_ID}`);
+    await openSafetyAction(page, "Signaler ce profil");
+    const submitButton = page.getByRole("button", { name: "Envoyer le signalement" });
+    await submitButton.click();
+
+    await expect(page.getByRole("button", { name: "Envoi…" })).toBeDisabled();
+    await expect(page.getByText("Signalement unique transmis.")).toBeVisible();
+    await expect.poll(() => requestCount).toBe(1);
+  });
 });
