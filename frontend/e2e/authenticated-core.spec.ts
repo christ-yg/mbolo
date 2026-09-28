@@ -136,6 +136,11 @@ async function installAuthenticatedApi(page: Page): Promise<void> {
       return;
     }
 
+    if (path.endsWith("/conversations/") && method === "POST") {
+      await json(route, CONVERSATION, 201);
+      return;
+    }
+
     if (path.endsWith("/conversations/") && method === "GET") {
       await json(route, {
         count: 1,
@@ -143,6 +148,27 @@ async function installAuthenticatedApi(page: Page): Promise<void> {
         previous: null,
         results: [CONVERSATION],
       });
+      return;
+    }
+
+    if (
+      path.endsWith(`/conversations/${CONVERSATION.id}/messages/`)
+      && method === "GET"
+    ) {
+      await json(route, {
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      });
+      return;
+    }
+
+    if (
+      path.endsWith(`/conversations/${CONVERSATION.id}/typing/`)
+      && method === "GET"
+    ) {
+      await json(route, { is_typing: false, expires_at: null });
       return;
     }
 
@@ -264,7 +290,7 @@ test.describe("Parcours privés essentiels Mbolo", () => {
     await installAuthenticatedApi(page);
   });
 
-  test("Découvrir affiche un profil et célèbre un match réciproque", async ({ page }) => {
+  test("Découvrir mène du like réciproque à la conversation privée", async ({ page }) => {
     await page.goto("/discovery");
 
     await expect(page.getByRole("heading", { name: /Arielle Test/ })).toBeVisible();
@@ -275,7 +301,18 @@ test.describe("Parcours privés essentiels Mbolo", () => {
     await expect(
       page.getByRole("heading", { name: "C’est un match avec Arielle Test !" }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: /Envoyer un message/ })).toBeVisible();
+    await page.getByRole("button", { name: /Envoyer un message/ }).click();
+
+    await expect(page).toHaveURL(`/messages/${CONVERSATION.id}`);
+    await expect(
+      page.getByRole("heading", { name: "Arielle Test", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Commence la conversation" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Cette conversation est privée.", { exact: false }),
+    ).toBeVisible();
   });
 
   test("Messages affiche une conversation privée et son état non lu", async ({ page }) => {
