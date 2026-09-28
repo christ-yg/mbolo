@@ -54,6 +54,17 @@ async function installAnonymousApi(page: Page): Promise<void> {
       return;
     }
 
+    if (path.endsWith("/auth/password-reset/request/") && method === "POST") {
+      expect(request.postDataJSON()).toEqual({ email: NEW_MEMBER.email });
+      expect(request.headers()["x-csrftoken"]).toBe("e2e-onboarding-csrf-token");
+      await json(route, {
+        data: {
+          message: "Demande traitée.",
+        },
+      });
+      return;
+    }
+
     await json(route, { detail: `Endpoint E2E non simulé: ${method} ${path}` }, 501);
   });
 }
@@ -89,5 +100,19 @@ test.describe("Arrivée d'un nouveau membre Mbolo", () => {
       page.getByText("Ton compte a été créé. Vérifie ton adresse e-mail avant de te connecter."),
     ).toBeVisible();
     await expect(page.getByLabel("Adresse e-mail")).toHaveValue(NEW_MEMBER.email);
+  });
+
+  test("la récupération du mot de passe protège l'existence des comptes", async ({ page }) => {
+    await page.goto("/forgot-password");
+
+    await page.getByLabel("Adresse e-mail").fill("  Nouveau.Membre@MBOLO.invalid  ");
+    await page.getByRole("button", { name: "Envoyer le lien" }).click();
+
+    await expect(
+      page.getByText(
+        "Si un compte éligible correspond à cette adresse, un lien vient d’être envoyé.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByText("Demande traitée.")).toHaveCount(0);
   });
 });
