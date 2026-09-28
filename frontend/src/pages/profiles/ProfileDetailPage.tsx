@@ -103,6 +103,8 @@ export function ProfileDetailPage() {
     useRef<HTMLButtonElement | null>(null);
   const reportReasonSelectRef =
     useRef<HTMLSelectElement | null>(null);
+  const shouldRestoreSafetyMenuFocusRef =
+    useRef(false);
 
 
   useEffect(() => {
@@ -119,11 +121,16 @@ export function ProfileDetailPage() {
   }, [isReportDialogOpen]);
 
 
-  function restoreSafetyMenuFocus(): void {
-    window.requestAnimationFrame(() => {
+  useEffect(() => {
+    if (
+      !isBlockDialogOpen &&
+      !isReportDialogOpen &&
+      shouldRestoreSafetyMenuFocusRef.current
+    ) {
+      shouldRestoreSafetyMenuFocusRef.current = false;
       safetyMenuTriggerRef.current?.focus();
-    });
-  }
+    }
+  }, [isBlockDialogOpen, isReportDialogOpen]);
 
 
   function closeBlockDialog(): void {
@@ -131,8 +138,8 @@ export function ProfileDetailPage() {
       return;
     }
 
+    shouldRestoreSafetyMenuFocusRef.current = true;
     setIsBlockDialogOpen(false);
-    restoreSafetyMenuFocus();
   }
 
 
@@ -141,8 +148,8 @@ export function ProfileDetailPage() {
       return;
     }
 
+    shouldRestoreSafetyMenuFocusRef.current = true;
     setIsReportDialogOpen(false);
-    restoreSafetyMenuFocus();
   }
 
 
