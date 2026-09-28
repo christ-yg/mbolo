@@ -11,6 +11,8 @@ const STRONG_PASSWORD = "Mbolo!Afrique2026";
 const TWO_FACTOR_EMAIL = "securite@mbolo.invalid";
 const TWO_FACTOR_CHALLENGE = "e2e-two-factor-challenge";
 const EMAIL_VERIFICATION_TOKEN = "e2e-email-verification-token";
+const PASSWORD_RESET_UID = "e2e-password-reset-user";
+const PASSWORD_RESET_TOKEN = "e2e-password-reset-token";
 
 async function json(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({
@@ -72,6 +74,18 @@ async function installAnonymousApi(page: Page): Promise<void> {
           message: "Demande traitée.",
         },
       });
+      return;
+    }
+
+    if (path.endsWith("/auth/password-reset/confirm/") && method === "POST") {
+      expect(request.postDataJSON()).toEqual({
+        uid: PASSWORD_RESET_UID,
+        token: PASSWORD_RESET_TOKEN,
+        password: STRONG_PASSWORD,
+        password_confirmation: STRONG_PASSWORD,
+      });
+      expect(request.headers()["x-csrftoken"]).toBe("e2e-onboarding-csrf-token");
+      await json(route, { data: { message: "Mot de passe modifié." } });
       return;
     }
 
@@ -191,6 +205,29 @@ test.describe("Arrivée d'un nouveau membre Mbolo", () => {
       ),
     ).toBeVisible();
     await expect(page.getByText("Demande traitée.")).toHaveCount(0);
+  });
+
+  test("un lien de réinitialisation incomplet est refusé", async ({ page }) => {
+    await page.goto("/reset-password");
+    await page.getByLabel("Nouveau mot de passe").fill(STRONG_PASSWORD);
+    await page.getByLabel("Confirmation").fill(STRONG_PASSWORD);
+    await page.getByRole("button", { name: "Modifier mon mot de passe" }).click();
+
+    await expect(page.getByText("Ce lien de réinitialisation est incomplet.")).toBeVisible();
+  });
+
+  test("un lien valide remplace le mot de passe et revient à la connexion", async ({ page }) => {
+    await page.goto(
+      `/reset-password?uid=${PASSWORD_RESET_UID}&token=${PASSWORD_RESET_TOKEN}`,
+    );
+    await page.getByLabel("Nouveau mot de passe").fill(STRONG_PASSWORD);
+    await page.getByLabel("Confirmation").fill(STRONG_PASSWORD);
+    await page.getByRole("button", { name: "Modifier mon mot de passe" }).click();
+
+    await expect(page).toHaveURL("/login");
+    await expect(
+      page.getByText("Ton mot de passe a été modifié. Connecte-toi avec le nouveau."),
+    ).toBeVisible();
   });
 
   test("la connexion 2FA exige exactement six chiffres", async ({ page }) => {
