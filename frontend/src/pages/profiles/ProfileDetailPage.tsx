@@ -690,7 +690,7 @@ export function ProfileDetailPage() {
             aria-modal="true"
             aria-labelledby="block-profile-title"
             aria-describedby="block-profile-description"
-            onKeyDown={(event) => {
+            onKeyUp={(event) => {
               if (event.key === "Escape") {
                 event.preventDefault();
                 event.stopPropagation();
@@ -756,7 +756,7 @@ export function ProfileDetailPage() {
             aria-modal="true"
             aria-labelledby="report-profile-title"
             aria-describedby="report-profile-description"
-            onKeyDown={(event) => {
+            onKeyUp={(event) => {
               if (event.key === "Escape") {
                 event.preventDefault();
                 event.stopPropagation();
