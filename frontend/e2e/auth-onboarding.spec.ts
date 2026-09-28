@@ -20,6 +20,8 @@ async function json(route: Route, body: unknown, status = 200): Promise<void> {
 }
 
 async function installAnonymousApi(page: Page): Promise<void> {
+  let isAuthenticated = false;
+
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -31,6 +33,11 @@ async function installAnonymousApi(page: Page): Promise<void> {
     }
 
     if (path.endsWith("/auth/me/") && method === "GET") {
+      if (isAuthenticated) {
+        await json(route, { data: NEW_MEMBER });
+        return;
+      }
+
       await json(route, { detail: "Non authentifié." }, 401);
       return;
     }
@@ -79,6 +86,45 @@ async function installAnonymousApi(page: Page): Promise<void> {
           challengeToken: TWO_FACTOR_CHALLENGE,
           maskedEmail: "s*******@mbolo.invalid",
         },
+      });
+      return;
+    }
+
+    if (path.endsWith("/auth/login/2fa/confirm/") && method === "POST") {
+      expect(request.postDataJSON()).toEqual({
+        challenge_token: TWO_FACTOR_CHALLENGE,
+        code: "123456",
+      });
+      expect(request.headers()["x-csrftoken"]).toBe("e2e-onboarding-csrf-token");
+      isAuthenticated = true;
+      await json(route, { data: NEW_MEMBER });
+      return;
+    }
+
+    if (path.endsWith("/profiles/discovery/") && method === "GET") {
+      await json(route, {
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      });
+      return;
+    }
+
+    if (path.endsWith("/interactions/rewind/") && method === "GET") {
+      await json(route, {
+        entitled: false,
+        available: false,
+        reason: "premium_required",
+      });
+      return;
+    }
+
+    if (path.endsWith("/super-like/") && method === "GET") {
+      await json(route, {
+        entitled: false,
+        daily_limit: 0,
+        remaining_today: 0,
       });
       return;
     }
@@ -147,5 +193,15 @@ test.describe("Arrivée d'un nouveau membre Mbolo", () => {
     await page.getByRole("button", { name: "Confirmer la connexion" }).click();
 
     await expect(page.getByText("Saisis le code à six chiffres reçu par e-mail.")).toBeVisible();
+
+    await page.getByLabel("Code temporaire").fill("123456");
+    await page.getByRole("button", { name: "Confirmer la connexion" }).click();
+
+    await expect(page).toHaveURL("/discovery");
+    await expect(
+      page.getByRole("heading", {
+        name: "Tu as vu tous les profils disponibles pour le moment.",
+      }),
+    ).toBeVisible();
   });
 });
