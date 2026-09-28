@@ -692,6 +692,8 @@ export function ProfileDetailPage() {
             aria-describedby="block-profile-description"
             onKeyDown={(event) => {
               if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
                 closeBlockDialog();
               }
             }}
@@ -756,6 +758,8 @@ export function ProfileDetailPage() {
             aria-describedby="report-profile-description"
             onKeyDown={(event) => {
               if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
                 closeReportDialog();
               }
             }}
