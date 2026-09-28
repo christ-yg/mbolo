@@ -190,4 +190,37 @@ test.describe("Actions de sécurité depuis un profil Mbolo", () => {
     await expect(page.getByText("Signalement unique transmis.")).toBeVisible();
     await expect.poll(() => requestCount).toBe(1);
   });
+
+  test("le clavier ouvre et ferme le signalement en conservant le brouillon", async ({ page }) => {
+    await page.goto(`/profiles/${PROFILE_ID}`);
+    const safetyButton = page.getByRole("button", { name: "Actions de sécurité" });
+
+    await safetyButton.focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Signaler ce profil" }).click();
+    await expect(page.getByLabel("Motif")).toBeFocused();
+    await page.getByLabel("Informations complémentaires").fill("Brouillon confidentiel.");
+    await page.keyboard.press("Escape");
+
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(safetyButton).toBeFocused();
+    await safetyButton.click();
+    await page.getByRole("button", { name: "Signaler ce profil" }).click();
+    await expect(page.getByLabel("Informations complémentaires")).toHaveValue(
+      "Brouillon confidentiel.",
+    );
+  });
+
+  test("la confirmation de blocage reçoit le focus et se ferme avec Échap", async ({ page }) => {
+    await page.goto(`/profiles/${PROFILE_ID}`);
+    const safetyButton = page.getByRole("button", { name: "Actions de sécurité" });
+
+    await safetyButton.click();
+    await page.getByRole("button", { name: "Bloquer ce profil" }).click();
+    await expect(page.getByRole("button", { name: "Annuler" })).toBeFocused();
+    await page.keyboard.press("Escape");
+
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(safetyButton).toBeFocused();
+  });
 });
