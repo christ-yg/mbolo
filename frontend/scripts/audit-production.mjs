@@ -24,14 +24,6 @@ const ALLOWED_DEPENDENT_PACKAGE = "react-router-dom";
 const WAIVER_EXPIRES_AT = new Date("2026-08-31T23:59:59Z");
 const BLOCKING_SEVERITIES = new Set(["high", "critical"]);
 
-if (new Date() > WAIVER_EXPIRES_AT) {
-  console.error(
-    "La dérogation temporaire React Router a expiré. " +
-      "Mettre à niveau vers une version corrigée avant de relancer la CI.",
-  );
-  process.exit(1);
-}
-
 const audit = spawnSync(
   "npm",
   ["audit", "--omit=dev", "--audit-level=high", "--json"],
@@ -100,6 +92,14 @@ if (blockingVulnerabilities.length > 0) {
 }
 
 const exactRootWaiver = vulnerabilities.some(rootWaiverIsExact);
+
+if (exactRootWaiver && new Date() > WAIVER_EXPIRES_AT) {
+  console.error(
+    "La dérogation temporaire React Router a expiré et la vulnérabilité " +
+      "est toujours présente. Mettre à niveau vers une version corrigée.",
+  );
+  process.exit(1);
+}
 
 if (!exactRootWaiver && audit.status !== 0) {
   console.error(
