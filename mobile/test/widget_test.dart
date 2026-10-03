@@ -85,6 +85,8 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.drag(find.byType(ListView).first, const Offset(0, -120));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Se déconnecter'));
     await tester.pumpAndSettle();
     expect(find.text('Se connecter'), findsOneWidget);
