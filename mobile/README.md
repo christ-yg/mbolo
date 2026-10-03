@@ -1,4 +1,4 @@
-# MBOLO Mobile — lot 1–100 en cours
+# MBOLO Mobile — fondation et expérience de découverte
 
 Application Flutter native Android d'abord. Source backend vérifiée : `main`
 `6e9573a8954fdda4b48a518d4428cb5c98190755`. Branche indépendante de la stabilisation web.
@@ -54,9 +54,9 @@ Les numéros sont des unités de travail planifiées, pas des fonctionnalités d
 | 021–030 | Connexion, 2FA, session et déconnexion | Code écrit, validation à exécuter |
 | 031–040 | Inscription, majorité, CGU et vérification e-mail | À réaliser |
 | 041–050 | Récupération du mot de passe et sécurité session | À réaliser |
-| 051–060 | Onboarding et lecture/édition du profil | À réaliser |
+| 051–060 | Onboarding et lecture/édition du profil | Aperçu de profil commencé |
 | 061–070 | Photos, validation et permissions minimales | À réaliser |
-| 071–080 | Navigation et gestion des états réseau | À réaliser |
+| 071–080 | Navigation et gestion des états réseau | Navigation d’aperçu écrite |
 | 081–090 | Persistance sécurisée, accessibilité et tests téléphone | À réaliser |
 | 091–100 | Projet Android, compilation, CI et bilan du lot | À réaliser |
 
@@ -82,7 +82,9 @@ Le navigateur ouvre l'aperçu à http://127.0.0.1:7357.
 Identifiants fictifs : `demo@mbolo.test` / `MboloDemo!`, puis code `123456`.
 Bannière DÉMO visible. Aucun appel au backend : aucun vrai compte ni e-mail envoyé.
 C'est le même composant d'interface que l'application native, avec un service fictif.
-Ce premier aperçu montre connexion, 2FA, compte et déconnexion, pas encore le swipe.
+L’aperçu montre connexion, 2FA, navigation, profils suggérés, likes locaux,
+centre de sécurité, profil et déconnexion. Les profils sont fictifs et aucune
+action de démonstration n’est envoyée au serveur.
 Ne pas saisir ses véritables identifiants dans cet aperçu.
 
 Pour récupérer nos prochaines évolutions : arrêter Flutter avec `q`, puis :
