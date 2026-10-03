@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'auth_contract.dart';
+import 'home.dart';
 
 class MboloApp extends StatelessWidget {
   const MboloApp({super.key, this.api, this.demo = false});
@@ -139,6 +140,9 @@ class _SessionScreenState extends State<SessionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_account != null) {
+      return MboloHome(account: _account!, onLogout: _logout);
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('MBOLO')),
       body: SafeArea(
@@ -159,112 +163,92 @@ class _SessionScreenState extends State<SessionScreen> {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      _account != null
-                          ? 'Bienvenue sur MBOLO'
-                          : 'Une rencontre commence ici.',
+                      'Une rencontre commence ici.',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: 12),
-                    if (_account != null) ...[
-                      Text(_account!.email),
+                    if (_challenge != null) ...[
                       Text(
-                        _account!.verified
-                            ? 'Adresse e-mail confirmée'
-                            : 'Adresse e-mail à confirmer',
+                        'Entre le code envoyé à ${_challenge!.maskedEmail}.',
                       ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Première version mobile : connexion au compte commun avec le site. Les profils et rencontres arrivent dans les étapes suivantes.',
-                      ),
-                      const SizedBox(height: 24),
-                      OutlinedButton(
-                        onPressed: _busy ? null : _logout,
-                        child: const Text('Se déconnecter'),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _code,
+                        enabled: !_busy,
+                        keyboardType: TextInputType.number,
+                        autofillHints: const [AutofillHints.oneTimeCode],
+                        decoration: const InputDecoration(
+                          labelText: 'Code de confirmation',
+                        ),
+                        validator: (v) => (v ?? '').trim().isEmpty
+                            ? 'Entre ton code.'
+                            : null,
                       ),
                     ] else ...[
-                      if (_challenge != null) ...[
-                        Text(
-                          'Entre le code envoyé à ${_challenge!.maskedEmail}.',
+                      const Text(
+                        'Retrouve ton compte MBOLO, comme sur le site.',
+                      ),
+                      const SizedBox(height: 24),
+                      TextFormField(
+                        controller: _email,
+                        enabled: !_busy,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.username],
+                        autocorrect: false,
+                        decoration: const InputDecoration(
+                          labelText: 'Adresse e-mail',
                         ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _code,
-                          enabled: !_busy,
-                          keyboardType: TextInputType.number,
-                          autofillHints: const [AutofillHints.oneTimeCode],
-                          decoration: const InputDecoration(
-                            labelText: 'Code de confirmation',
-                          ),
-                          validator: (v) => (v ?? '').trim().isEmpty
-                              ? 'Entre ton code.'
-                              : null,
-                        ),
-                      ] else ...[
-                        const Text(
-                          'Retrouve ton compte MBOLO, comme sur le site.',
-                        ),
-                        const SizedBox(height: 24),
-                        TextFormField(
-                          controller: _email,
-                          enabled: !_busy,
-                          keyboardType: TextInputType.emailAddress,
-                          autofillHints: const [AutofillHints.username],
-                          autocorrect: false,
-                          decoration: const InputDecoration(
-                            labelText: 'Adresse e-mail',
-                          ),
-                          validator: (v) => (v ?? '').trim().contains('@')
-                              ? null
-                              : 'Entre ton adresse e-mail.',
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _password,
-                          enabled: !_busy,
-                          obscureText: _hidePassword,
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          autofillHints: const [AutofillHints.password],
-                          decoration: InputDecoration(
-                            labelText: 'Mot de passe',
-                            suffixIcon: IconButton(
-                              tooltip: _hidePassword
-                                  ? 'Afficher le mot de passe'
-                                  : 'Masquer le mot de passe',
-                              onPressed: () => setState(() {
-                                _hidePassword = !_hidePassword;
-                              }),
-                              icon: Icon(
-                                _hidePassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                              ),
+                        validator: (v) => (v ?? '').trim().contains('@')
+                            ? null
+                            : 'Entre ton adresse e-mail.',
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _password,
+                        enabled: !_busy,
+                        obscureText: _hidePassword,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        autofillHints: const [AutofillHints.password],
+                        decoration: InputDecoration(
+                          labelText: 'Mot de passe',
+                          suffixIcon: IconButton(
+                            tooltip: _hidePassword
+                                ? 'Afficher le mot de passe'
+                                : 'Masquer le mot de passe',
+                            onPressed: () => setState(() {
+                              _hidePassword = !_hidePassword;
+                            }),
+                            icon: Icon(
+                              _hidePassword
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
                             ),
                           ),
-                          validator: (v) => (v ?? '').isEmpty
-                              ? 'Entre ton mot de passe.'
-                              : null,
                         ),
-                      ],
-                      const SizedBox(height: 24),
-                      FilledButton(
-                        onPressed: _busy ? null : _submit,
-                        child: Text(
-                          _challenge == null ? 'Se connecter' : 'Confirmer',
-                        ),
+                        validator: (v) => (v ?? '').isEmpty
+                            ? 'Entre ton mot de passe.'
+                            : null,
                       ),
-                      if (_challenge != null)
-                        TextButton(
-                          onPressed: _busy
-                              ? null
-                              : () => setState(() {
-                                  _challenge = null;
-                                  _code.clear();
-                                  _error = null;
-                                }),
-                          child: const Text('Revenir à la connexion'),
-                        ),
                     ],
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: _busy ? null : _submit,
+                      child: Text(
+                        _challenge == null ? 'Se connecter' : 'Confirmer',
+                      ),
+                    ),
+                    if (_challenge != null)
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() {
+                                _challenge = null;
+                                _code.clear();
+                                _error = null;
+                              }),
+                        child: const Text('Revenir à la connexion'),
+                      ),
                     if (_busy)
                       const Padding(
                         padding: EdgeInsets.all(16),
