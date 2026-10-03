@@ -16,7 +16,14 @@ void main() {
     await tester.enterText(find.byType(TextFormField), '123456');
     await tester.tap(find.text('Confirmer'));
     await tester.pumpAndSettle();
-    expect(find.text('Bienvenue sur MBOLO'), findsOneWidget);
+    expect(find.text('Découvrir'), findsWidgets);
+    await tester.tap(find.text('Profil'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Se déconnecter'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Se déconnecter'));
     await tester.pumpAndSettle();
     expect(find.text('Se connecter'), findsOneWidget);
