@@ -69,8 +69,9 @@ class LoginResult {
 String friendlyError(Object error) {
   if (error is DioException) {
     final status = error.response?.statusCode;
-    if (status == 429)
+    if (status == 429) {
       return 'Trop de tentatives. Patiente avant de réessayer.';
+    }
     if (status == 400 || status == 401) {
       return 'Vérifie tes identifiants ou ton code de confirmation.';
     }
