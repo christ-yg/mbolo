@@ -100,15 +100,17 @@ class _SessionScreenState extends State<SessionScreen> {
         });
       }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = friendlyError(error);
         });
+      }
     } finally {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _busy = false;
         });
+      }
     }
   }
 
@@ -120,21 +122,24 @@ class _SessionScreenState extends State<SessionScreen> {
     });
     try {
       await widget.api.logout();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _account = null;
           _challenge = null;
         });
+      }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = friendlyError(error);
         });
+      }
     } finally {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _busy = false;
         });
+      }
     }
   }
 
