@@ -45,6 +45,11 @@ void main() {
 
     expect(find.text('Découvrir'), findsWidgets);
     expect(find.textContaining('Arielle'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Ça me plaît'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Ça me plaît'), findsOneWidget);
     expect(find.text('Profil'), findsOneWidget);
   });
@@ -61,7 +66,11 @@ void main() {
     await tester.tap(find.text('Confirmer'));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Ça me plaît'));
+    await tester.scrollUntilVisible(
+      find.text('Ça me plaît'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Ça me plaît'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Activité'));
@@ -71,7 +80,11 @@ void main() {
 
     await tester.tap(find.text('Profil'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Se déconnecter'));
+    await tester.scrollUntilVisible(
+      find.text('Se déconnecter'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Se déconnecter'));
     await tester.pumpAndSettle();
     expect(find.text('Se connecter'), findsOneWidget);
