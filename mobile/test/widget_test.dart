@@ -91,4 +91,50 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Se connecter'), findsOneWidget);
   });
+
+  testWidgets('Registration validates consent and returns to login', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
+    await tester.tap(find.text('Créer un compte'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Crée ton compte MBOLO'), findsOneWidget);
+    await tester.enterText(
+      find.byType(TextFormField).at(0),
+      'nouveau@mbolo.test',
+    );
+    await tester.enterText(
+      find.byType(TextFormField).at(1),
+      'MotDePasse!2026',
+    );
+    await tester.enterText(
+      find.byType(TextFormField).at(2),
+      'MotDePasse!2026',
+    );
+    await tester.tap(find.text('Je confirme avoir au moins 18 ans.'));
+    await tester.tap(find.text('J’accepte les conditions d’utilisation.'));
+    await tester.tap(find.text('Créer mon compte'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Se connecter'), findsOneWidget);
+    expect(find.textContaining('Compte créé'), findsOneWidget);
+  });
+
+  testWidgets('Password reset keeps account existence private', (tester) async {
+    await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
+    await tester.tap(find.text('Mot de passe oublié ?'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byType(TextFormField),
+      'demo@mbolo.test',
+    );
+    await tester.tap(find.text('Envoyer les instructions'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Se connecter'), findsOneWidget);
+    expect(find.textContaining('Si cette adresse existe'), findsOneWidget);
+  });
+
 }
