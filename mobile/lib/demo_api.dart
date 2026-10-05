@@ -6,8 +6,12 @@ class DemoApi implements AuthApi {
   bool _authenticated = false;
   MemberProfile _profile = const MemberProfile(
     displayName: '',
+    birthDate: '',
+    gender: '',
     city: '',
     biography: '',
+    datingIntent: '',
+    interests: <String>[],
     complete: false,
   );
   DiscoveryPreferences _preferences = const DiscoveryPreferences(
@@ -75,14 +79,26 @@ class DemoApi implements AuthApi {
   @override
   Future<MemberProfile> updateProfile({
     required String displayName,
+    required String birthDate,
+    required String gender,
     required String city,
     required String biography,
+    required String datingIntent,
+    required List<String> interests,
   }) async {
     _profile = MemberProfile(
       displayName: displayName.trim(),
+      birthDate: birthDate,
+      gender: gender,
       city: city,
       biography: biography.trim(),
-      complete: false,
+      datingIntent: datingIntent,
+      interests: List<String>.unmodifiable(interests),
+      complete: displayName.trim().length >= 2 &&
+          birthDate.isNotEmpty &&
+          gender.isNotEmpty &&
+          city.isNotEmpty &&
+          datingIntent.isNotEmpty,
     );
     return _profile;
   }
