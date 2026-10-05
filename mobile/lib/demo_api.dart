@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'auth_contract.dart';
 
 /// Local-only demonstration: no HTTP client and no persistent storage.
@@ -14,6 +16,8 @@ class DemoApi implements AuthApi {
     interests: <String>[],
     complete: false,
   );
+  final List<ProfilePhoto> _photos = <ProfilePhoto>[];
+
   DiscoveryPreferences _preferences = const DiscoveryPreferences(
     minimumAge: 18,
     maximumAge: 45,
@@ -101,6 +105,92 @@ class DemoApi implements AuthApi {
           datingIntent.isNotEmpty,
     );
     return _profile;
+  }
+
+  @override
+  Future<List<ProfilePhoto>> getPhotos() async {
+    return List<ProfilePhoto>.unmodifiable(_photos);
+  }
+
+  @override
+  Future<ProfilePhoto> uploadPhoto({
+    required Uint8List bytes,
+    required String filename,
+    required int position,
+    required bool primary,
+  }) async {
+    if (_photos.length >= 6 || bytes.isEmpty) {
+      throw const FormatException('Photo de démonstration incorrecte.');
+    }
+    final shouldBePrimary = primary || _photos.isEmpty;
+    if (shouldBePrimary) {
+      for (var index = 0; index < _photos.length; index += 1) {
+        final photo = _photos[index];
+        _photos[index] = ProfilePhoto(
+          id: photo.id,
+          imageUrl: photo.imageUrl,
+          position: photo.position,
+          primary: false,
+          moderationStatus: photo.moderationStatus,
+          moderationStatusLabel: photo.moderationStatusLabel,
+          previewBytes: photo.previewBytes,
+        );
+      }
+    }
+    final photo = ProfilePhoto(
+      id: 'demo-photo-${_photos.length + 1}',
+      imageUrl: '',
+      position: position,
+      primary: shouldBePrimary,
+      moderationStatus: 'pending',
+      moderationStatusLabel: 'En attente',
+      previewBytes: bytes,
+    );
+    _photos.add(photo);
+    _photos.sort((first, second) => first.position.compareTo(second.position));
+    return photo;
+  }
+
+  @override
+  Future<ProfilePhoto> updatePhoto({
+    required String id,
+    int? position,
+    bool? primary,
+  }) async {
+    final currentIndex = _photos.indexWhere((photo) => photo.id == id);
+    if (currentIndex < 0) throw const FormatException('Photo absente.');
+    if (primary == true) {
+      for (var index = 0; index < _photos.length; index += 1) {
+        final photo = _photos[index];
+        _photos[index] = ProfilePhoto(
+          id: photo.id,
+          imageUrl: photo.imageUrl,
+          position: photo.position,
+          primary: false,
+          moderationStatus: photo.moderationStatus,
+          moderationStatusLabel: photo.moderationStatusLabel,
+          previewBytes: photo.previewBytes,
+        );
+      }
+    }
+    final current = _photos[currentIndex];
+    final updated = ProfilePhoto(
+      id: current.id,
+      imageUrl: current.imageUrl,
+      position: position ?? current.position,
+      primary: primary ?? current.primary,
+      moderationStatus: current.moderationStatus,
+      moderationStatusLabel: current.moderationStatusLabel,
+      previewBytes: current.previewBytes,
+    );
+    _photos[currentIndex] = updated;
+    _photos.sort((first, second) => first.position.compareTo(second.position));
+    return updated;
+  }
+
+  @override
+  Future<void> deletePhoto(String id) async {
+    _photos.removeWhere((photo) => photo.id == id);
   }
 
   @override
