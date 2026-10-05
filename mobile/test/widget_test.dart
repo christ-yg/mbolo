@@ -112,9 +112,20 @@ void main() {
       find.byType(TextFormField).at(2),
       'MotDePasse!2026',
     );
-    await tester.tap(find.text('Je confirme avoir au moins 18 ans.'));
-    await tester.tap(find.text('J’accepte les conditions d’utilisation.'));
-    await tester.tap(find.text('Créer mon compte'));
+    final adultConsent = find.text('Je confirme avoir au moins 18 ans.');
+    await tester.ensureVisible(adultConsent);
+    await tester.pumpAndSettle();
+    await tester.tap(adultConsent);
+
+    final termsConsent = find.text('J’accepte les conditions d’utilisation.');
+    await tester.ensureVisible(termsConsent);
+    await tester.pumpAndSettle();
+    await tester.tap(termsConsent);
+
+    final registerButton = find.text('Créer mon compte');
+    await tester.ensureVisible(registerButton);
+    await tester.pumpAndSettle();
+    await tester.tap(registerButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Se connecter'), findsOneWidget);
