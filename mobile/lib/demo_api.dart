@@ -6,6 +6,31 @@ class DemoApi implements AuthApi {
   bool _authenticated = false;
 
   @override
+  Future<Account> register({
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+    required bool acceptTerms,
+    required bool confirmAdult,
+  }) async {
+    if (!email.trim().contains('@') ||
+        password.length < 12 ||
+        password != passwordConfirmation ||
+        !acceptTerms ||
+        !confirmAdult) {
+      throw const FormatException('Inscription de démonstration incorrecte.');
+    }
+    return Account('demo-new', email.trim(), false);
+  }
+
+  @override
+  Future<void> requestPasswordReset(String email) async {
+    if (!email.trim().contains('@')) {
+      throw const FormatException('Adresse e-mail incorrecte.');
+    }
+  }
+
+  @override
   Future<LoginResult> login(String email, String password) async {
     if (email.trim() != account.email || password != 'MboloDemo!') {
       throw const FormatException('Identifiants de démonstration incorrects.');
