@@ -363,10 +363,60 @@ class _ProfileEditorPage extends StatefulWidget {
 }
 
 class _ProfileEditorPageState extends State<_ProfileEditorPage> {
+  static const _cities = <String, String>{
+    'libreville': 'Libreville',
+    'port_gentil': 'Port-Gentil',
+    'franceville': 'Franceville',
+    'oyem': 'Oyem',
+    'moanda': 'Moanda',
+    'lambarene': 'Lambaréné',
+    'mouila': 'Mouila',
+    'tchibanga': 'Tchibanga',
+    'koulamoutou': 'Koulamoutou',
+    'makokou': 'Makokou',
+    'bitam': 'Bitam',
+    'other': 'Autre ville',
+  };
+  static const _genders = <String, String>{
+    'man': 'Homme',
+    'woman': 'Femme',
+    'non_binary': 'Non binaire',
+    'prefer_not_to_say': 'Je préfère ne pas préciser',
+  };
+  static const _intents = <String, String>{
+    'serious_relationship': 'Relation sérieuse',
+    'friendship': 'Amitié',
+    'discussion': 'Discussion',
+    'marriage': 'Mariage',
+    'not_sure': 'Je ne sais pas encore',
+  };
+  static const _interestOptions = <String, String>{
+    'music': 'Musique',
+    'football': 'Football',
+    'fitness': 'Fitness',
+    'martial_arts': 'Arts martiaux',
+    'technology': 'Technologie',
+    'cybersecurity': 'Cybersécurité',
+    'travel': 'Voyages',
+    'cooking': 'Cuisine',
+    'cinema': 'Cinéma',
+    'reading': 'Lecture',
+    'entrepreneurship': 'Entrepreneuriat',
+    'personal_growth': 'Développement personnel',
+    'dance': 'Danse',
+    'art': 'Art',
+    'nature': 'Nature',
+    'family': 'Famille',
+  };
+
   final _form = GlobalKey<FormState>();
   final _displayName = TextEditingController();
-  final _city = TextEditingController();
   final _biography = TextEditingController();
+  DateTime? _birthDate;
+  String? _city;
+  String? _gender;
+  String? _datingIntent;
+  Set<String> _interests = <String>{};
   bool _loading = true;
   bool _saving = false;
   String? _error;
@@ -382,8 +432,13 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
       final profile = await widget.api.getProfile();
       if (!mounted) return;
       _displayName.text = profile.displayName;
-      _city.text = profile.city;
+      _birthDate = DateTime.tryParse(profile.birthDate);
+      _gender = profile.gender.isEmpty ? null : profile.gender;
+      _city = profile.city.isEmpty ? null : profile.city;
       _biography.text = profile.biography;
+      _datingIntent =
+          profile.datingIntent.isEmpty ? null : profile.datingIntent;
+      _interests = profile.interests.toSet();
     } catch (error) {
       if (mounted) {
         setState(() => _error = friendlyError(error));
@@ -396,13 +451,64 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
   @override
   void dispose() {
     _displayName.dispose();
-    _city.dispose();
     _biography.dispose();
     super.dispose();
   }
 
+  String _isoDate(DateTime value) {
+    final year = value.year.toString().padLeft(4, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    final day = value.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+
+  String _displayDate(DateTime value) {
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    return '$day/$month/${value.year}';
+  }
+
+  Future<void> _selectBirthDate() async {
+    final now = DateTime.now();
+    final adultLimit = DateTime(now.year - 18, now.month, now.day);
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _birthDate ?? DateTime(adultLimit.year - 7),
+      firstDate: DateTime(1920),
+      lastDate: adultLimit,
+      helpText: 'Date de naissance',
+      cancelText: 'Annuler',
+      confirmText: 'Confirmer',
+    );
+    if (selected != null && mounted) {
+      setState(() => _birthDate = selected);
+    }
+  }
+
+  void _toggleInterest(String value) {
+    setState(() {
+      if (_interests.contains(value)) {
+        _interests.remove(value);
+      } else if (_interests.length < 8) {
+        _interests.add(value);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Choisis au maximum 8 centres d’intérêt.')),
+        );
+      }
+    });
+  }
+
   Future<void> _continue() async {
     if (_saving || !(_form.currentState?.validate() ?? false)) return;
+    if (_birthDate == null) {
+      setState(() => _error = 'Indique ta date de naissance.');
+      return;
+    }
+    if (_interests.length < 3) {
+      setState(() => _error = 'Choisis au moins 3 centres d’intérêt.');
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
@@ -410,13 +516,18 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
     try {
       await widget.api.updateProfile(
         displayName: _displayName.text,
-        city: _city.text,
+        birthDate: _isoDate(_birthDate!),
+        gender: _gender!,
+        city: _city!,
         biography: _biography.text,
+        datingIntent: _datingIntent!,
+        interests: _interests.toList(growable: false),
       );
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil enregistré en sécurité.')),
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Profil complet enregistré en sécurité.')),
       );
     } catch (error) {
       if (mounted) setState(() => _error = friendlyError(error));
@@ -433,80 +544,153 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : Form(
-          key: _form,
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              Text(
-                'Présente-toi avec authenticité',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Ton nom public, ta ville et ta présentation seront visibles.',
-              ),
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _displayName,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Nom public'),
-                validator: (value) => (value ?? '').trim().length < 2
-                    ? 'Entre au moins 2 caractères.'
-                    : null,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: _city.text.isEmpty ? null : _city.text,
-                decoration: const InputDecoration(labelText: 'Ville'),
-                items: const [
-                  DropdownMenuItem(value: 'libreville', child: Text('Libreville')),
-                  DropdownMenuItem(value: 'port_gentil', child: Text('Port-Gentil')),
-                  DropdownMenuItem(value: 'franceville', child: Text('Franceville')),
-                  DropdownMenuItem(value: 'oyem', child: Text('Oyem')),
-                  DropdownMenuItem(value: 'moanda', child: Text('Moanda')),
-                  DropdownMenuItem(value: 'lambarene', child: Text('Lambaréné')),
-                  DropdownMenuItem(value: 'mouila', child: Text('Mouila')),
-                  DropdownMenuItem(value: 'tchibanga', child: Text('Tchibanga')),
-                  DropdownMenuItem(value: 'other', child: Text('Autre ville')),
-                ],
-                onChanged: _saving
-                    ? null
-                    : (value) => _city.text = value ?? '',
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Indique ta ville.' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _biography,
-                minLines: 4,
-                maxLines: 6,
-                maxLength: 500,
-                decoration: const InputDecoration(
-                  labelText: 'À propos de toi',
-                  alignLabelWithHint: true,
-                ),
-                validator: (value) => (value ?? '').trim().length < 20
-                    ? 'Écris au moins 20 caractères.'
-                    : null,
-              ),
-              const SizedBox(height: 8),
-              FilledButton(
-                onPressed: _saving ? null : _continue,
-                child: Text(_saving ? 'Enregistrement…' : 'Enregistrer le profil'),
-              ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                key: _form,
+                child: ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    Text(
+                      'Présente-toi avec authenticité',
+                      style: Theme.of(context).textTheme.headlineSmall,
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Ces informations permettent à MBOLO de proposer des rencontres pertinentes.',
+                    ),
+                    const SizedBox(height: 24),
+                    TextFormField(
+                      controller: _displayName,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(labelText: 'Nom public'),
+                      validator: (value) => (value ?? '').trim().length < 2
+                          ? 'Entre au moins 2 caractères.'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: _saving ? null : _selectBirthDate,
+                      icon: const Icon(Icons.cake_outlined),
+                      label: Text(
+                        _birthDate == null
+                            ? 'Choisir ma date de naissance'
+                            : 'Né(e) le ${_displayDate(_birthDate!)}',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _gender,
+                      decoration: const InputDecoration(labelText: 'Genre'),
+                      items: _genders.entries
+                          .map(
+                            (entry) => DropdownMenuItem(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(() => _gender = value),
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Indique ton genre.'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _city,
+                      decoration: const InputDecoration(labelText: 'Ville'),
+                      items: _cities.entries
+                          .map(
+                            (entry) => DropdownMenuItem(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(() => _city = value),
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Indique ta ville.'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _datingIntent,
+                      decoration: const InputDecoration(
+                        labelText: 'Ce que je recherche',
+                      ),
+                      items: _intents.entries
+                          .map(
+                            (entry) => DropdownMenuItem(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(() => _datingIntent = value),
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Indique ce que tu recherches.'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _biography,
+                      minLines: 4,
+                      maxLines: 6,
+                      maxLength: 500,
+                      decoration: const InputDecoration(
+                        labelText: 'À propos de toi',
+                        alignLabelWithHint: true,
+                      ),
+                      validator: (value) => (value ?? '').trim().length < 20
+                          ? 'Écris au moins 20 caractères.'
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Centres d’intérêt (${_interests.length}/8)',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    const Text('Choisis-en au moins 3.'),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: _interestOptions.entries
+                          .map(
+                            (entry) => FilterChip(
+                              label: Text(entry.value),
+                              selected: _interests.contains(entry.key),
+                              onSelected: _saving
+                                  ? null
+                                  : (_) => _toggleInterest(entry.key),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: _saving ? null : _continue,
+                      child: Text(
+                        _saving ? 'Enregistrement…' : 'Enregistrer le profil',
+                      ),
+                    ),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-            ],
-          ),
-        ),
+              ),
       ),
     );
   }
