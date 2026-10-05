@@ -49,13 +49,34 @@ class _MboloHomeState extends State<MboloHome> {
     );
   }
 
+  Future<void> _openProfileEditor() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => const _ProfileEditorPage(),
+      ),
+    );
+  }
+
+  Future<void> _openPreferences() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => const _PreferencesPage(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
       _DiscoverPage(profile: _profiles[_profile], onNext: _next),
       _ActivityPage(liked: _liked.toList(growable: false)),
       _SafetyPage(onOpenProfile: () => setState(() => _tab = 3)),
-      _ProfilePage(account: widget.account, onLogout: widget.onLogout),
+      _ProfilePage(
+        account: widget.account,
+        onLogout: widget.onLogout,
+        onEditProfile: _openProfileEditor,
+        onEditPreferences: _openPreferences,
+      ),
     ];
     return Scaffold(
       appBar: AppBar(
@@ -256,9 +277,16 @@ class _SafetyPage extends StatelessWidget {
 }
 
 class _ProfilePage extends StatelessWidget {
-  const _ProfilePage({required this.account, required this.onLogout});
+  const _ProfilePage({
+    required this.account,
+    required this.onLogout,
+    required this.onEditProfile,
+    required this.onEditPreferences,
+  });
   final Account account;
   final Future<void> Function() onLogout;
+  final VoidCallback onEditProfile;
+  final VoidCallback onEditPreferences;
 
   @override
   Widget build(BuildContext context) {
@@ -282,22 +310,24 @@ class _ProfilePage extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-        const Card(
+        Card(
           child: Column(
             children: [
               ListTile(
-                leading: Icon(Icons.edit_outlined),
-                title: Text('Compléter mon profil'),
-                trailing: Icon(Icons.chevron_right),
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Compléter mon profil'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onEditProfile,
               ),
-              Divider(height: 1),
+              const Divider(height: 1),
               ListTile(
-                leading: Icon(Icons.tune),
-                title: Text('Préférences de rencontre'),
-                trailing: Icon(Icons.chevron_right),
+                leading: const Icon(Icons.tune),
+                title: const Text('Préférences de rencontre'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onEditPreferences,
               ),
-              Divider(height: 1),
-              ListTile(
+              const Divider(height: 1),
+              const ListTile(
                 leading: Icon(Icons.privacy_tip_outlined),
                 title: Text('Confidentialité'),
                 trailing: Icon(Icons.chevron_right),
@@ -312,6 +342,196 @@ class _ProfilePage extends StatelessWidget {
           label: const Text('Se déconnecter'),
         ),
       ],
+    );
+  }
+}
+
+
+class _ProfileEditorPage extends StatefulWidget {
+  const _ProfileEditorPage();
+
+  @override
+  State<_ProfileEditorPage> createState() => _ProfileEditorPageState();
+}
+
+class _ProfileEditorPageState extends State<_ProfileEditorPage> {
+  final _form = GlobalKey<FormState>();
+  final _displayName = TextEditingController();
+  final _city = TextEditingController();
+  final _biography = TextEditingController();
+
+  @override
+  void dispose() {
+    _displayName.dispose();
+    _city.dispose();
+    _biography.dispose();
+    super.dispose();
+  }
+
+  void _continue() {
+    if (!(_form.currentState?.validate() ?? false)) return;
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Profil prêt. La synchronisation sécurisée arrive ensuite.'),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Compléter mon profil')),
+      body: SafeArea(
+        child: Form(
+          key: _form,
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Text(
+                'Présente-toi avec authenticité',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Ton nom public, ta ville et ta présentation seront visibles.',
+              ),
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: _displayName,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Nom public'),
+                validator: (value) => (value ?? '').trim().length < 2
+                    ? 'Entre au moins 2 caractères.'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _city,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Ville'),
+                validator: (value) => (value ?? '').trim().isEmpty
+                    ? 'Indique ta ville.'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _biography,
+                minLines: 4,
+                maxLines: 6,
+                maxLength: 500,
+                decoration: const InputDecoration(
+                  labelText: 'À propos de toi',
+                  alignLabelWithHint: true,
+                ),
+                validator: (value) => (value ?? '').trim().length < 20
+                    ? 'Écris au moins 20 caractères.'
+                    : null,
+              ),
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed: _continue,
+                child: const Text('Continuer vers les photos'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PreferencesPage extends StatefulWidget {
+  const _PreferencesPage();
+
+  @override
+  State<_PreferencesPage> createState() => _PreferencesPageState();
+}
+
+class _PreferencesPageState extends State<_PreferencesPage> {
+  String _lookingFor = 'Tous';
+  String _intent = 'Relation sérieuse';
+  double _distance = 25;
+
+  void _continue() {
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Préférences prêtes. La synchronisation sécurisée arrive ensuite.',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Préférences de rencontre')),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Text(
+              'Choisis qui tu souhaites découvrir',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Ces réglages restent modifiables et ta position exacte est masquée.',
+            ),
+            const SizedBox(height: 24),
+            DropdownButtonFormField<String>(
+              initialValue: _lookingFor,
+              decoration: const InputDecoration(labelText: 'Je souhaite voir'),
+              items: const [
+                DropdownMenuItem(value: 'Tous', child: Text('Tous les profils')),
+                DropdownMenuItem(value: 'Femmes', child: Text('Des femmes')),
+                DropdownMenuItem(value: 'Hommes', child: Text('Des hommes')),
+              ],
+              onChanged: (value) => setState(() {
+                _lookingFor = value ?? _lookingFor;
+              }),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: _intent,
+              decoration: const InputDecoration(labelText: 'Intention'),
+              items: const [
+                DropdownMenuItem(
+                  value: 'Relation sérieuse',
+                  child: Text('Relation sérieuse'),
+                ),
+                DropdownMenuItem(value: 'Amitié', child: Text('Amitié')),
+                DropdownMenuItem(
+                  value: 'Découverte',
+                  child: Text('Découvrir sans pression'),
+                ),
+              ],
+              onChanged: (value) => setState(() {
+                _intent = value ?? _intent;
+              }),
+            ),
+            const SizedBox(height: 24),
+            Text('Distance approximative : ${_distance.round()} km'),
+            Slider(
+              value: _distance,
+              min: 5,
+              max: 100,
+              divisions: 19,
+              label: '${_distance.round()} km',
+              onChanged: (value) => setState(() {
+                _distance = value;
+              }),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _continue,
+              child: const Text('Enregistrer mes préférences'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
