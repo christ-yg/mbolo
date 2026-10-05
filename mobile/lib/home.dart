@@ -239,8 +239,12 @@ class _DiscoverPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = profile.photos.where((photo) => photo.primary).firstOrNull;
-    final photo = primary ?? profile.photos.firstOrNull;
+    final photo = profile.photos.isEmpty
+        ? null
+        : profile.photos.firstWhere(
+            (item) => item.primary,
+            orElse: () => profile.photos.first,
+          );
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
