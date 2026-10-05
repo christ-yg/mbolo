@@ -16,6 +16,51 @@ class DemoApi implements AuthApi {
     interests: <String>[],
     complete: false,
   );
+  static const _discoveryProfiles = <DiscoveryProfile>[
+    DiscoveryProfile(
+      id: '11111111-1111-1111-1111-111111111111',
+      displayName: 'Arielle',
+      age: 27,
+      city: 'Libreville',
+      biography: 'Passionnée de lecture, de cuisine et de voyages.',
+      datingIntent: 'Relation sérieuse',
+      verified: true,
+      photos: <ProfilePhoto>[],
+      interestLabels: <String>['Lecture', 'Cuisine', 'Voyages'],
+      commonInterestLabels: <String>['Voyages'],
+      compatibilityScore: 78,
+      distanceLabel: 'À moins de 10 km',
+    ),
+    DiscoveryProfile(
+      id: '22222222-2222-2222-2222-222222222222',
+      displayName: 'Grâce',
+      age: 29,
+      city: 'Akanda',
+      biography: 'Sport, musique et entrepreneuriat au quotidien.',
+      datingIntent: 'Amitié',
+      verified: true,
+      photos: <ProfilePhoto>[],
+      interestLabels: <String>['Fitness', 'Musique', 'Entrepreneuriat'],
+      commonInterestLabels: <String>['Fitness', 'Musique'],
+      compatibilityScore: 84,
+      distanceLabel: 'À moins de 20 km',
+    ),
+    DiscoveryProfile(
+      id: '33333333-3333-3333-3333-333333333333',
+      displayName: 'Mélissa',
+      age: 26,
+      city: 'Port-Gentil',
+      biography: 'Cinéma, nature et belles découvertes.',
+      datingIntent: 'Discussion',
+      verified: false,
+      photos: <ProfilePhoto>[],
+      interestLabels: <String>['Cinéma', 'Nature', 'Art'],
+      commonInterestLabels: <String>[],
+      compatibilityScore: 61,
+      distanceLabel: '',
+    ),
+  ];
+
   final List<ProfilePhoto> _photos = <ProfilePhoto>[];
 
   DiscoveryPreferences _preferences = const DiscoveryPreferences(
@@ -105,6 +150,33 @@ class DemoApi implements AuthApi {
           datingIntent.isNotEmpty,
     );
     return _profile;
+  }
+
+  @override
+  Future<List<DiscoveryProfile>> getDiscovery() async {
+    return _discoveryProfiles;
+  }
+
+  @override
+  Future<InteractionResult> decideProfile({
+    required String profileId,
+    required String decision,
+  }) async {
+    if (!_discoveryProfiles.any((profile) => profile.id == profileId) ||
+        (decision != 'like' && decision != 'pass')) {
+      throw const FormatException('Interaction de démonstration incorrecte.');
+    }
+    return InteractionResult(
+      decision: decision,
+      matched: decision == 'like' &&
+          profileId == '22222222-2222-2222-2222-222222222222',
+      matchCreated: decision == 'like' &&
+          profileId == '22222222-2222-2222-2222-222222222222',
+      matchId: decision == 'like' &&
+              profileId == '22222222-2222-2222-2222-222222222222'
+          ? 'demo-match-1'
+          : null,
+    );
   }
 
   @override
