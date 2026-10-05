@@ -179,7 +179,7 @@ void main() {
   });
 
 
-  testWidgets('Profile and preference onboarding screens open', (tester) async {
+  testWidgets('Profile, photos and preference screens open', (tester) async {
     await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
     await tester.enterText(find.byType(TextFormField).at(0), 'demo@mbolo.test');
     await tester.enterText(find.byType(TextFormField).at(1), 'MboloDemo!');
@@ -199,6 +199,18 @@ void main() {
     await tester.tap(find.text('Compléter mon profil'));
     await tester.pumpAndSettle();
     expect(find.text('Présente-toi avec authenticité'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Mes photos'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Mes photos'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ta galerie MBOLO'), findsOneWidget);
+    expect(find.text('Ajouter'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
