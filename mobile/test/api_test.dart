@@ -109,6 +109,38 @@ void main() {
     },
   );
 
+
+  test('Registration and password reset follow the Django contract', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final account = await api.register(
+      email: ' new@example.com ',
+      password: 'A-strong-demo-password!',
+      passwordConfirmation: 'A-strong-demo-password!',
+      acceptTerms: true,
+      confirmAdult: true,
+    );
+    expect(account.id, 'account-1');
+    final registration = server.requests.last;
+    expect(registration.uri.path, endsWith('/auth/register/'));
+    expect(registration.data['email'], 'new@example.com');
+    expect(registration.data['password_confirmation'], 'A-strong-demo-password!');
+    expect(registration.data['accept_terms'], isTrue);
+    expect(registration.data['confirm_adult'], isTrue);
+    expect(registration.headers['X-CSRFToken'], 'csrf-test');
+
+    await api.requestPasswordReset(' new@example.com ');
+    final reset = server.requests.last;
+    expect(reset.uri.path, endsWith('/auth/password-reset/request/'));
+    expect(reset.data, {'email': 'new@example.com'});
+    expect(reset.headers['X-CSRFToken'], 'csrf-test');
+  });
+
   test('Failed logout preserves session to retry server revocation', () async {
     final server = FakeServer()..rejectLogout = true;
     final api = MboloApi(
