@@ -33,6 +33,41 @@ class FakeServer implements HttpClientAdapter {
       headers['set-cookie'] = [
         'sessionid=session-test; Path=/; Secure; HttpOnly',
       ];
+    } else if (path.endsWith('/profiles/discovery/')) {
+      data = {
+        'results': [
+          {
+            'id': '22222222-2222-2222-2222-222222222222',
+            'display_name': 'Grâce',
+            'age': 29,
+            'gender': 'woman',
+            'city': 'libreville',
+            'biography': 'Profil de découverte sécurisé.',
+            'dating_intent': 'serious_relationship',
+            'is_verified': true,
+            'photos': <Map<String, dynamic>>[],
+            'interest_labels': ['Musique', 'Voyages'],
+            'common_interest_labels': ['Musique'],
+            'compatibility_score': 50,
+            'distance_label': 'À moins de 10 km',
+          },
+        ],
+        'count': 1,
+        'next': null,
+        'previous': null,
+      };
+    } else if (path.endsWith('/interactions/')) {
+      data = {
+        'interaction_id': '33333333-3333-3333-3333-333333333333',
+        'decision': options.data['decision'],
+        'is_super_like': false,
+        'interaction_created': true,
+        'matched': options.data['decision'] == 'like',
+        'match_created': options.data['decision'] == 'like',
+        'match_id': options.data['decision'] == 'like'
+            ? '44444444-4444-4444-4444-444444444444'
+            : null,
+      };
     } else if (path.endsWith('/profiles/photos/')) {
       final photo = {
         'id': '11111111-1111-1111-1111-111111111111',
@@ -310,6 +345,40 @@ void main() {
     final deletion = server.requests.last;
     expect(deletion.method, 'DELETE');
     expect(deletion.headers['X-CSRFToken'], 'csrf-test');
+  });
+
+
+  test('Discovery and likes use the protected Django routes', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final profiles = await api.getDiscovery();
+    expect(profiles, hasLength(1));
+    expect(profiles.single.displayName, 'Grâce');
+    expect(profiles.single.compatibilityScore, 50);
+    expect(profiles.single.commonInterestLabels, ['Musique']);
+    expect(server.requests.last.uri.queryParameters['page_size'], '20');
+
+    final result = await api.decideProfile(
+      profileId: profiles.single.id,
+      decision: 'like',
+    );
+    expect(result.matched, isTrue);
+    expect(result.matchCreated, isTrue);
+
+    final interaction = server.requests.last;
+    expect(interaction.method, 'POST');
+    expect(interaction.uri.path, endsWith('/interactions/'));
+    expect(
+      interaction.data['target_profile_id'],
+      '22222222-2222-2222-2222-222222222222',
+    );
+    expect(interaction.data['decision'], 'like');
+    expect(interaction.headers['X-CSRFToken'], 'csrf-test');
   });
 
 }
