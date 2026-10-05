@@ -126,14 +126,22 @@ class MboloApi implements AuthApi {
   @override
   Future<MemberProfile> updateProfile({
     required String displayName,
+    required String birthDate,
+    required String gender,
     required String city,
     required String biography,
+    required String datingIntent,
+    required List<String> interests,
   }) async {
     return MemberProfile.fromJson(
       await _patchObject('profiles/me/', {
         'display_name': displayName.trim(),
+        'birth_date': birthDate,
+        'gender': gender,
         'city': city,
         'biography': biography.trim(),
+        'dating_intent': datingIntent,
+        'interests': interests,
       }),
     );
   }
