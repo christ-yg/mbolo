@@ -3,9 +3,15 @@ import 'package:flutter/material.dart';
 import 'auth_contract.dart';
 
 class MboloHome extends StatefulWidget {
-  const MboloHome({super.key, required this.account, required this.onLogout});
+  const MboloHome({
+    super.key,
+    required this.account,
+    required this.api,
+    required this.onLogout,
+  });
 
   final Account account;
+  final AuthApi api;
   final Future<void> Function() onLogout;
 
   @override
@@ -52,7 +58,7 @@ class _MboloHomeState extends State<MboloHome> {
   Future<void> _openProfileEditor() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (context) => const _ProfileEditorPage(),
+        builder: (context) => _ProfileEditorPage(api: widget.api),
       ),
     );
   }
@@ -348,7 +354,9 @@ class _ProfilePage extends StatelessWidget {
 
 
 class _ProfileEditorPage extends StatefulWidget {
-  const _ProfileEditorPage();
+  const _ProfileEditorPage({required this.api});
+
+  final AuthApi api;
 
   @override
   State<_ProfileEditorPage> createState() => _ProfileEditorPageState();
@@ -359,6 +367,31 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
   final _displayName = TextEditingController();
   final _city = TextEditingController();
   final _biography = TextEditingController();
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final profile = await widget.api.getProfile();
+      if (!mounted) return;
+      _displayName.text = profile.displayName;
+      _city.text = profile.city;
+      _biography.text = profile.biography;
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = friendlyError(error));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -368,14 +401,28 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
     super.dispose();
   }
 
-  void _continue() {
-    if (!(_form.currentState?.validate() ?? false)) return;
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profil prêt. La synchronisation sécurisée arrive ensuite.'),
-      ),
-    );
+  Future<void> _continue() async {
+    if (_saving || !(_form.currentState?.validate() ?? false)) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.api.updateProfile(
+        displayName: _displayName.text,
+        city: _city.text,
+        biography: _biography.text,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil enregistré en sécurité.')),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -383,7 +430,9 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Compléter mon profil')),
       body: SafeArea(
-        child: Form(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : Form(
           key: _form,
           child: ListView(
             padding: const EdgeInsets.all(24),
@@ -406,13 +455,25 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
                     : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _city,
-                textCapitalization: TextCapitalization.words,
+              DropdownButtonFormField<String>(
+                initialValue: _city.text.isEmpty ? null : _city.text,
                 decoration: const InputDecoration(labelText: 'Ville'),
-                validator: (value) => (value ?? '').trim().isEmpty
-                    ? 'Indique ta ville.'
-                    : null,
+                items: const [
+                  DropdownMenuItem(value: 'libreville', child: Text('Libreville')),
+                  DropdownMenuItem(value: 'port_gentil', child: Text('Port-Gentil')),
+                  DropdownMenuItem(value: 'franceville', child: Text('Franceville')),
+                  DropdownMenuItem(value: 'oyem', child: Text('Oyem')),
+                  DropdownMenuItem(value: 'moanda', child: Text('Moanda')),
+                  DropdownMenuItem(value: 'lambarene', child: Text('Lambaréné')),
+                  DropdownMenuItem(value: 'mouila', child: Text('Mouila')),
+                  DropdownMenuItem(value: 'tchibanga', child: Text('Tchibanga')),
+                  DropdownMenuItem(value: 'other', child: Text('Autre ville')),
+                ],
+                onChanged: _saving
+                    ? null
+                    : (value) => _city.text = value ?? '',
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Indique ta ville.' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -430,9 +491,19 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
               ),
               const SizedBox(height: 8),
               FilledButton(
-                onPressed: _continue,
-                child: const Text('Continuer vers les photos'),
+                onPressed: _saving ? null : _continue,
+                child: Text(_saving ? 'Enregistrement…' : 'Enregistrer le profil'),
               ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
