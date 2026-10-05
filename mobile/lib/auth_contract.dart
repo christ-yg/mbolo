@@ -81,6 +81,65 @@ String friendlyError(Object error) {
   return 'La réponse du serveur est invalide. Réessaie plus tard.';
 }
 
+
+class MemberProfile {
+  const MemberProfile({
+    required this.displayName,
+    required this.city,
+    required this.biography,
+    required this.complete,
+  });
+
+  final String displayName;
+  final String city;
+  final String biography;
+  final bool complete;
+
+  factory MemberProfile.fromJson(Map<String, dynamic> data) {
+    return MemberProfile(
+      displayName: data['display_name'] is String
+          ? data['display_name'] as String
+          : '',
+      city: data['city'] is String ? data['city'] as String : '',
+      biography: data['biography'] is String
+          ? data['biography'] as String
+          : '',
+      complete: data['is_complete'] == true,
+    );
+  }
+}
+
+class DiscoveryPreferences {
+  const DiscoveryPreferences({
+    required this.minimumAge,
+    required this.maximumAge,
+    required this.preferredGenders,
+    required this.advancedFiltersAvailable,
+  });
+
+  final int minimumAge;
+  final int maximumAge;
+  final List<String> preferredGenders;
+  final bool advancedFiltersAvailable;
+
+  factory DiscoveryPreferences.fromJson(Map<String, dynamic> data) {
+    final rawGenders = data['preferred_genders'];
+    return DiscoveryPreferences(
+      minimumAge: data['minimum_age'] is int
+          ? data['minimum_age'] as int
+          : 18,
+      maximumAge: data['maximum_age'] is int
+          ? data['maximum_age'] as int
+          : 45,
+      preferredGenders: rawGenders is List
+          ? rawGenders.whereType<String>().toList(growable: false)
+          : const <String>[],
+      advancedFiltersAvailable:
+          data['advanced_filters_available'] == true,
+    );
+  }
+}
+
 abstract class AuthApi {
   Future<Account> register({
     required String email,
@@ -93,6 +152,18 @@ abstract class AuthApi {
   Future<LoginResult> login(String email, String password);
   Future<Account> confirm(String challenge, String code);
   Future<Account> me();
+  Future<MemberProfile> getProfile();
+  Future<MemberProfile> updateProfile({
+    required String displayName,
+    required String city,
+    required String biography,
+  });
+  Future<DiscoveryPreferences> getPreferences();
+  Future<DiscoveryPreferences> updatePreferences({
+    required int minimumAge,
+    required int maximumAge,
+    required List<String> preferredGenders,
+  });
   Future<void> logout();
   void close();
 }
