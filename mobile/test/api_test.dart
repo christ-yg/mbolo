@@ -46,9 +46,13 @@ class FakeServer implements HttpClientAdapter {
       data = {
         'data': {
           'display_name': 'Christ YG',
+          'birth_date': '1994-06-15',
+          'gender': 'man',
           'city': 'libreville',
           'biography': 'Une présentation de test suffisamment complète.',
-          'is_complete': false,
+          'dating_intent': 'serious_relationship',
+          'interests': ['technology', 'travel', 'music'],
+          'is_complete': true,
         },
       };
     } else if (path.endsWith('/logout/')) {
@@ -186,16 +190,29 @@ void main() {
     expect(profile.displayName, 'Christ YG');
     expect(server.requests.last.method, 'GET');
 
+    expect(profile.birthDate, '1994-06-15');
+    expect(profile.gender, 'man');
+    expect(profile.datingIntent, 'serious_relationship');
+    expect(profile.interests, ['technology', 'travel', 'music']);
+
     await api.updateProfile(
       displayName: ' Christ YG ',
+      birthDate: '1994-06-15',
+      gender: 'man',
       city: 'libreville',
       biography: ' Présentation mobile sécurisée. ',
+      datingIntent: 'serious_relationship',
+      interests: const ['technology', 'travel', 'music'],
     );
     final profilePatch = server.requests.last;
     expect(profilePatch.method, 'PATCH');
     expect(profilePatch.uri.path, endsWith('/profiles/me/'));
     expect(profilePatch.data['display_name'], 'Christ YG');
+    expect(profilePatch.data['birth_date'], '1994-06-15');
+    expect(profilePatch.data['gender'], 'man');
     expect(profilePatch.data['biography'], 'Présentation mobile sécurisée.');
+    expect(profilePatch.data['dating_intent'], 'serious_relationship');
+    expect(profilePatch.data['interests'], ['technology', 'travel', 'music']);
     expect(profilePatch.headers['X-CSRFToken'], 'csrf-test');
 
     final preferences = await api.getPreferences();
