@@ -33,6 +33,24 @@ class FakeServer implements HttpClientAdapter {
       headers['set-cookie'] = [
         'sessionid=session-test; Path=/; Secure; HttpOnly',
       ];
+    } else if (path.endsWith('/profiles/preferences/me/')) {
+      data = {
+        'data': {
+          'minimum_age': 21,
+          'maximum_age': 39,
+          'preferred_genders': ['female'],
+          'advanced_filters_available': false,
+        },
+      };
+    } else if (path.endsWith('/profiles/me/')) {
+      data = {
+        'data': {
+          'display_name': 'Christ YG',
+          'city': 'libreville',
+          'biography': 'Une présentation de test suffisamment complète.',
+          'is_complete': false,
+        },
+      };
     } else if (path.endsWith('/logout/')) {
       status = rejectLogout ? 503 : 200;
       data = {'message': 'Déconnexion réussie.'};
@@ -155,4 +173,50 @@ void main() {
       isNotEmpty,
     );
   });
+
+  test('Profile and preference updates use protected PATCH routes', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final profile = await api.getProfile();
+    expect(profile.displayName, 'Christ YG');
+    expect(server.requests.last.method, 'GET');
+
+    await api.updateProfile(
+      displayName: ' Christ YG ',
+      city: 'libreville',
+      biography: ' Présentation mobile sécurisée. ',
+    );
+    final profilePatch = server.requests.last;
+    expect(profilePatch.method, 'PATCH');
+    expect(profilePatch.uri.path, endsWith('/profiles/me/'));
+    expect(profilePatch.data['display_name'], 'Christ YG');
+    expect(profilePatch.data['biography'], 'Présentation mobile sécurisée.');
+    expect(profilePatch.headers['X-CSRFToken'], 'csrf-test');
+
+    final preferences = await api.getPreferences();
+    expect(preferences.minimumAge, 21);
+    expect(preferences.preferredGenders, ['female']);
+
+    await api.updatePreferences(
+      minimumAge: 22,
+      maximumAge: 40,
+      preferredGenders: const ['female'],
+    );
+    final preferencesPatch = server.requests.last;
+    expect(preferencesPatch.method, 'PATCH');
+    expect(
+      preferencesPatch.uri.path,
+      endsWith('/profiles/preferences/me/'),
+    );
+    expect(preferencesPatch.data['minimum_age'], 22);
+    expect(preferencesPatch.data['maximum_age'], 40);
+    expect(preferencesPatch.data['preferred_genders'], ['female']);
+    expect(preferencesPatch.headers['X-CSRFToken'], 'csrf-test');
+  });
+
 }
