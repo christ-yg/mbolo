@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'auth_contract.dart';
 
@@ -71,6 +72,14 @@ class _MboloHomeState extends State<MboloHome> {
     );
   }
 
+  Future<void> _openPhotos() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => _PhotosPage(api: widget.api),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
@@ -81,6 +90,7 @@ class _MboloHomeState extends State<MboloHome> {
         account: widget.account,
         onLogout: widget.onLogout,
         onEditProfile: _openProfileEditor,
+        onEditPhotos: _openPhotos,
         onEditPreferences: _openPreferences,
       ),
     ];
@@ -287,11 +297,13 @@ class _ProfilePage extends StatelessWidget {
     required this.account,
     required this.onLogout,
     required this.onEditProfile,
+    required this.onEditPhotos,
     required this.onEditPreferences,
   });
   final Account account;
   final Future<void> Function() onLogout;
   final VoidCallback onEditProfile;
+  final VoidCallback onEditPhotos;
   final VoidCallback onEditPreferences;
 
   @override
@@ -327,6 +339,14 @@ class _ProfilePage extends StatelessWidget {
               ),
               const Divider(height: 1),
               ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Mes photos'),
+                subtitle: const Text('Jusqu’à 6 photos avec modération'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onEditPhotos,
+              ),
+              const Divider(height: 1),
+              ListTile(
                 leading: const Icon(Icons.tune),
                 title: const Text('Préférences de rencontre'),
                 trailing: const Icon(Icons.chevron_right),
@@ -352,6 +372,292 @@ class _ProfilePage extends StatelessWidget {
   }
 }
 
+
+class _PhotosPage extends StatefulWidget {
+  const _PhotosPage({required this.api});
+
+  final AuthApi api;
+
+  @override
+  State<_PhotosPage> createState() => _PhotosPageState();
+}
+
+class _PhotosPageState extends State<_PhotosPage> {
+  final ImagePicker _picker = ImagePicker();
+  List<ProfilePhoto> _photos = <ProfilePhoto>[];
+  bool _loading = true;
+  bool _working = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final photos = await widget.api.getPhotos();
+      if (!mounted) return;
+      setState(() {
+        _photos = photos;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  int _nextPosition() {
+    for (var position = 0; position < 6; position += 1) {
+      if (!_photos.any((photo) => photo.position == position)) return position;
+    }
+    return _photos.length;
+  }
+
+  Future<void> _pickPhoto() async {
+    if (_working || _photos.length >= 6) return;
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 2048,
+      maxHeight: 2048,
+      requestFullMetadata: false,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _working = true;
+      _error = null;
+    });
+    try {
+      final bytes = await picked.readAsBytes();
+      if (bytes.length > 10 * 1024 * 1024) {
+        throw const FormatException('La photo dépasse 10 Mo.');
+      }
+      await widget.api.uploadPhoto(
+        bytes: bytes,
+        filename: picked.name,
+        position: _nextPosition(),
+        primary: _photos.isEmpty,
+      );
+      await _load();
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _makePrimary(ProfilePhoto photo) async {
+    if (_working || photo.primary) return;
+    setState(() => _working = true);
+    try {
+      await widget.api.updatePhoto(id: photo.id, primary: true);
+      await _load();
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _delete(ProfilePhoto photo) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Supprimer cette photo ?'),
+        content: const Text(
+          'La suppression est définitive. Tu pourras ajouter une autre photo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _working = true);
+    try {
+      await widget.api.deletePhoto(photo.id);
+      await _load();
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Widget _photoImage(ProfilePhoto photo) {
+    if (photo.previewBytes != null) {
+      return Image.memory(
+        photo.previewBytes!,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+      );
+    }
+    if (photo.imageUrl.isNotEmpty) {
+      return Image.network(
+        photo.imageUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) => const Center(
+          child: Icon(Icons.broken_image_outlined, size: 48),
+        ),
+      );
+    }
+    return const Center(child: Icon(Icons.image_outlined, size: 48));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mes photos')),
+      floatingActionButton: _photos.length >= 6
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _working ? null : _pickPhoto,
+              icon: const Icon(Icons.add_a_photo_outlined),
+              label: const Text('Ajouter'),
+            ),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+                  children: [
+                    Text(
+                      'Ta galerie MBOLO',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Ajoute jusqu’à 6 photos. Les fichiers sont nettoyés et modérés avant leur affichage public.',
+                    ),
+                    const SizedBox(height: 20),
+                    if (_photos.isEmpty)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Column(
+                            children: [
+                              Icon(Icons.add_photo_alternate_outlined, size: 52),
+                              SizedBox(height: 12),
+                              Text(
+                                'Ajoute une première photo claire de ton visage.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _photos.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.72,
+                            ),
+                        itemBuilder: (context, index) {
+                          final photo = _photos[index];
+                          return Card(
+                            clipBehavior: Clip.antiAlias,
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      _photoImage(photo),
+                                      if (photo.primary)
+                                        const Positioned(
+                                          top: 8,
+                                          left: 8,
+                                          child: Chip(
+                                            avatar: Icon(Icons.star, size: 16),
+                                            label: Text('Principale'),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(8, 6, 4, 4),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          photo.moderationStatusLabel,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Définir comme principale',
+                                        onPressed: _working || photo.primary
+                                            ? null
+                                            : () => _makePrimary(photo),
+                                        icon: Icon(
+                                          photo.primary
+                                              ? Icons.star
+                                              : Icons.star_border,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Supprimer',
+                                        onPressed: _working
+                                            ? null
+                                            : () => _delete(photo),
+                                        icon: const Icon(Icons.delete_outline),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    if (_working)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 16),
+                        child: LinearProgressIndicator(),
+                      ),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+}
 
 class _ProfileEditorPage extends StatefulWidget {
   const _ProfileEditorPage({required this.api});
