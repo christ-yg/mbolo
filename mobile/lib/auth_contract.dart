@@ -130,6 +130,96 @@ class MemberProfile {
   }
 }
 
+class DiscoveryProfile {
+  const DiscoveryProfile({
+    required this.id,
+    required this.displayName,
+    required this.age,
+    required this.city,
+    required this.biography,
+    required this.datingIntent,
+    required this.verified,
+    required this.photos,
+    required this.interestLabels,
+    required this.commonInterestLabels,
+    required this.compatibilityScore,
+    required this.distanceLabel,
+  });
+
+  final String id;
+  final String displayName;
+  final int age;
+  final String city;
+  final String biography;
+  final String datingIntent;
+  final bool verified;
+  final List<ProfilePhoto> photos;
+  final List<String> interestLabels;
+  final List<String> commonInterestLabels;
+  final int compatibilityScore;
+  final String distanceLabel;
+
+  factory DiscoveryProfile.fromJson(Map<String, dynamic> data) {
+    final id = data['id'];
+    final name = data['display_name'];
+    if (id is! String || id.isEmpty || name is! String || name.isEmpty) {
+      throw const FormatException('Profil de découverte incomplet.');
+    }
+    List<String> strings(dynamic raw) => raw is List
+        ? raw.whereType<String>().toList(growable: false)
+        : const <String>[];
+    final rawPhotos = data['photos'];
+    return DiscoveryProfile(
+      id: id,
+      displayName: name,
+      age: data['age'] is int ? data['age'] as int : 0,
+      city: data['city'] is String ? data['city'] as String : '',
+      biography: data['biography'] is String ? data['biography'] as String : '',
+      datingIntent: data['dating_intent'] is String
+          ? data['dating_intent'] as String
+          : '',
+      verified: data['is_verified'] == true,
+      photos: rawPhotos is List
+          ? rawPhotos
+                .whereType<Map<String, dynamic>>()
+                .map(ProfilePhoto.fromJson)
+                .toList(growable: false)
+          : const <ProfilePhoto>[],
+      interestLabels: strings(data['interest_labels']),
+      commonInterestLabels: strings(data['common_interest_labels']),
+      compatibilityScore: data['compatibility_score'] is int
+          ? data['compatibility_score'] as int
+          : 0,
+      distanceLabel: data['distance_label'] is String
+          ? data['distance_label'] as String
+          : '',
+    );
+  }
+}
+
+class InteractionResult {
+  const InteractionResult({
+    required this.decision,
+    required this.matched,
+    required this.matchCreated,
+    this.matchId,
+  });
+
+  final String decision;
+  final bool matched;
+  final bool matchCreated;
+  final String? matchId;
+
+  factory InteractionResult.fromJson(Map<String, dynamic> data) {
+    return InteractionResult(
+      decision: data['decision'] is String ? data['decision'] as String : '',
+      matched: data['matched'] == true,
+      matchCreated: data['match_created'] == true,
+      matchId: data['match_id'] is String ? data['match_id'] as String : null,
+    );
+  }
+}
+
 class ProfilePhoto {
   const ProfilePhoto({
     required this.id,
@@ -221,6 +311,11 @@ abstract class AuthApi {
     required String biography,
     required String datingIntent,
     required List<String> interests,
+  });
+  Future<List<DiscoveryProfile>> getDiscovery();
+  Future<InteractionResult> decideProfile({
+    required String profileId,
+    required String decision,
   });
   Future<List<ProfilePhoto>> getPhotos();
   Future<ProfilePhoto> uploadPhoto({
