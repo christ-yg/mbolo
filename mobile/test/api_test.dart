@@ -33,6 +33,37 @@ class FakeServer implements HttpClientAdapter {
       headers['set-cookie'] = [
         'sessionid=session-test; Path=/; Secure; HttpOnly',
       ];
+    } else if (path.endsWith('/profiles/photos/')) {
+      final photo = {
+        'id': '11111111-1111-1111-1111-111111111111',
+        'image_url': 'https://example.com/media/photo.webp',
+        'position': 0,
+        'is_primary': true,
+        'moderation_status': 'pending',
+        'moderation_status_label': 'En attente',
+      };
+      data = options.method == 'GET'
+          ? {
+              'results': [photo],
+              'count': 1,
+            }
+          : {'data': photo, 'message': 'Photo ajoutée avec succès.'};
+    } else if (path.contains('/profiles/photos/')) {
+      if (options.method == 'DELETE') {
+        status = 204;
+        data = <String, dynamic>{};
+      } else {
+        data = {
+          'data': {
+            'id': '11111111-1111-1111-1111-111111111111',
+            'image_url': 'https://example.com/media/photo.webp',
+            'position': 0,
+            'is_primary': true,
+            'moderation_status': 'pending',
+            'moderation_status_label': 'En attente',
+          },
+        };
+      }
     } else if (path.endsWith('/profiles/preferences/me/')) {
       data = {
         'data': {
@@ -234,6 +265,51 @@ void main() {
     expect(preferencesPatch.data['maximum_age'], 40);
     expect(preferencesPatch.data['preferred_genders'], ['woman']);
     expect(preferencesPatch.headers['X-CSRFToken'], 'csrf-test');
+  });
+
+
+  test('Photo gallery uses multipart upload and protected mutations', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final photos = await api.getPhotos();
+    expect(photos, hasLength(1));
+    expect(photos.single.primary, isTrue);
+    expect(photos.single.moderationStatus, 'pending');
+
+    await api.uploadPhoto(
+      bytes: Uint8List.fromList([1, 2, 3, 4]),
+      filename: 'portrait.jpg',
+      position: 0,
+      primary: true,
+    );
+    final upload = server.requests.last;
+    expect(upload.method, 'POST');
+    expect(upload.uri.path, endsWith('/profiles/photos/'));
+    expect(upload.headers['X-CSRFToken'], 'csrf-test');
+    expect(upload.data, isA<FormData>());
+    final form = upload.data as FormData;
+    expect(Map<String, String>.fromEntries(form.fields)['position'], '0');
+    expect(Map<String, String>.fromEntries(form.fields)['is_primary'], 'true');
+    expect(form.files.single.value.filename, 'portrait.jpg');
+
+    await api.updatePhoto(
+      id: photos.single.id,
+      primary: true,
+    );
+    final update = server.requests.last;
+    expect(update.method, 'PATCH');
+    expect(update.data['is_primary'], isTrue);
+    expect(update.headers['X-CSRFToken'], 'csrf-test');
+
+    await api.deletePhoto(photos.single.id);
+    final deletion = server.requests.last;
+    expect(deletion.method, 'DELETE');
+    expect(deletion.headers['X-CSRFToken'], 'csrf-test');
   });
 
 }
