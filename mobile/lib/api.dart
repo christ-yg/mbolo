@@ -26,11 +26,8 @@ class MboloApi implements AuthApi {
   final Dio client;
   final CookieJar cookies = CookieJar();
 
-  Future<Map<String, dynamic>> _post(
-    String path,
-    Map<String, dynamic> body,
-  ) async {
-    // Fetch for every mutation: Django rotates CSRF on login and logout.
+  Future<dynamic> _post(String path, Map<String, dynamic> body) async {
+    // Fetch for every mutation: Django rotates CSRF on authentication changes.
     final csrf = await client.get<dynamic>('csrf/');
     final token = objectData(csrf.data)['csrfToken'];
     if (token is! String || token.isEmpty) {
@@ -41,20 +38,54 @@ class MboloApi implements AuthApi {
       data: body,
       options: Options(headers: {'X-CSRFToken': token}),
     );
-    return objectData(response.data);
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> _postObject(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    return objectData(await _post(path, body));
+  }
+
+  @override
+  Future<Account> register({
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+    required bool acceptTerms,
+    required bool confirmAdult,
+  }) async {
+    return Account.fromJson(
+      await _postObject('auth/register/', {
+        'email': email.trim(),
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+        'accept_terms': acceptTerms,
+        'confirm_adult': confirmAdult,
+      }),
+    );
+  }
+
+  @override
+  Future<void> requestPasswordReset(String email) async {
+    await _post('auth/password-reset/request/', {'email': email.trim()});
   }
 
   @override
   Future<LoginResult> login(String email, String password) async {
     return LoginResult.fromJson(
-      await _post('auth/login/', {'email': email.trim(), 'password': password}),
+      await _postObject('auth/login/', {
+        'email': email.trim(),
+        'password': password,
+      }),
     );
   }
 
   @override
   Future<Account> confirm(String challenge, String code) async {
     return Account.fromJson(
-      await _post('auth/login/2fa/confirm/', {
+      await _postObject('auth/login/2fa/confirm/', {
         'challenge_token': challenge,
         'code': code.trim(),
       }),
