@@ -48,6 +48,24 @@ class MboloApi implements AuthApi {
     return objectData(await _post(path, body));
   }
 
+
+  Future<Map<String, dynamic>> _patchObject(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final csrf = await client.get<dynamic>('csrf/');
+    final token = objectData(csrf.data)['csrfToken'];
+    if (token is! String || token.isEmpty) {
+      throw const FormatException('Protection CSRF indisponible.');
+    }
+    final response = await client.patch<dynamic>(
+      path,
+      data: body,
+      options: Options(headers: {'X-CSRFToken': token}),
+    );
+    return objectData(response.data);
+  }
+
   @override
   Future<Account> register({
     required String email,
@@ -96,6 +114,49 @@ class MboloApi implements AuthApi {
   Future<Account> me() async {
     final response = await client.get<dynamic>('auth/me/');
     return Account.fromJson(objectData(response.data));
+  }
+
+
+  @override
+  Future<MemberProfile> getProfile() async {
+    final response = await client.get<dynamic>('profiles/me/');
+    return MemberProfile.fromJson(objectData(response.data));
+  }
+
+  @override
+  Future<MemberProfile> updateProfile({
+    required String displayName,
+    required String city,
+    required String biography,
+  }) async {
+    return MemberProfile.fromJson(
+      await _patchObject('profiles/me/', {
+        'display_name': displayName.trim(),
+        'city': city,
+        'biography': biography.trim(),
+      }),
+    );
+  }
+
+  @override
+  Future<DiscoveryPreferences> getPreferences() async {
+    final response = await client.get<dynamic>('profiles/preferences/me/');
+    return DiscoveryPreferences.fromJson(objectData(response.data));
+  }
+
+  @override
+  Future<DiscoveryPreferences> updatePreferences({
+    required int minimumAge,
+    required int maximumAge,
+    required List<String> preferredGenders,
+  }) async {
+    return DiscoveryPreferences.fromJson(
+      await _patchObject('profiles/preferences/me/', {
+        'minimum_age': minimumAge,
+        'maximum_age': maximumAge,
+        'preferred_genders': preferredGenders,
+      }),
+    );
   }
 
   @override
