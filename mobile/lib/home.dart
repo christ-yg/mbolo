@@ -21,39 +21,68 @@ class MboloHome extends StatefulWidget {
 
 class _MboloHomeState extends State<MboloHome> {
   int _tab = 0;
-  int _profile = 0;
   final Set<String> _liked = <String>{};
+  List<DiscoveryProfile> _profiles = <DiscoveryProfile>[];
+  bool _discoveryLoading = true;
+  bool _deciding = false;
+  String? _discoveryError;
 
-  static const _profiles = [
-    _SuggestedProfile(
-      'Arielle',
-      27,
-      'Libreville',
-      'Lecture • Cuisine • Voyages',
-    ),
-    _SuggestedProfile('Grâce', 29, 'Akanda', 'Sport • Musique • Entrepreneuriat'),
-    _SuggestedProfile(
-      'Mélissa',
-      26,
-      'Port-Gentil',
-      'Cinéma • Nature • Photographie',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadDiscovery();
+  }
 
-  void _next({required bool liked}) {
-    final current = _profiles[_profile];
+  Future<void> _loadDiscovery() async {
     setState(() {
-      if (liked) _liked.add(current.name);
-      _profile = (_profile + 1) % _profiles.length;
+      _discoveryLoading = true;
+      _discoveryError = null;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          liked ? 'Intérêt envoyé avec respect.' : 'Profil suivant.',
+    try {
+      final profiles = await widget.api.getDiscovery();
+      if (!mounted) return;
+      setState(() => _profiles = profiles);
+    } catch (error) {
+      if (mounted) setState(() => _discoveryError = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _discoveryLoading = false);
+    }
+  }
+
+  Future<void> _next({required bool liked}) async {
+    if (_deciding || _profiles.isEmpty) return;
+    final current = _profiles.first;
+    setState(() => _deciding = true);
+    try {
+      final result = await widget.api.decideProfile(
+        profileId: current.id,
+        decision: liked ? 'like' : 'pass',
+      );
+      if (!mounted) return;
+      setState(() {
+        if (liked) _liked.add(current.displayName);
+        _profiles = _profiles.skip(1).toList(growable: false);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.matched
+                ? 'C’est un match avec ${current.displayName} !'
+                : liked
+                ? 'Intérêt envoyé avec respect.'
+                : 'Profil passé.',
+          ),
         ),
-        duration: const Duration(seconds: 1),
-      ),
-    );
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deciding = false);
+    }
   }
 
   Future<void> _openProfileEditor() async {
@@ -70,6 +99,7 @@ class _MboloHomeState extends State<MboloHome> {
         builder: (context) => _PreferencesPage(api: widget.api),
       ),
     );
+    await _loadDiscovery();
   }
 
   Future<void> _openPhotos() async {
@@ -80,10 +110,64 @@ class _MboloHomeState extends State<MboloHome> {
     );
   }
 
+  Widget _discoveryPage() {
+    if (_discoveryLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_discoveryError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_outlined, size: 52),
+              const SizedBox(height: 12),
+              Text(_discoveryError!, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _loadDiscovery,
+                child: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_profiles.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.favorite_border, size: 56),
+              const SizedBox(height: 12),
+              const Text(
+                'Tu as vu tous les profils disponibles pour le moment.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: _loadDiscovery,
+                child: const Text('Actualiser'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return _DiscoverPage(
+      profile: _profiles.first,
+      onNext: _next,
+      working: _deciding,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      _DiscoverPage(profile: _profiles[_profile], onNext: _next),
+    final pages = <Widget>[
+      _discoveryPage(),
       _ActivityPage(liked: _liked.toList(growable: false)),
       _SafetyPage(onOpenProfile: () => setState(() => _tab = 3)),
       _ProfilePage(
@@ -137,34 +221,48 @@ class _MboloHomeState extends State<MboloHome> {
 }
 
 class _DiscoverPage extends StatelessWidget {
-  const _DiscoverPage({required this.profile, required this.onNext});
-  final _SuggestedProfile profile;
-  final void Function({required bool liked}) onNext;
+  const _DiscoverPage({
+    required this.profile,
+    required this.onNext,
+    required this.working,
+  });
+
+  final DiscoveryProfile profile;
+  final Future<void> Function({required bool liked}) onNext;
+  final bool working;
+
+  String _label(String value) {
+    if (value.isEmpty) return 'Non précisé';
+    final spaced = value.replaceAll('_', ' ');
+    return '${spaced[0].toUpperCase()}${spaced.substring(1)}';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final primary = profile.photos.where((photo) => photo.primary).firstOrNull;
+    final photo = primary ?? profile.photos.firstOrNull;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
         Text('Découvrir', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 4),
-        const Text('Des profils proches de tes valeurs, à ton rythme.'),
+        const Text('Des profils compatibles, filtrés en toute sécurité.'),
         const SizedBox(height: 20),
         Card(
           clipBehavior: Clip.antiAlias,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
+              SizedBox(
                 height: 300,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFF6CAD6), Color(0xFF9D3451)],
-                  ),
-                ),
-                child: const Icon(Icons.person, size: 150, color: Colors.white70),
+                child: photo != null && photo.imageUrl.isNotEmpty
+                    ? Image.network(
+                        photo.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const _ProfilePhotoFallback(),
+                      )
+                    : const _ProfilePhotoFallback(),
               ),
               Padding(
                 padding: const EdgeInsets.all(20),
@@ -175,17 +273,48 @@ class _DiscoverPage extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            '${profile.name}, ${profile.age}',
+                            '${profile.displayName}, ${profile.age}',
                             style: Theme.of(context).textTheme.headlineSmall,
                           ),
                         ),
-                        const Icon(Icons.verified, color: Color(0xFF9D3451)),
+                        if (profile.verified)
+                          const Icon(
+                            Icons.verified,
+                            color: Color(0xFF9D3451),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text('${profile.city} • Profil vérifié'),
-                    const SizedBox(height: 12),
-                    Text(profile.interests),
+                    Text(
+                      [
+                        _label(profile.city),
+                        if (profile.distanceLabel.isNotEmpty)
+                          profile.distanceLabel,
+                      ].join(' • '),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(_label(profile.datingIntent)),
+                    if (profile.biography.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(profile.biography),
+                    ],
+                    if (profile.interestLabels.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: profile.interestLabels
+                            .map((label) => Chip(label: Text(label)))
+                            .toList(growable: false),
+                      ),
+                    ],
+                    if (profile.compatibilityScore > 0) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        '${profile.compatibilityScore}% de centres d’intérêt compatibles',
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -197,19 +326,43 @@ class _DiscoverPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             OutlinedButton.icon(
-              onPressed: () => onNext(liked: false),
+              onPressed: working ? null : () => onNext(liked: false),
               icon: const Icon(Icons.close),
               label: const Text('Passer'),
             ),
             const SizedBox(width: 16),
             FilledButton.icon(
-              onPressed: () => onNext(liked: true),
+              onPressed: working ? null : () => onNext(liked: true),
               icon: const Icon(Icons.favorite),
               label: const Text('Ça me plaît'),
             ),
           ],
         ),
+        if (working) ...[
+          const SizedBox(height: 12),
+          const LinearProgressIndicator(),
+        ],
       ],
+    );
+  }
+}
+
+class _ProfilePhotoFallback extends StatelessWidget {
+  const _ProfilePhotoFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF6CAD6), Color(0xFF9D3451)],
+        ),
+      ),
+      child: const Center(
+        child: Icon(Icons.person, size: 150, color: Colors.white70),
+      ),
     );
   }
 }
@@ -1183,12 +1336,4 @@ class _PreferencesPageState extends State<_PreferencesPage> {
       ),
     );
   }
-}
-
-class _SuggestedProfile {
-  const _SuggestedProfile(this.name, this.age, this.city, this.interests);
-  final String name;
-  final int age;
-  final String city;
-  final String interests;
 }
