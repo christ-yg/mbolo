@@ -180,7 +180,10 @@ void main() {
     await tester.tap(find.text('Préférences de rencontre'));
     await tester.pumpAndSettle();
     expect(find.text('Choisis qui tu souhaites découvrir'), findsOneWidget);
-    expect(find.textContaining('Distance approximative'), findsOneWidget);
+    expect(find.textContaining('Tranche d’âge'), findsOneWidget);
+    expect(find.text('Femmes'), findsOneWidget);
+    expect(find.text('Filtres avancés'), findsOneWidget);
+    expect(find.text('Enregistrer mes préférences'), findsOneWidget);
   });
 
 }
