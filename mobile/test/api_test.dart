@@ -38,7 +38,7 @@ class FakeServer implements HttpClientAdapter {
         'data': {
           'minimum_age': 21,
           'maximum_age': 39,
-          'preferred_genders': ['female'],
+          'preferred_genders': ['woman'],
           'advanced_filters_available': false,
         },
       };
@@ -217,12 +217,12 @@ void main() {
 
     final preferences = await api.getPreferences();
     expect(preferences.minimumAge, 21);
-    expect(preferences.preferredGenders, ['female']);
+    expect(preferences.preferredGenders, ['woman']);
 
     await api.updatePreferences(
       minimumAge: 22,
       maximumAge: 40,
-      preferredGenders: const ['female'],
+      preferredGenders: const ['woman'],
     );
     final preferencesPatch = server.requests.last;
     expect(preferencesPatch.method, 'PATCH');
@@ -232,7 +232,7 @@ void main() {
     );
     expect(preferencesPatch.data['minimum_age'], 22);
     expect(preferencesPatch.data['maximum_age'], 40);
-    expect(preferencesPatch.data['preferred_genders'], ['female']);
+    expect(preferencesPatch.data['preferred_genders'], ['woman']);
     expect(preferencesPatch.headers['X-CSRFToken'], 'csrf-test');
   });
 
