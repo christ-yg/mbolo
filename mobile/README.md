@@ -52,9 +52,9 @@ Les numéros sont des unités de travail planifiées, pas des fonctionnalités d
 | 001–010 | Audit API, structure Flutter, configuration et thème | Commencé |
 | 011–020 | Client HTTP, cookies, CSRF, erreurs et tests | Code écrit, validation à exécuter |
 | 021–030 | Connexion, 2FA, session et déconnexion | Code écrit, validation à exécuter |
-| 031–040 | Inscription, majorité, CGU et vérification e-mail | À réaliser |
-| 041–050 | Récupération du mot de passe et sécurité session | À réaliser |
-| 051–060 | Onboarding et lecture/édition du profil | Aperçu de profil commencé |
+| 031–040 | Inscription, majorité, CGU et vérification e-mail | Inscription et consentements réalisés |
+| 041–050 | Récupération du mot de passe et sécurité session | Réinitialisation privée réalisée |
+| 051–060 | Onboarding et lecture/édition du profil | Profil complet et préférences synchronisés |
 | 061–070 | Photos, validation et permissions minimales | À réaliser |
 | 071–080 | Navigation et gestion des états réseau | Navigation d’aperçu écrite |
 | 081–090 | Persistance sécurisée, accessibilité et tests téléphone | À réaliser |
@@ -86,6 +86,35 @@ L’aperçu montre connexion, 2FA, navigation, profils suggérés, likes locaux,
 centre de sécurité, profil et déconnexion. Les profils sont fictifs et aucune
 action de démonstration n’est envoyée au serveur.
 Ne pas saisir ses véritables identifiants dans cet aperçu.
+
+## Démonstration sur un téléphone, sans installation
+
+Le PC et le téléphone doivent utiliser le même Wi-Fi. Dans Ubuntu/WSL :
+
+```sh
+cd ~/projects/mbolo
+git fetch origin
+git switch agent/mobile-1-100
+git pull --ff-only
+cd mobile
+~/develop/flutter/bin/flutter pub get
+~/develop/flutter/bin/flutter run -d web-server \
+  --web-hostname=0.0.0.0 \
+  --web-port=8083 \
+  -t lib/main_preview.dart
+```
+
+Dans Windows, exécuter `ipconfig` et relever l'adresse IPv4 de la carte Wi-Fi,
+par exemple `192.168.1.25`. Sur le téléphone, ouvrir :
+
+```text
+http://ADRESSE_IPV4_DU_PC:8083
+```
+
+Utiliser `demo@mbolo.test`, `MboloDemo!`, puis `123456`.
+Cette démonstration est locale et fictive. Elle ne nécessite pas Django.
+Si Windows demande l'autorisation réseau pour Flutter, autoriser uniquement le
+réseau privé. Ne jamais ouvrir ce port sur un Wi-Fi public.
 
 Pour récupérer nos prochaines évolutions : arrêter Flutter avec `q`, puis :
 
