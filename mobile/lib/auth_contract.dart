@@ -85,25 +85,44 @@ String friendlyError(Object error) {
 class MemberProfile {
   const MemberProfile({
     required this.displayName,
+    required this.birthDate,
+    required this.gender,
     required this.city,
     required this.biography,
+    required this.datingIntent,
+    required this.interests,
     required this.complete,
   });
 
   final String displayName;
+  final String birthDate;
+  final String gender;
   final String city;
   final String biography;
+  final String datingIntent;
+  final List<String> interests;
   final bool complete;
 
   factory MemberProfile.fromJson(Map<String, dynamic> data) {
+    final rawInterests = data['interests'];
     return MemberProfile(
       displayName: data['display_name'] is String
           ? data['display_name'] as String
           : '',
+      birthDate: data['birth_date'] is String
+          ? data['birth_date'] as String
+          : '',
+      gender: data['gender'] is String ? data['gender'] as String : '',
       city: data['city'] is String ? data['city'] as String : '',
       biography: data['biography'] is String
           ? data['biography'] as String
           : '',
+      datingIntent: data['dating_intent'] is String
+          ? data['dating_intent'] as String
+          : '',
+      interests: rawInterests is List
+          ? rawInterests.whereType<String>().toList(growable: false)
+          : const <String>[],
       complete: data['is_complete'] == true,
     );
   }
@@ -155,8 +174,12 @@ abstract class AuthApi {
   Future<MemberProfile> getProfile();
   Future<MemberProfile> updateProfile({
     required String displayName,
+    required String birthDate,
+    required String gender,
     required String city,
     required String biography,
+    required String datingIntent,
+    required List<String> interests,
   });
   Future<DiscoveryPreferences> getPreferences();
   Future<DiscoveryPreferences> updatePreferences({
