@@ -4,6 +4,18 @@ import 'auth_contract.dart';
 class DemoApi implements AuthApi {
   static const account = Account('demo', 'demo@mbolo.test', true);
   bool _authenticated = false;
+  MemberProfile _profile = const MemberProfile(
+    displayName: '',
+    city: '',
+    biography: '',
+    complete: false,
+  );
+  DiscoveryPreferences _preferences = const DiscoveryPreferences(
+    minimumAge: 18,
+    maximumAge: 45,
+    preferredGenders: <String>[],
+    advancedFiltersAvailable: false,
+  );
 
   @override
   Future<Account> register({
@@ -54,6 +66,43 @@ class DemoApi implements AuthApi {
   Future<Account> me() async {
     if (!_authenticated) throw const FormatException('Session absente.');
     return account;
+  }
+
+
+  @override
+  Future<MemberProfile> getProfile() async => _profile;
+
+  @override
+  Future<MemberProfile> updateProfile({
+    required String displayName,
+    required String city,
+    required String biography,
+  }) async {
+    _profile = MemberProfile(
+      displayName: displayName.trim(),
+      city: city,
+      biography: biography.trim(),
+      complete: false,
+    );
+    return _profile;
+  }
+
+  @override
+  Future<DiscoveryPreferences> getPreferences() async => _preferences;
+
+  @override
+  Future<DiscoveryPreferences> updatePreferences({
+    required int minimumAge,
+    required int maximumAge,
+    required List<String> preferredGenders,
+  }) async {
+    _preferences = DiscoveryPreferences(
+      minimumAge: minimumAge,
+      maximumAge: maximumAge,
+      preferredGenders: List<String>.unmodifiable(preferredGenders),
+      advancedFiltersAvailable: false,
+    );
+    return _preferences;
   }
 
   @override
