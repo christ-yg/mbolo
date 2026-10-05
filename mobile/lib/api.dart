@@ -149,6 +149,42 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<List<DiscoveryProfile>> getDiscovery() async {
+    final response = await client.get<dynamic>(
+      'profiles/discovery/',
+      queryParameters: const {'page_size': 20},
+    );
+    final raw = response.data;
+    if (raw is! Map<String, dynamic> || raw['results'] is! List) {
+      throw const FormatException('Découverte indisponible.');
+    }
+    return (raw['results'] as List)
+        .map((item) {
+          if (item is! Map<String, dynamic>) {
+            throw const FormatException('Profil de découverte incorrect.');
+          }
+          return DiscoveryProfile.fromJson(item);
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<InteractionResult> decideProfile({
+    required String profileId,
+    required String decision,
+  }) async {
+    if (decision != 'like' && decision != 'pass') {
+      throw const FormatException('Décision de rencontre incorrecte.');
+    }
+    return InteractionResult.fromJson(
+      await _postObject('interactions/', {
+        'target_profile_id': profileId,
+        'decision': decision,
+      }),
+    );
+  }
+
+  @override
   Future<List<ProfilePhoto>> getPhotos() async {
     final response = await client.get<dynamic>('profiles/photos/');
     final raw = response.data;
