@@ -15,6 +15,36 @@ void main() {
     );
     expect(find.byType(TextFormField), findsNothing);
   });
+  testWidgets('Demo remains usable on a compact Android viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
+    expect(tester.takeException(), isNull);
+
+    await tester.enterText(
+      find.byType(TextFormField).at(0),
+      'demo@mbolo.test',
+    );
+    await tester.enterText(
+      find.byType(TextFormField).at(1),
+      'MboloDemo!',
+    );
+    await tester.tap(find.text('Se connecter'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.tap(find.text('Confirmer'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('Découvrir'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Empty credentials are rejected locally', (tester) async {
     final api = MboloApi('https://example.com');
     await tester.pumpWidget(MboloApp(api: api));
