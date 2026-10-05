@@ -73,7 +73,7 @@ String friendlyError(Object error) {
       return 'Trop de tentatives. Patiente avant de réessayer.';
     }
     if (status == 400 || status == 401) {
-      return 'Vérifie tes identifiants ou ton code de confirmation.';
+      return 'Vérifie les informations saisies et réessaie.';
     }
     if (status == 403) return 'Accès refusé. Vérifie ton compte et réessaie.';
     return 'Connexion au serveur impossible. Réessaie dans un instant.';
@@ -82,6 +82,14 @@ String friendlyError(Object error) {
 }
 
 abstract class AuthApi {
+  Future<Account> register({
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+    required bool acceptTerms,
+    required bool confirmAdult,
+  });
+  Future<void> requestPasswordReset(String email);
   Future<LoginResult> login(String email, String password);
   Future<Account> confirm(String challenge, String code);
   Future<Account> me();
