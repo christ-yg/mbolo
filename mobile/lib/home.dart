@@ -66,7 +66,7 @@ class _MboloHomeState extends State<MboloHome> {
   Future<void> _openPreferences() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (context) => const _PreferencesPage(),
+        builder: (context) => _PreferencesPage(api: widget.api),
       ),
     );
   }
@@ -697,26 +697,87 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
 }
 
 class _PreferencesPage extends StatefulWidget {
-  const _PreferencesPage();
+  const _PreferencesPage({required this.api});
+
+  final AuthApi api;
 
   @override
   State<_PreferencesPage> createState() => _PreferencesPageState();
 }
 
 class _PreferencesPageState extends State<_PreferencesPage> {
-  String _lookingFor = 'Tous';
-  String _intent = 'Relation sérieuse';
-  double _distance = 25;
+  static const _genderOptions = <String, String>{
+    'woman': 'Femmes',
+    'man': 'Hommes',
+    'non_binary': 'Personnes non binaires',
+    'prefer_not_to_say': 'Genre non précisé',
+  };
 
-  void _continue() {
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Préférences prêtes. La synchronisation sécurisée arrive ensuite.',
-        ),
-      ),
-    );
+  RangeValues _ages = const RangeValues(18, 45);
+  Set<String> _preferredGenders = <String>{};
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+  bool _advancedFiltersAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final preferences = await widget.api.getPreferences();
+      if (!mounted) return;
+      setState(() {
+        _ages = RangeValues(
+          preferences.minimumAge.toDouble(),
+          preferences.maximumAge.toDouble(),
+        );
+        _preferredGenders = preferences.preferredGenders.toSet();
+        _advancedFiltersAvailable = preferences.advancedFiltersAvailable;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _toggleGender(String value) {
+    setState(() {
+      if (_preferredGenders.contains(value)) {
+        _preferredGenders.remove(value);
+      } else {
+        _preferredGenders.add(value);
+      }
+    });
+  }
+
+  Future<void> _continue() async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.api.updatePreferences(
+        minimumAge: _ages.start.round(),
+        maximumAge: _ages.end.round(),
+        preferredGenders: _preferredGenders.toList(growable: false),
+      );
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Préférences enregistrées en sécurité.')),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -724,68 +785,95 @@ class _PreferencesPageState extends State<_PreferencesPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Préférences de rencontre')),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            Text(
-              'Choisis qui tu souhaites découvrir',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Ces réglages restent modifiables et ta position exacte est masquée.',
-            ),
-            const SizedBox(height: 24),
-            DropdownButtonFormField<String>(
-              initialValue: _lookingFor,
-              decoration: const InputDecoration(labelText: 'Je souhaite voir'),
-              items: const [
-                DropdownMenuItem(value: 'Tous', child: Text('Tous les profils')),
-                DropdownMenuItem(value: 'Femmes', child: Text('Des femmes')),
-                DropdownMenuItem(value: 'Hommes', child: Text('Des hommes')),
-              ],
-              onChanged: (value) => setState(() {
-                _lookingFor = value ?? _lookingFor;
-              }),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _intent,
-              decoration: const InputDecoration(labelText: 'Intention'),
-              items: const [
-                DropdownMenuItem(
-                  value: 'Relation sérieuse',
-                  child: Text('Relation sérieuse'),
-                ),
-                DropdownMenuItem(value: 'Amitié', child: Text('Amitié')),
-                DropdownMenuItem(
-                  value: 'Découverte',
-                  child: Text('Découvrir sans pression'),
-                ),
-              ],
-              onChanged: (value) => setState(() {
-                _intent = value ?? _intent;
-              }),
-            ),
-            const SizedBox(height: 24),
-            Text('Distance approximative : ${_distance.round()} km'),
-            Slider(
-              value: _distance,
-              min: 5,
-              max: 100,
-              divisions: 19,
-              label: '${_distance.round()} km',
-              onChanged: (value) => setState(() {
-                _distance = value;
-              }),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _continue,
-              child: const Text('Enregistrer mes préférences'),
-            ),
-          ],
-        ),
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  Text(
+                    'Choisis qui tu souhaites découvrir',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Tes choix restent privés. Une sélection vide affiche tous les genres.',
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Tranche d’âge : ${_ages.start.round()} à ${_ages.end.round()} ans',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  RangeSlider(
+                    values: _ages,
+                    min: 18,
+                    max: 99,
+                    divisions: 81,
+                    labels: RangeLabels(
+                      '${_ages.start.round()} ans',
+                      '${_ages.end.round()} ans',
+                    ),
+                    onChanged: _saving
+                        ? null
+                        : (values) => setState(() => _ages = values),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Je souhaite voir',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _genderOptions.entries
+                        .map(
+                          (entry) => FilterChip(
+                            label: Text(entry.value),
+                            selected: _preferredGenders.contains(entry.key),
+                            onSelected: _saving
+                                ? null
+                                : (_) => _toggleGender(entry.key),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                  const SizedBox(height: 24),
+                  Card(
+                    child: ListTile(
+                      leading: Icon(
+                        _advancedFiltersAvailable
+                            ? Icons.workspace_premium
+                            : Icons.lock_outline,
+                      ),
+                      title: const Text('Filtres avancés'),
+                      subtitle: Text(
+                        _advancedFiltersAvailable
+                            ? 'Disponibles avec ton abonnement actif.'
+                            : 'Villes, intentions, distance et profils vérifiés seront proposés avec MBOLO Plus.',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: _saving ? null : _continue,
+                    child: Text(
+                      _saving
+                          ? 'Enregistrement…'
+                          : 'Enregistrer mes préférences',
+                    ),
+                  ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
       ),
     );
   }
