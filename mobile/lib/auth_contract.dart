@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 Uri validateOrigin(String value) {
@@ -128,6 +130,45 @@ class MemberProfile {
   }
 }
 
+class ProfilePhoto {
+  const ProfilePhoto({
+    required this.id,
+    required this.imageUrl,
+    required this.position,
+    required this.primary,
+    required this.moderationStatus,
+    required this.moderationStatusLabel,
+    this.previewBytes,
+  });
+
+  final String id;
+  final String imageUrl;
+  final int position;
+  final bool primary;
+  final String moderationStatus;
+  final String moderationStatusLabel;
+  final Uint8List? previewBytes;
+
+  factory ProfilePhoto.fromJson(Map<String, dynamic> data) {
+    final id = data['id'];
+    if (id is! String || id.isEmpty) {
+      throw const FormatException('Photo de profil incomplète.');
+    }
+    return ProfilePhoto(
+      id: id,
+      imageUrl: data['image_url'] is String ? data['image_url'] as String : '',
+      position: data['position'] is int ? data['position'] as int : 0,
+      primary: data['is_primary'] == true,
+      moderationStatus: data['moderation_status'] is String
+          ? data['moderation_status'] as String
+          : 'pending',
+      moderationStatusLabel: data['moderation_status_label'] is String
+          ? data['moderation_status_label'] as String
+          : 'En attente',
+    );
+  }
+}
+
 class DiscoveryPreferences {
   const DiscoveryPreferences({
     required this.minimumAge,
@@ -181,6 +222,19 @@ abstract class AuthApi {
     required String datingIntent,
     required List<String> interests,
   });
+  Future<List<ProfilePhoto>> getPhotos();
+  Future<ProfilePhoto> uploadPhoto({
+    required Uint8List bytes,
+    required String filename,
+    required int position,
+    required bool primary,
+  });
+  Future<ProfilePhoto> updatePhoto({
+    required String id,
+    int? position,
+    bool? primary,
+  });
+  Future<void> deletePhoto(String id);
   Future<DiscoveryPreferences> getPreferences();
   Future<DiscoveryPreferences> updatePreferences({
     required int minimumAge,
