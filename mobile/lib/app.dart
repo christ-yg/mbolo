@@ -225,7 +225,11 @@ class _SessionScreenState extends State<SessionScreen> {
   @override
   Widget build(BuildContext context) {
     if (_account != null) {
-      return MboloHome(account: _account!, onLogout: _logout);
+      return MboloHome(
+        account: _account!,
+        api: widget.api,
+        onLogout: _logout,
+      );
     }
 
     final showPassword =
