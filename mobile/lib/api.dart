@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
@@ -143,6 +145,74 @@ class MboloApi implements AuthApi {
         'dating_intent': datingIntent,
         'interests': interests,
       }),
+    );
+  }
+
+  @override
+  Future<List<ProfilePhoto>> getPhotos() async {
+    final response = await client.get<dynamic>('profiles/photos/');
+    final raw = response.data;
+    if (raw is! Map<String, dynamic> || raw['results'] is! List) {
+      throw const FormatException('Galerie de photos incorrecte.');
+    }
+    return (raw['results'] as List)
+        .map((item) {
+          if (item is! Map<String, dynamic>) {
+            throw const FormatException('Photo de profil incorrecte.');
+          }
+          return ProfilePhoto.fromJson(item);
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<ProfilePhoto> uploadPhoto({
+    required Uint8List bytes,
+    required String filename,
+    required int position,
+    required bool primary,
+  }) async {
+    final csrf = await client.get<dynamic>('csrf/');
+    final token = objectData(csrf.data)['csrfToken'];
+    if (token is! String || token.isEmpty) {
+      throw const FormatException('Protection CSRF indisponible.');
+    }
+    final response = await client.post<dynamic>(
+      'profiles/photos/',
+      data: FormData.fromMap({
+        'image': MultipartFile.fromBytes(bytes, filename: filename),
+        'position': position,
+        'is_primary': primary,
+      }),
+      options: Options(headers: {'X-CSRFToken': token}),
+    );
+    return ProfilePhoto.fromJson(objectData(response.data));
+  }
+
+  @override
+  Future<ProfilePhoto> updatePhoto({
+    required String id,
+    int? position,
+    bool? primary,
+  }) async {
+    final body = <String, dynamic>{};
+    if (position != null) body['position'] = position;
+    if (primary != null) body['is_primary'] = primary;
+    return ProfilePhoto.fromJson(
+      await _patchObject('profiles/photos/$id/', body),
+    );
+  }
+
+  @override
+  Future<void> deletePhoto(String id) async {
+    final csrf = await client.get<dynamic>('csrf/');
+    final token = objectData(csrf.data)['csrfToken'];
+    if (token is! String || token.isEmpty) {
+      throw const FormatException('Protection CSRF indisponible.');
+    }
+    await client.delete<dynamic>(
+      'profiles/photos/$id/',
+      options: Options(headers: {'X-CSRFToken': token}),
     );
   }
 
