@@ -148,4 +148,39 @@ void main() {
     expect(find.textContaining('Si cette adresse existe'), findsOneWidget);
   });
 
+
+  testWidgets('Profile and preference onboarding screens open', (tester) async {
+    await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
+    await tester.enterText(find.byType(TextFormField).at(0), 'demo@mbolo.test');
+    await tester.enterText(find.byType(TextFormField).at(1), 'MboloDemo!');
+    await tester.tap(find.text('Se connecter'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.tap(find.text('Confirmer'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Profil'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Compléter mon profil'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Compléter mon profil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Présente-toi avec authenticité'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Préférences de rencontre'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Préférences de rencontre'));
+    await tester.pumpAndSettle();
+    expect(find.text('Choisis qui tu souhaites découvrir'), findsOneWidget);
+    expect(find.textContaining('Distance approximative'), findsOneWidget);
+  });
+
 }
