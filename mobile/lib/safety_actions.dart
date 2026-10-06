@@ -154,6 +154,7 @@ Future<bool> _report({
                 minLines: 3,
                 maxLines: 5,
                 maxLength: 2000,
+                onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   labelText: reason == 'other'
                       ? 'Description obligatoire'
