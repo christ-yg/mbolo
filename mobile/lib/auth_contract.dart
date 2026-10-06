@@ -290,6 +290,90 @@ class DiscoveryPreferences {
   }
 }
 
+
+class ChatMessage {
+  const ChatMessage({
+    required this.id,
+    required this.body,
+    required this.createdAt,
+    required this.mine,
+    required this.read,
+    required this.readReceiptsAvailable,
+  });
+
+  final String id;
+  final String body;
+  final DateTime createdAt;
+  final bool mine;
+  final bool read;
+  final bool readReceiptsAvailable;
+
+  factory ChatMessage.fromJson(Map<String, dynamic> data) {
+    final id = data['id'];
+    final body = data['body'];
+    final createdAt = DateTime.tryParse(data['created_at']?.toString() ?? '');
+    if (id is! String || id.isEmpty || body is! String || createdAt == null) {
+      throw const FormatException('Message incomplet.');
+    }
+    return ChatMessage(
+      id: id,
+      body: body,
+      createdAt: createdAt,
+      mine: data['is_mine'] == true,
+      read: data['is_read'] == true,
+      readReceiptsAvailable: data['read_receipts_available'] == true,
+    );
+  }
+}
+
+class ConversationSummary {
+  const ConversationSummary({
+    required this.id,
+    required this.matchId,
+    required this.otherProfile,
+    required this.unreadCount,
+    required this.online,
+    required this.updatedAt,
+    this.lastMessage,
+  });
+
+  final String id;
+  final String matchId;
+  final DiscoveryProfile otherProfile;
+  final ChatMessage? lastMessage;
+  final int unreadCount;
+  final bool online;
+  final DateTime updatedAt;
+
+  factory ConversationSummary.fromJson(Map<String, dynamic> data) {
+    final id = data['id'];
+    final matchId = data['match_id'];
+    final profile = data['other_profile'];
+    final updatedAt = DateTime.tryParse(data['updated_at']?.toString() ?? '');
+    if (id is! String ||
+        id.isEmpty ||
+        matchId is! String ||
+        profile is! Map<String, dynamic> ||
+        updatedAt == null) {
+      throw const FormatException('Conversation incomplète.');
+    }
+    final rawMessage = data['last_message'];
+    final rawPresence = data['other_presence'];
+    return ConversationSummary(
+      id: id,
+      matchId: matchId,
+      otherProfile: DiscoveryProfile.fromJson(profile),
+      lastMessage: rawMessage is Map<String, dynamic>
+          ? ChatMessage.fromJson(rawMessage)
+          : null,
+      unreadCount: data['unread_count'] is int ? data['unread_count'] as int : 0,
+      online: rawPresence is Map<String, dynamic> &&
+          rawPresence['is_online'] == true,
+      updatedAt: updatedAt,
+    );
+  }
+}
+
 abstract class AuthApi {
   Future<Account> register({
     required String email,
@@ -336,6 +420,10 @@ abstract class AuthApi {
     required int maximumAge,
     required List<String> preferredGenders,
   });
+  Future<List<ConversationSummary>> getConversations();
+  Future<List<ChatMessage>> getMessages(String conversationId);
+  Future<ChatMessage> sendMessage(String conversationId, String body);
+  Future<void> markConversationRead(String conversationId);
   Future<void> logout();
   void close();
 }
