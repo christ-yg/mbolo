@@ -5,14 +5,16 @@ import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
 import 'auth_contract.dart';
+import 'session_store.dart';
 export 'auth_contract.dart';
 
 /// Native Android/iOS only. Cookies deliberately stay in memory in this version.
 /// No password, cookie or challenge is logged or written to disk.
 class MboloApi implements AuthApi {
-  MboloApi(String origin, {Dio? client})
+  MboloApi(String origin, {Dio? client, SessionStore? sessionStore})
     : origin = validateOrigin(origin),
-      client = client ?? Dio() {
+      client = client ?? Dio(),
+      sessionStore = sessionStore ?? MemorySessionStore() {
     this.client.options = BaseOptions(
       baseUrl: '${this.origin.origin}/api/v1/',
       connectTimeout: const Duration(seconds: 15),
@@ -22,11 +24,50 @@ class MboloApi implements AuthApi {
       headers: {'Accept': 'application/json', 'Origin': this.origin.origin},
     );
     this.client.interceptors.add(CookieManager(cookies));
+    this.client.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final sessionId = _sessionId;
+          final existing = options.headers['Cookie']?.toString() ?? '';
+          if (sessionId != null &&
+              sessionId.isNotEmpty &&
+              !existing.contains('sessionid=')) {
+            options.headers['Cookie'] = existing.isEmpty
+                ? 'sessionid=$sessionId'
+                : '$existing; sessionid=$sessionId';
+          }
+          handler.next(options);
+        },
+        onResponse: (response, handler) async {
+          await _captureSessionCookie(response);
+          handler.next(response);
+        },
+      ),
+    );
   }
 
   final Uri origin;
   final Dio client;
+  final SessionStore sessionStore;
   final CookieJar cookies = CookieJar();
+  String? _sessionId;
+
+  Future<void> _captureSessionCookie(Response<dynamic> response) async {
+    final values = response.headers.map['set-cookie'] ?? const <String>[];
+    for (final value in values) {
+      final match = RegExp(r'(?:^|;\\s*)sessionid=([^;]*)').firstMatch(value);
+      if (match == null) continue;
+      final sessionId = match.group(1)?.trim() ?? '';
+      if (sessionId.isEmpty) {
+        _sessionId = null;
+        await sessionStore.clear();
+      } else {
+        _sessionId = sessionId;
+        await sessionStore.write(sessionId);
+      }
+      break;
+    }
+  }
 
   Future<dynamic> _post(String path, Map<String, dynamic> body) async {
     // Fetch for every mutation: Django rotates CSRF on authentication changes.
@@ -118,6 +159,26 @@ class MboloApi implements AuthApi {
     return Account.fromJson(objectData(response.data));
   }
 
+
+  @override
+  Future<Account?> restoreSession() async {
+    _sessionId = await sessionStore.read();
+    if (_sessionId == null || _sessionId!.isEmpty) return null;
+    try {
+      return await me();
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 401 ||
+          error.response?.statusCode == 403) {
+        _sessionId = null;
+        await sessionStore.clear();
+        await cookies.deleteAll();
+    _sessionId = null;
+    await sessionStore.clear();
+        return null;
+      }
+      rethrow;
+    }
+  }
 
   @override
   Future<MemberProfile> getProfile() async {
