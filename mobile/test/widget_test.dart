@@ -111,12 +111,7 @@ void main() {
 
     await tester.tap(find.text('Profil'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Se déconnecter'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.drag(find.byType(ListView).first, const Offset(0, -120));
+    await tester.ensureVisible(find.text('Se déconnecter'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Se déconnecter'));
     await tester.pumpAndSettle();
