@@ -273,6 +273,43 @@ class MboloApi implements AuthApi {
     );
   }
 
+  @override
+  Future<SafetyActionResult> blockProfile(String profileId) async {
+    return SafetyActionResult.fromJson(
+      await _postObject(
+        'safety/profiles/$profileId/block/',
+        const {'confirm': true},
+      ),
+    );
+  }
+
+  @override
+  Future<SafetyActionResult> reportProfile({
+    required String profileId,
+    required String reason,
+    required String description,
+  }) async {
+    return SafetyActionResult.fromJson(
+      await _postObject(
+        'safety/profiles/$profileId/report/',
+        {'reason': reason, 'description': description.trim()},
+      ),
+    );
+  }
+
+  @override
+  Future<void> unmatch(String matchId) async {
+    final csrf = await client.get<dynamic>('csrf/');
+    final token = objectData(csrf.data)['csrfToken'];
+    if (token is! String || token.isEmpty) {
+      throw const FormatException('Protection CSRF indisponible.');
+    }
+    await client.delete<dynamic>(
+      'matches/$matchId/',
+      options: Options(headers: {'X-CSRFToken': token}),
+    );
+  }
+
   List<T> _paginatedResults<T>(
     dynamic raw,
     T Function(Map<String, dynamic>) decoder,
