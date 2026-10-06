@@ -57,6 +57,34 @@ class FakeServer implements HttpClientAdapter {
         'next': null,
         'previous': null,
       };
+    } else if (path.endsWith('/super-like/')) {
+      data = {
+        'entitled': true,
+        'daily_limit': 3,
+        'remaining_today': 2,
+      };
+    } else if (path.endsWith('/interactions/rewind/')) {
+      if (options.method == 'GET') {
+        data = {
+          'entitled': true,
+          'available': true,
+          'reason': 'available',
+        };
+      } else {
+        data = {
+          'rewound': true,
+          'profile': {
+            'id': '22222222-2222-2222-2222-222222222222',
+            'display_name': 'Grâce',
+            'age': 29,
+            'city': 'libreville',
+            'biography': 'Profil restauré.',
+            'dating_intent': 'serious_relationship',
+            'is_verified': true,
+            'photos': <Map<String, dynamic>>[],
+          },
+        };
+      }
     } else if (path.endsWith('/interactions/')) {
       data = {
         'interaction_id': '33333333-3333-3333-3333-333333333333',
@@ -288,6 +316,38 @@ void main() {
     expect(result.matched, isTrue);
     expect(result.revealedProfile?.displayName, 'Grâce');
     expect(server.requests.last.data['decision'], 'like');
+  });
+
+  test('Super Like and Rewind use server-side entitlement state', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final superLike = await api.getSuperLikeState();
+    expect(superLike.entitled, isTrue);
+    expect(superLike.remainingToday, 2);
+
+    final rewind = await api.getRewindState();
+    expect(rewind.available, isTrue);
+
+    await api.decideProfile(
+      profileId: '22222222-2222-2222-2222-222222222222',
+      decision: 'like',
+      superLike: true,
+    );
+    expect(server.requests.last.data['is_super_like'], isTrue);
+
+    final restored = await api.rewindLastPass();
+    expect(restored.displayName, 'Grâce');
+    final rewindPosts = server.requests.where(
+      (request) =>
+          request.uri.path.endsWith('/interactions/rewind/') &&
+          request.method == 'POST',
+    );
+    expect(rewindPosts, hasLength(1));
   });
 
   test(

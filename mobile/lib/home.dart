@@ -28,6 +28,8 @@ class _MboloHomeState extends State<MboloHome> {
   bool _discoveryLoading = true;
   bool _deciding = false;
   int _notificationUnread = 0;
+  SuperLikeState? _superLikeState;
+  RewindState? _rewindState;
   String? _discoveryError;
 
   @override
@@ -35,6 +37,21 @@ class _MboloHomeState extends State<MboloHome> {
     super.initState();
     _loadDiscovery();
     _loadNotificationCount();
+    _loadPremiumActions();
+  }
+
+  Future<void> _loadPremiumActions() async {
+    try {
+      final superLike = await widget.api.getSuperLikeState();
+      final rewind = await widget.api.getRewindState();
+      if (!mounted) return;
+      setState(() {
+        _superLikeState = superLike;
+        _rewindState = rewind;
+      });
+    } catch (_) {
+      // Discovery remains usable when premium counters cannot refresh.
+    }
   }
 
   Future<void> _loadNotificationCount() async {
@@ -71,7 +88,7 @@ class _MboloHomeState extends State<MboloHome> {
     }
   }
 
-  Future<void> _next({required bool liked}) async {
+  Future<void> _next({required bool liked, bool superLike = false}) async {
     if (_deciding || _profiles.isEmpty) return;
     final current = _profiles.first;
     setState(() => _deciding = true);
@@ -79,6 +96,7 @@ class _MboloHomeState extends State<MboloHome> {
       final result = await widget.api.decideProfile(
         profileId: current.id,
         decision: liked ? 'like' : 'pass',
+        superLike: superLike,
       );
       if (!mounted) return;
       setState(() {
@@ -89,6 +107,8 @@ class _MboloHomeState extends State<MboloHome> {
           content: Text(
             result.matched
                 ? 'C’est un match avec ${current.displayName} !'
+                : superLike
+                ? 'Super Like envoyé à ${current.displayName} ⭐'
                 : liked
                 ? 'Intérêt envoyé avec respect.'
                 : 'Profil passé.',
@@ -103,6 +123,34 @@ class _MboloHomeState extends State<MboloHome> {
       }
     } finally {
       if (mounted) setState(() => _deciding = false);
+      await _loadPremiumActions();
+    }
+  }
+
+  Future<void> _rewind() async {
+    if (_deciding || _rewindState?.available != true) return;
+    setState(() => _deciding = true);
+    try {
+      final profile = await widget.api.rewindLastPass();
+      if (!mounted) return;
+      setState(() {
+        _profiles = <DiscoveryProfile>[
+          profile,
+          ..._profiles.where((item) => item.id != profile.id),
+        ];
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${profile.displayName} est de retour.')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deciding = false);
+      await _loadPremiumActions();
     }
   }
 
@@ -173,6 +221,14 @@ class _MboloHomeState extends State<MboloHome> {
                 onPressed: _loadDiscovery,
                 child: const Text('Actualiser'),
               ),
+              if (_rewindState?.available == true) ...[
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: _deciding ? null : _rewind,
+                  icon: const Icon(Icons.replay_rounded),
+                  label: const Text('Revenir au dernier profil'),
+                ),
+              ],
             ],
           ),
         ),
@@ -182,6 +238,9 @@ class _MboloHomeState extends State<MboloHome> {
       profile: _profiles.first,
       api: widget.api,
       onNext: _next,
+      onRewind: _rewind,
+      superLikeState: _superLikeState,
+      rewindState: _rewindState,
       onSafetyComplete: () => setState(() {
         _profiles = _profiles.skip(1).toList(growable: false);
       }),
@@ -306,13 +365,19 @@ class _DiscoverPage extends StatelessWidget {
     required this.profile,
     required this.api,
     required this.onNext,
+    required this.onRewind,
+    required this.superLikeState,
+    required this.rewindState,
     required this.onSafetyComplete,
     required this.working,
   });
 
   final DiscoveryProfile profile;
   final AuthApi api;
-  final Future<void> Function({required bool liked}) onNext;
+  final Future<void> Function({required bool liked, bool superLike}) onNext;
+  final Future<void> Function() onRewind;
+  final SuperLikeState? superLikeState;
+  final RewindState? rewindState;
   final VoidCallback onSafetyComplete;
   final bool working;
 
@@ -434,31 +499,98 @@ class _DiscoverPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        if (superLikeState != null || rewindState != null) ...[
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (superLikeState != null)
+                Chip(
+                  avatar: const Icon(Icons.star_rounded, size: 18),
+                  label: Text(
+                    superLikeState!.entitled
+                        ? '${superLikeState!.remainingToday}/${superLikeState!.dailyLimit} Super Likes'
+                        : 'Super Like · Premium',
+                  ),
+                ),
+              if (rewindState != null && !rewindState!.entitled)
+                const Chip(
+                  avatar: Icon(Icons.replay_rounded, size: 18),
+                  label: Text('Rewind · Premium'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 12,
           children: [
-            OutlinedButton.icon(
-              onPressed: working ? null : () => onNext(liked: false),
-              icon: const Icon(Icons.close, size: 24),
-              label: const Text('Passer'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(118, 56),
-                foregroundColor: const Color(0xFF5C4A50),
-                side: const BorderSide(color: Color(0x225C4A50)),
-                shape: const StadiumBorder(),
+            SizedBox(
+              width: 72,
+              child: Column(
+                children: [
+                  IconButton.filledTonal(
+                    tooltip: rewindState?.entitled == true
+                        ? 'Revenir au profil précédent'
+                        : 'Rewind · MBOLO Plus',
+                    onPressed: working || rewindState?.available != true
+                        ? null
+                        : onRewind,
+                    icon: const Icon(Icons.replay_rounded),
+                  ),
+                  const Text('Rewind', style: TextStyle(fontSize: 12)),
+                ],
               ),
             ),
-            const SizedBox(width: 14),
-            FilledButton.icon(
-              onPressed: working ? null : () => onNext(liked: true),
-              icon: const Icon(Icons.favorite, size: 24),
-              label: const Text('Ça me plaît'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(152, 58),
-                backgroundColor: const Color(0xFFB51F50),
-                shadowColor: const Color(0x66B51F50),
-                elevation: 8,
-                shape: const StadiumBorder(),
+            SizedBox(
+              width: 72,
+              child: Column(
+                children: [
+                  IconButton.outlined(
+                    tooltip: 'Passer ce profil',
+                    onPressed: working ? null : () => onNext(liked: false),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                  const Text('Passer', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 72,
+              child: Column(
+                children: [
+                  IconButton.filledTonal(
+                    tooltip: superLikeState?.entitled == true
+                        ? 'Envoyer un Super Like'
+                        : 'Super Like · MBOLO Plus',
+                    onPressed: working ||
+                            superLikeState?.entitled != true ||
+                            superLikeState!.remainingToday < 1
+                        ? null
+                        : () => onNext(liked: true, superLike: true),
+                    icon: const Icon(Icons.star_rounded),
+                  ),
+                  const Text('Super Like', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 72,
+              child: Column(
+                children: [
+                  IconButton.filled(
+                    tooltip: 'Ça me plaît',
+                    onPressed: working ? null : () => onNext(liked: true),
+                    icon: const Icon(Icons.favorite),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFFB51F50),
+                    ),
+                  ),
+                  const Text('Ça me plaît', style: TextStyle(fontSize: 12)),
+                ],
               ),
             ),
           ],

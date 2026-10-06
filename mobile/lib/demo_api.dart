@@ -95,6 +95,8 @@ class DemoApi implements AuthApi {
     ),
   ];
   bool _demoMatchActive = true;
+  DiscoveryProfile? _lastPassed;
+  int _remainingSuperLikes = 3;
   final List<ReceivedLike> _receivedLikes = <ReceivedLike>[
     ReceivedLike(
       interactionId: 'demo-like-1',
@@ -236,11 +238,22 @@ class DemoApi implements AuthApi {
   Future<InteractionResult> decideProfile({
     required String profileId,
     required String decision,
+    bool superLike = false,
   }) async {
     if (!_discoveryProfiles.any((profile) => profile.id == profileId) ||
-        (decision != 'like' && decision != 'pass')) {
+        (decision != 'like' && decision != 'pass') ||
+        (superLike && decision != 'like') ||
+        (superLike && _remainingSuperLikes < 1)) {
       throw const FormatException('Interaction de démonstration incorrecte.');
     }
+    if (decision == 'pass') {
+      _lastPassed = _discoveryProfiles.firstWhere(
+        (profile) => profile.id == profileId,
+      );
+    } else {
+      _lastPassed = null;
+    }
+    if (superLike) _remainingSuperLikes -= 1;
     return InteractionResult(
       decision: decision,
       matched: decision == 'like' &&
@@ -252,6 +265,30 @@ class DemoApi implements AuthApi {
           ? 'demo-match-1'
           : null,
     );
+  }
+
+  @override
+  Future<SuperLikeState> getSuperLikeState() async => SuperLikeState(
+        entitled: true,
+        dailyLimit: 3,
+        remainingToday: _remainingSuperLikes,
+      );
+
+  @override
+  Future<RewindState> getRewindState() async => RewindState(
+        entitled: true,
+        available: _lastPassed != null,
+        reason: _lastPassed == null ? 'no_pass_to_rewind' : 'available',
+      );
+
+  @override
+  Future<DiscoveryProfile> rewindLastPass() async {
+    final profile = _lastPassed;
+    if (profile == null) {
+      throw const FormatException('Aucun profil à restaurer.');
+    }
+    _lastPassed = null;
+    return profile;
   }
 
   @override

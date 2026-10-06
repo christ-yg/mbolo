@@ -58,4 +58,26 @@ void main() {
     expect(result.revealedProfile, isNotNull);
     expect(await api.getReceivedLikes(), hasLength(1));
   });
+
+  test('la démo applique le quota Super Like et restaure un pass', () async {
+    final api = DemoApi();
+    final initial = await api.getSuperLikeState();
+    expect(initial.remainingToday, 3);
+
+    await api.decideProfile(
+      profileId: '11111111-1111-1111-1111-111111111111',
+      decision: 'like',
+      superLike: true,
+    );
+    expect((await api.getSuperLikeState()).remainingToday, 2);
+
+    await api.decideProfile(
+      profileId: '33333333-3333-3333-3333-333333333333',
+      decision: 'pass',
+    );
+    expect((await api.getRewindState()).available, isTrue);
+    final restored = await api.rewindLastPass();
+    expect(restored.displayName, 'Mélissa');
+    expect((await api.getRewindState()).available, isFalse);
+  });
 }

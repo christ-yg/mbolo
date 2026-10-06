@@ -271,6 +271,55 @@ class InteractionResult {
   }
 }
 
+class SuperLikeState {
+  const SuperLikeState({
+    required this.entitled,
+    required this.dailyLimit,
+    required this.remainingToday,
+  });
+
+  final bool entitled;
+  final int dailyLimit;
+  final int remainingToday;
+
+  factory SuperLikeState.fromJson(Map<String, dynamic> data) {
+    final limit = data['daily_limit'];
+    final remaining = data['remaining_today'];
+    if (limit is! int || remaining is! int || limit < 0 || remaining < 0) {
+      throw const FormatException('État des Super Likes incorrect.');
+    }
+    return SuperLikeState(
+      entitled: data['entitled'] == true,
+      dailyLimit: limit,
+      remainingToday: remaining,
+    );
+  }
+}
+
+class RewindState {
+  const RewindState({
+    required this.entitled,
+    required this.available,
+    required this.reason,
+  });
+
+  final bool entitled;
+  final bool available;
+  final String reason;
+
+  factory RewindState.fromJson(Map<String, dynamic> data) {
+    final reason = data['reason'];
+    if (reason is! String || reason.isEmpty) {
+      throw const FormatException('État du retour arrière incorrect.');
+    }
+    return RewindState(
+      entitled: data['entitled'] == true,
+      available: data['available'] == true,
+      reason: reason,
+    );
+  }
+}
+
 class MatchSummary {
   const MatchSummary({
     required this.id,
@@ -592,7 +641,11 @@ abstract class AuthApi {
   Future<InteractionResult> decideProfile({
     required String profileId,
     required String decision,
+    bool superLike = false,
   });
+  Future<SuperLikeState> getSuperLikeState();
+  Future<RewindState> getRewindState();
+  Future<DiscoveryProfile> rewindLastPass();
   Future<List<ProfilePhoto>> getPhotos();
   Future<ProfilePhoto> uploadPhoto({
     required Uint8List bytes,

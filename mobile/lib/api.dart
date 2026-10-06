@@ -246,16 +246,41 @@ class MboloApi implements AuthApi {
   Future<InteractionResult> decideProfile({
     required String profileId,
     required String decision,
+    bool superLike = false,
   }) async {
-    if (decision != 'like' && decision != 'pass') {
+    if ((decision != 'like' && decision != 'pass') ||
+        (superLike && decision != 'like')) {
       throw const FormatException('Décision de rencontre incorrecte.');
     }
     return InteractionResult.fromJson(
       await _postObject('interactions/', {
         'target_profile_id': profileId,
         'decision': decision,
+        'is_super_like': superLike,
       }),
     );
+  }
+
+  @override
+  Future<SuperLikeState> getSuperLikeState() async {
+    final response = await client.get<dynamic>('super-like/');
+    return SuperLikeState.fromJson(objectData(response.data));
+  }
+
+  @override
+  Future<RewindState> getRewindState() async {
+    final response = await client.get<dynamic>('interactions/rewind/');
+    return RewindState.fromJson(objectData(response.data));
+  }
+
+  @override
+  Future<DiscoveryProfile> rewindLastPass() async {
+    final data = objectData(await _post('interactions/rewind/', {}));
+    final profile = data['profile'];
+    if (profile is! Map<String, dynamic>) {
+      throw const FormatException('Profil restauré incorrect.');
+    }
+    return DiscoveryProfile.fromJson(profile);
   }
 
   @override
