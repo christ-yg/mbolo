@@ -408,6 +408,12 @@ abstract class AuthApi {
     required bool confirmAdult,
   });
   Future<void> requestPasswordReset(String email);
+  Future<void> confirmPasswordReset({
+    required String uid,
+    required String token,
+    required String password,
+    required String passwordConfirmation,
+  });
   Future<LoginResult> login(String email, String password);
   Future<Account> confirm(String challenge, String code);
   Future<Account> me();

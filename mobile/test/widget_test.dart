@@ -168,6 +168,30 @@ void main() {
     expect(find.textContaining('Si cette adresse existe'), findsOneWidget);
   });
 
+  testWidgets('Password reset link changes the password', (tester) async {
+    await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
+    await tester.tap(find.text('J’ai reçu mon lien'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byType(TextFormField).at(0),
+      'https://mbolo.test/reset-password?uid=demo&token=demo-token',
+    );
+    await tester.enterText(
+      find.byType(TextFormField).at(1),
+      'NouveauMotDePasse!2026',
+    );
+    await tester.enterText(
+      find.byType(TextFormField).at(2),
+      'NouveauMotDePasse!2026',
+    );
+    await tester.tap(find.text('Modifier mon mot de passe'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Se connecter'), findsOneWidget);
+    expect(find.textContaining('Mot de passe modifié'), findsOneWidget);
+  });
+
 
   testWidgets('Profile, photos and preference screens open', (tester) async {
     await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));

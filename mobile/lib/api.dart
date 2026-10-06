@@ -134,6 +134,21 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<void> confirmPasswordReset({
+    required String uid,
+    required String token,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    await _post('auth/password-reset/confirm/', {
+      'uid': uid.trim(),
+      'token': token.trim(),
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+    });
+  }
+
+  @override
   Future<LoginResult> login(String email, String password) async {
     return LoginResult.fromJson(
       await _postObject('auth/login/', {

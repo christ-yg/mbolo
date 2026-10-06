@@ -45,7 +45,7 @@ class MboloApp extends StatelessWidget {
   }
 }
 
-enum _AuthMode { login, register, reset }
+enum _AuthMode { login, register, reset, resetConfirm }
 
 class SessionScreen extends StatefulWidget {
   const SessionScreen({
@@ -65,6 +65,7 @@ class _SessionScreenState extends State<SessionScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _passwordConfirmation = TextEditingController();
+  final _resetLink = TextEditingController();
   final _code = TextEditingController();
   Account? _account;
   LoginResult? _challenge;
@@ -100,6 +101,7 @@ class _SessionScreenState extends State<SessionScreen> {
     _email.dispose();
     _password.dispose();
     _passwordConfirmation.dispose();
+    _resetLink.dispose();
     _code.dispose();
     widget.api.close();
     super.dispose();
@@ -113,6 +115,7 @@ class _SessionScreenState extends State<SessionScreen> {
       _notice = null;
       _password.clear();
       _passwordConfirmation.clear();
+      _resetLink.clear();
       _code.clear();
     });
   }
@@ -168,6 +171,27 @@ class _SessionScreenState extends State<SessionScreen> {
           _mode = _AuthMode.login;
           _notice =
               'Si cette adresse existe, les instructions de réinitialisation ont été envoyées.';
+        });
+      } else if (_mode == _AuthMode.resetConfirm) {
+        final link = Uri.tryParse(_resetLink.text.trim());
+        final uid = link?.queryParameters['uid'] ?? '';
+        final token = link?.queryParameters['token'] ?? '';
+        if (link == null || !link.hasScheme || uid.isEmpty || token.isEmpty) {
+          throw const FormatException('Lien de réinitialisation incomplet.');
+        }
+        await widget.api.confirmPasswordReset(
+          uid: uid,
+          token: token,
+          password: _password.text,
+          passwordConfirmation: _passwordConfirmation.text,
+        );
+        if (!mounted) return;
+        _password.clear();
+        _passwordConfirmation.clear();
+        _resetLink.clear();
+        setState(() {
+          _mode = _AuthMode.login;
+          _notice = 'Mot de passe modifié. Tu peux maintenant te connecter.';
         });
       } else {
         final result = await widget.api.login(_email.text, _password.text);
@@ -229,6 +253,8 @@ class _SessionScreenState extends State<SessionScreen> {
         return 'Crée ton compte MBOLO';
       case _AuthMode.reset:
         return 'Retrouve ton compte';
+      case _AuthMode.resetConfirm:
+        return 'Choisis un nouveau mot de passe';
       case _AuthMode.login:
         return 'Une rencontre commence ici.';
     }
@@ -241,6 +267,8 @@ class _SessionScreenState extends State<SessionScreen> {
         return 'Créer mon compte';
       case _AuthMode.reset:
         return 'Envoyer les instructions';
+      case _AuthMode.resetConfirm:
+        return 'Modifier mon mot de passe';
       case _AuthMode.login:
         return 'Se connecter';
     }
@@ -268,8 +296,9 @@ class _SessionScreenState extends State<SessionScreen> {
       );
     }
 
-    final showPassword =
-        _challenge == null && _mode != _AuthMode.reset;
+    final showPassword = _challenge == null &&
+        _mode != _AuthMode.reset &&
+        _mode != _AuthMode.resetConfirm;
     return Scaffold(
       appBar: AppBar(title: const Text('MBOLO')),
       body: SafeArea(
@@ -312,15 +341,64 @@ class _SessionScreenState extends State<SessionScreen> {
                             : null,
                       ),
                     ] else ...[
-                      Text(
-                        _mode == _AuthMode.login
-                            ? 'Retrouve ton compte MBOLO, comme sur le site.'
-                            : _mode == _AuthMode.register
-                                ? 'Rejoins une communauté pensée pour des rencontres sincères.'
-                                : 'Nous t’enverrons un lien sécurisé si le compte existe.',
-                      ),
+                      Text(_mode == _AuthMode.login
+                          ? 'Retrouve ton compte MBOLO, comme sur le site.'
+                          : _mode == _AuthMode.register
+                              ? 'Rejoins une communauté pensée pour des rencontres sincères.'
+                              : _mode == _AuthMode.reset
+                                  ? 'Nous t’enverrons un lien sécurisé si le compte existe.'
+                                  : 'Colle le lien sécurisé reçu par e-mail. Il ne fonctionne qu’une fois.'),
                       const SizedBox(height: 24),
-                      TextFormField(
+                      if (_mode == _AuthMode.resetConfirm) ...[
+                        TextFormField(
+                          controller: _resetLink,
+                          enabled: !_busy,
+                          keyboardType: TextInputType.url,
+                          autocorrect: false,
+                          decoration: const InputDecoration(
+                            labelText: 'Lien de réinitialisation',
+                          ),
+                          validator: (value) {
+                            final uri = Uri.tryParse((value ?? '').trim());
+                            return uri != null &&
+                                    uri.hasScheme &&
+                                    (uri.queryParameters['uid'] ?? '').isNotEmpty &&
+                                    (uri.queryParameters['token'] ?? '').isNotEmpty
+                                ? null
+                                : 'Colle le lien complet reçu par e-mail.';
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _password,
+                          enabled: !_busy,
+                          obscureText: _hidePassword,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          autofillHints: const [AutofillHints.newPassword],
+                          decoration: const InputDecoration(
+                            labelText: 'Nouveau mot de passe',
+                          ),
+                          validator: (value) => (value ?? '').length >= 12
+                              ? null
+                              : 'Utilise au moins 12 caractères.',
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _passwordConfirmation,
+                          enabled: !_busy,
+                          obscureText: _hidePassword,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          autofillHints: const [AutofillHints.newPassword],
+                          decoration: const InputDecoration(
+                            labelText: 'Confirmer le nouveau mot de passe',
+                          ),
+                          validator: (value) => value == _password.text
+                              ? null
+                              : 'Les mots de passe ne correspondent pas.',
+                        ),
+                      ] else TextFormField(
                         controller: _email,
                         enabled: !_busy,
                         keyboardType: TextInputType.emailAddress,
@@ -439,6 +517,25 @@ class _SessionScreenState extends State<SessionScreen> {
                             ? null
                             : () => _selectMode(_AuthMode.reset),
                         child: const Text('Mot de passe oublié ?'),
+                      ),
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => _selectMode(_AuthMode.resetConfirm),
+                        child: const Text('J’ai reçu mon lien'),
+                      ),
+                    ] else if (_mode == _AuthMode.reset) ...[
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => _selectMode(_AuthMode.resetConfirm),
+                        child: const Text('J’ai reçu mon lien'),
+                      ),
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => _selectMode(_AuthMode.login),
+                        child: const Text('J’ai déjà un compte'),
                       ),
                     ] else
                       TextButton(

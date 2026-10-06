@@ -109,6 +109,21 @@ class DemoApi implements AuthApi {
   }
 
   @override
+  Future<void> confirmPasswordReset({
+    required String uid,
+    required String token,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    if (uid.trim() != 'demo' ||
+        token.trim() != 'demo-token' ||
+        password.length < 12 ||
+        password != passwordConfirmation) {
+      throw const FormatException('Lien ou mot de passe de démonstration incorrect.');
+    }
+  }
+
+  @override
   Future<LoginResult> login(String email, String password) async {
     if (email.trim() != account.email || password != 'MboloDemo!') {
       throw const FormatException('Identifiants de démonstration incorrects.');

@@ -228,6 +228,22 @@ void main() {
     expect(reset.uri.path, endsWith('/auth/password-reset/request/'));
     expect(reset.data, {'email': 'new@example.com'});
     expect(reset.headers['X-CSRFToken'], 'csrf-test');
+
+    await api.confirmPasswordReset(
+      uid: ' uid-value ',
+      token: ' token-value ',
+      password: 'A-new-demo-password!',
+      passwordConfirmation: 'A-new-demo-password!',
+    );
+    final confirmation = server.requests.last;
+    expect(confirmation.uri.path, endsWith('/auth/password-reset/confirm/'));
+    expect(confirmation.data, {
+      'uid': 'uid-value',
+      'token': 'token-value',
+      'password': 'A-new-demo-password!',
+      'password_confirmation': 'A-new-demo-password!',
+    });
+    expect(confirmation.headers['X-CSRFToken'], 'csrf-test');
   });
 
   test('Failed logout preserves session to retry server revocation', () async {
