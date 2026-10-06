@@ -80,4 +80,24 @@ void main() {
     expect(restored.displayName, 'Mélissa');
     expect((await api.getRewindState()).available, isFalse);
   });
+
+  test('la démo protège la 2FA et les appareils par mot de passe', () async {
+    final api = DemoApi();
+    expect(await api.getConnectedSessions(), hasLength(2));
+
+    await api.revokeConnectedSession(
+      sessionId: 'demo-other-session',
+      currentPassword: 'MboloDemo!',
+    );
+    expect(await api.getConnectedSessions(), hasLength(1));
+
+    expect(
+      await api.setEmailTwoFactor(
+        enabled: false,
+        currentPassword: 'MboloDemo!',
+      ),
+      isFalse,
+    );
+    expect((await api.me()).emailTwoFactorEnabled, isFalse);
+  });
 }

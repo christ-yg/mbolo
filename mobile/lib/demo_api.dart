@@ -6,6 +6,25 @@ import 'auth_contract.dart';
 class DemoApi implements AuthApi {
   static const account = Account('demo', 'demo@mbolo.test', true);
   bool _authenticated = false;
+  bool _twoFactorEnabled = true;
+  final List<ConnectedSession> _sessions = <ConnectedSession>[
+    ConnectedSession(
+      id: 'demo-current-session',
+      device: 'MBOLO · Android',
+      ipFingerprint: 'c8f2a4d9',
+      createdAt: DateTime(2026, 10, 6, 8),
+      lastSeenAt: DateTime(2026, 10, 6, 15),
+      current: true,
+    ),
+    ConnectedSession(
+      id: 'demo-other-session',
+      device: 'Chrome · Windows',
+      ipFingerprint: 'a19e20bf',
+      createdAt: DateTime(2026, 10, 5, 18),
+      lastSeenAt: DateTime(2026, 10, 6, 11),
+      current: false,
+    ),
+  ];
   MemberProfile _profile = const MemberProfile(
     displayName: '',
     birthDate: '',
@@ -190,7 +209,67 @@ class DemoApi implements AuthApi {
   @override
   Future<Account> me() async {
     if (!_authenticated) throw const FormatException('Session absente.');
-    return account;
+    return Account(
+      account.id,
+      account.email,
+      account.verified,
+      emailTwoFactorEnabled: _twoFactorEnabled,
+    );
+  }
+
+  @override
+  Future<List<ConnectedSession>> getConnectedSessions() async =>
+      List<ConnectedSession>.unmodifiable(_sessions);
+
+  bool _validDemoPassword(String value) =>
+      value == 'MboloDemo!' || value == 'NouveauMboloDemo!';
+
+  @override
+  Future<void> revokeConnectedSession({
+    required String sessionId,
+    required String currentPassword,
+  }) async {
+    if (!_validDemoPassword(currentPassword) ||
+        sessionId == 'demo-current-session') {
+      throw const FormatException('Révocation de démonstration refusée.');
+    }
+    _sessions.removeWhere((item) => item.id == sessionId);
+  }
+
+  @override
+  Future<int> revokeOtherSessions(String currentPassword) async {
+    if (!_validDemoPassword(currentPassword)) {
+      throw const FormatException('Mot de passe incorrect.');
+    }
+    final count = _sessions.where((item) => !item.current).length;
+    _sessions.removeWhere((item) => !item.current);
+    return count;
+  }
+
+  @override
+  Future<bool> setEmailTwoFactor({
+    required bool enabled,
+    required String currentPassword,
+  }) async {
+    if (!_validDemoPassword(currentPassword)) {
+      throw const FormatException('Mot de passe incorrect.');
+    }
+    _twoFactorEnabled = enabled;
+    return enabled;
+  }
+
+  @override
+  Future<int> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    if (!_validDemoPassword(currentPassword) ||
+        newPassword.length < 12 ||
+        newPassword != newPasswordConfirmation) {
+      throw const FormatException('Changement de mot de passe incorrect.');
+    }
+    return revokeOtherSessions(currentPassword);
   }
 
 

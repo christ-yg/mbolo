@@ -174,6 +174,82 @@ class MboloApi implements AuthApi {
     return Account.fromJson(objectData(response.data));
   }
 
+  @override
+  Future<List<ConnectedSession>> getConnectedSessions() async {
+    final response = await client.get<dynamic>('auth/security/sessions/');
+    final raw = response.data;
+    if (raw is! Map<String, dynamic> || raw['data'] is! List) {
+      throw const FormatException('Liste des appareils incorrecte.');
+    }
+    return (raw['data'] as List).map((item) {
+      if (item is! Map<String, dynamic>) {
+        throw const FormatException('Appareil connecté incorrect.');
+      }
+      return ConnectedSession.fromJson(item);
+    }).toList(growable: false);
+  }
+
+  @override
+  Future<void> revokeConnectedSession({
+    required String sessionId,
+    required String currentPassword,
+  }) async {
+    await _post(
+      'auth/security/sessions/$sessionId/revoke/',
+      {'current_password': currentPassword},
+    );
+  }
+
+  @override
+  Future<int> revokeOtherSessions(String currentPassword) async {
+    final data = await _postObject(
+      'auth/security/revoke-sessions/',
+      {'current_password': currentPassword},
+    );
+    final revoked = data['revokedSessions'];
+    if (revoked is! int || revoked < 0) {
+      throw const FormatException('Résultat de révocation incorrect.');
+    }
+    return revoked;
+  }
+
+  @override
+  Future<bool> setEmailTwoFactor({
+    required bool enabled,
+    required String currentPassword,
+  }) async {
+    final data = await _patchObject(
+      'auth/security/email-2fa/',
+      {'enabled': enabled, 'current_password': currentPassword},
+    );
+    final value = data['emailTwoFactorEnabled'];
+    if (value is! bool) {
+      throw const FormatException('État de double authentification incorrect.');
+    }
+    return value;
+  }
+
+  @override
+  Future<int> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    final data = await _postObject(
+      'auth/security/change-password/',
+      {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+        'new_password_confirmation': newPasswordConfirmation,
+      },
+    );
+    final revoked = data['revokedSessions'];
+    if (revoked is! int || revoked < 0) {
+      throw const FormatException('Résultat du changement incorrect.');
+    }
+    return revoked;
+  }
+
 
   @override
   Future<Account?> restoreSession() async {

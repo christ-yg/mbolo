@@ -112,6 +112,27 @@ void main() {
 
   });
 
+  testWidgets('Security centre lists 2FA and connected devices', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
+    await tester.enterText(find.byType(TextFormField).at(0), 'demo@mbolo.test');
+    await tester.enterText(find.byType(TextFormField).at(1), 'MboloDemo!');
+    await tester.tap(find.text('Se connecter'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.tap(find.text('Confirmer'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Sécurité'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Centre de sécurité'), findsOneWidget);
+    expect(find.text('Double authentification e-mail'), findsOneWidget);
+    expect(find.text('MBOLO · Android'), findsOneWidget);
+    expect(find.text('Chrome · Windows'), findsOneWidget);
+  });
+
   testWidgets('Registration validates consent and returns to login', (
     tester,
   ) async {

@@ -1,0 +1,367 @@
+import 'package:flutter/material.dart';
+
+import 'auth_contract.dart';
+
+class SecurityPage extends StatefulWidget {
+  const SecurityPage({
+    super.key,
+    required this.api,
+    required this.initialAccount,
+  });
+
+  final AuthApi api;
+  final Account initialAccount;
+
+  @override
+  State<SecurityPage> createState() => _SecurityPageState();
+}
+
+class _SecurityPageState extends State<SecurityPage> {
+  List<ConnectedSession> _sessions = <ConnectedSession>[];
+  late bool _twoFactorEnabled;
+  bool _loading = true;
+  bool _working = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _twoFactorEnabled = widget.initialAccount.emailTwoFactorEnabled;
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final account = await widget.api.me();
+      final sessions = await widget.api.getConnectedSessions();
+      if (!mounted) return;
+      setState(() {
+        _twoFactorEnabled = account.emailTwoFactorEnabled;
+        _sessions = sessions;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<String?> _askPassword(String title) async {
+    final controller = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Mot de passe actuel',
+            prefixIcon: Icon(Icons.lock_outline),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text;
+              Navigator.of(dialogContext).pop(
+                value.isEmpty ? null : value,
+              );
+            },
+            child: const Text('Confirmer'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return password;
+  }
+
+  void _notice(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _toggleTwoFactor(bool enabled) async {
+    if (_working) return;
+    final password = await _askPassword(
+      enabled
+          ? 'Activer la double authentification'
+          : 'Désactiver la double authentification',
+    );
+    if (password == null || !mounted) return;
+    setState(() => _working = true);
+    try {
+      final value = await widget.api.setEmailTwoFactor(
+        enabled: enabled,
+        currentPassword: password,
+      );
+      if (!mounted) return;
+      setState(() => _twoFactorEnabled = value);
+      _notice(
+        value
+            ? 'Double authentification activée.'
+            : 'Double authentification désactivée.',
+      );
+    } catch (error) {
+      if (mounted) _notice(friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _revoke(ConnectedSession session) async {
+    if (_working || session.current) return;
+    final password = await _askPassword('Déconnecter cet appareil');
+    if (password == null || !mounted) return;
+    setState(() => _working = true);
+    try {
+      await widget.api.revokeConnectedSession(
+        sessionId: session.id,
+        currentPassword: password,
+      );
+      if (!mounted) return;
+      setState(() => _sessions.removeWhere((item) => item.id == session.id));
+      _notice('Appareil déconnecté avec succès.');
+    } catch (error) {
+      if (mounted) _notice(friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _revokeOthers() async {
+    if (_working || !_sessions.any((item) => !item.current)) return;
+    final password = await _askPassword('Déconnecter les autres appareils');
+    if (password == null || !mounted) return;
+    setState(() => _working = true);
+    try {
+      final count = await widget.api.revokeOtherSessions(password);
+      if (!mounted) return;
+      setState(() => _sessions.removeWhere((item) => !item.current));
+      _notice('$count autre${count > 1 ? 's' : ''} session${count > 1 ? 's' : ''} déconnectée${count > 1 ? 's' : ''}.');
+    } catch (error) {
+      if (mounted) _notice(friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final current = TextEditingController();
+    final password = TextEditingController();
+    final confirmation = TextEditingController();
+    final values = await showDialog<List<String>>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Changer le mot de passe'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: current,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Mot de passe actuel'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: password,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Nouveau mot de passe'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmation,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Confirmer le nouveau mot de passe'),
+              ),
+              const SizedBox(height: 8),
+              const Text('Utilise au moins 12 caractères difficiles à deviner.'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(
+              <String>[current.text, password.text, confirmation.text],
+            ),
+            child: const Text('Modifier'),
+          ),
+        ],
+      ),
+    );
+    current.dispose();
+    password.dispose();
+    confirmation.dispose();
+    if (values == null || values.any((value) => value.isEmpty) || !mounted) {
+      return;
+    }
+    if (values[1] != values[2] || values[1].length < 12) {
+      _notice('Le nouveau mot de passe est trop court ou ne correspond pas.');
+      return;
+    }
+    setState(() => _working = true);
+    try {
+      final revoked = await widget.api.changePassword(
+        currentPassword: values[0],
+        newPassword: values[1],
+        newPasswordConfirmation: values[2],
+      );
+      if (!mounted) return;
+      setState(() => _sessions.removeWhere((item) => !item.current));
+      _notice('Mot de passe modifié. $revoked autre${revoked > 1 ? 's' : ''} session${revoked > 1 ? 's' : ''} fermée${revoked > 1 ? 's' : ''}.');
+    } catch (error) {
+      if (mounted) _notice(friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  String _date(DateTime value) {
+    final local = value.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')} à ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 96),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF30131D), Color(0xFF8F2145)],
+              ),
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.shield_rounded, color: Colors.white, size: 38),
+                SizedBox(height: 12),
+                Text(
+                  'Centre de sécurité',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 25,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Protège ton compte, tes échanges et ton identité.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ],
+          const SizedBox(height: 20),
+          Card(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  value: _twoFactorEnabled,
+                  onChanged: _working || !widget.initialAccount.verified
+                      ? null
+                      : _toggleTwoFactor,
+                  secondary: const Icon(Icons.mark_email_read_outlined),
+                  title: const Text('Double authentification e-mail'),
+                  subtitle: Text(
+                    widget.initialAccount.verified
+                        ? 'Un code à 6 chiffres protège chaque nouvelle connexion.'
+                        : 'Vérifie ton e-mail avant de l’activer.',
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  enabled: !_working,
+                  leading: const Icon(Icons.password_outlined),
+                  title: const Text('Changer mon mot de passe'),
+                  subtitle: const Text('Les autres appareils seront déconnectés.'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _working ? null : _changePassword,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Appareils connectés',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+              TextButton(
+                onPressed: _working ? null : _revokeOthers,
+                child: const Text('Tout déconnecter'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_sessions.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('Aucun appareil enregistré pour le moment.'),
+              ),
+            )
+          else
+            ..._sessions.map(
+              (session) => Card(
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(14),
+                  leading: Icon(
+                    session.current ? Icons.phone_android : Icons.devices,
+                    color: session.current ? const Color(0xFFB51F50) : null,
+                  ),
+                  title: Text(
+                    session.device,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    '${session.current ? 'Cet appareil · ' : ''}Vu le ${_date(session.lastSeenAt)}\nEmpreinte réseau ${session.ipFingerprint}',
+                  ),
+                  isThreeLine: true,
+                  trailing: session.current
+                      ? const Chip(label: Text('Actuel'))
+                      : IconButton(
+                          tooltip: 'Déconnecter cet appareil',
+                          onPressed: _working ? null : () => _revoke(session),
+                          icon: const Icon(Icons.logout),
+                        ),
+                ),
+              ),
+            ),
+          if (_working) ...[
+            const SizedBox(height: 12),
+            const LinearProgressIndicator(),
+          ],
+        ],
+      ),
+    );
+  }
+}

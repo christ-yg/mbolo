@@ -5,6 +5,7 @@ import 'auth_contract.dart';
 import 'messages.dart';
 import 'notifications.dart';
 import 'safety_actions.dart';
+import 'security.dart';
 
 class MboloHome extends StatefulWidget {
   const MboloHome({
@@ -253,7 +254,7 @@ class _MboloHomeState extends State<MboloHome> {
     final pages = <Widget>[
       _discoveryPage(),
       MessagesPage(api: widget.api),
-      _SafetyPage(onOpenProfile: () => setState(() => _tab = 3)),
+      SecurityPage(api: widget.api, initialAccount: widget.account),
       _ProfilePage(
         account: widget.account,
         onLogout: widget.onLogout,
@@ -620,47 +621,6 @@ class _ProfilePhotoFallback extends StatelessWidget {
       child: const Center(
         child: Icon(Icons.person, size: 150, color: Colors.white70),
       ),
-    );
-  }
-}
-
-class _SafetyPage extends StatelessWidget {
-  const _SafetyPage({required this.onOpenProfile});
-  final VoidCallback onOpenProfile;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        Text('Sécurité', style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 8),
-        const Text('Ta sécurité passe avant chaque rencontre.'),
-        const SizedBox(height: 20),
-        const ListTile(
-          leading: Icon(Icons.verified_user_outlined),
-          title: Text('Profils vérifiés'),
-          subtitle: Text(
-            'Privilégie les personnes ayant confirmé leur identité.',
-          ),
-        ),
-        const ListTile(
-          leading: Icon(Icons.location_off_outlined),
-          title: Text('Localisation protégée'),
-          subtitle: Text('Ta position exacte n’est jamais affichée.'),
-        ),
-        const ListTile(
-          leading: Icon(Icons.report_outlined),
-          title: Text('Bloquer et signaler'),
-          subtitle: Text('Un comportement déplacé peut être signalé rapidement.'),
-        ),
-        const SizedBox(height: 20),
-        FilledButton.icon(
-          onPressed: onOpenProfile,
-          icon: const Icon(Icons.tune),
-          label: const Text('Gérer mes préférences'),
-        ),
-      ],
     );
   }
 }

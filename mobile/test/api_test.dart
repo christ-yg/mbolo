@@ -194,6 +194,46 @@ class FakeServer implements HttpClientAdapter {
     } else if (path.endsWith('/notifications/99999999-9999-9999-9999-999999999999/')) {
       status = 204;
       data = <String, dynamic>{};
+    } else if (path.endsWith('/auth/security/sessions/')) {
+      data = {
+        'data': [
+          {
+            'id': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'device': 'MBOLO · Android',
+            'ipFingerprint': 'c8f2a4d9',
+            'createdAt': '2026-10-06T08:00:00Z',
+            'lastSeenAt': '2026-10-06T15:00:00Z',
+            'isCurrent': true,
+          },
+          {
+            'id': 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+            'device': 'Chrome · Windows',
+            'ipFingerprint': 'a19e20bf',
+            'createdAt': '2026-10-05T18:00:00Z',
+            'lastSeenAt': '2026-10-06T11:00:00Z',
+            'isCurrent': false,
+          },
+        ],
+      };
+    } else if (path.endsWith(
+      '/auth/security/sessions/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/revoke/',
+    )) {
+      data = {'message': 'Appareil déconnecté.'};
+    } else if (path.endsWith('/auth/security/revoke-sessions/')) {
+      data = {
+        'message': 'Autres sessions déconnectées.',
+        'data': {'revokedSessions': 1},
+      };
+    } else if (path.endsWith('/auth/security/email-2fa/')) {
+      data = {
+        'message': 'Double authentification activée.',
+        'data': {'emailTwoFactorEnabled': options.data['enabled']},
+      };
+    } else if (path.endsWith('/auth/security/change-password/')) {
+      data = {
+        'message': 'Mot de passe modifié.',
+        'data': {'revokedSessions': 1},
+      };
     } else if (path.endsWith('/profiles/photos/')) {
       final photo = {
         'id': '11111111-1111-1111-1111-111111111111',
@@ -348,6 +388,42 @@ void main() {
           request.method == 'POST',
     );
     expect(rewindPosts, hasLength(1));
+  });
+
+  test('Security centre manages 2FA, password and connected devices', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final sessions = await api.getConnectedSessions();
+    expect(sessions, hasLength(2));
+    expect(sessions.first.current, isTrue);
+
+    await api.revokeConnectedSession(
+      sessionId: sessions.last.id,
+      currentPassword: 'mot-de-passe-actuel',
+    );
+    expect(server.requests.last.data['current_password'], 'mot-de-passe-actuel');
+
+    expect(await api.revokeOtherSessions('mot-de-passe-actuel'), 1);
+    expect(
+      await api.setEmailTwoFactor(
+        enabled: true,
+        currentPassword: 'mot-de-passe-actuel',
+      ),
+      isTrue,
+    );
+    expect(
+      await api.changePassword(
+        currentPassword: 'mot-de-passe-actuel',
+        newPassword: 'NouveauMotDePasse!2026',
+        newPasswordConfirmation: 'NouveauMotDePasse!2026',
+      ),
+      1,
+    );
   });
 
   test(

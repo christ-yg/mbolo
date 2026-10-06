@@ -29,10 +29,16 @@ Map<String, dynamic> objectData(dynamic raw) {
 }
 
 class Account {
-  const Account(this.id, this.email, this.verified);
+  const Account(
+    this.id,
+    this.email,
+    this.verified, {
+    this.emailTwoFactorEnabled = false,
+  });
   final String id;
   final String email;
   final bool verified;
+  final bool emailTwoFactorEnabled;
 
   factory Account.fromJson(Map<String, dynamic> data) {
     if (data['id'] is! String ||
@@ -45,6 +51,45 @@ class Account {
       data['id'] as String,
       data['email'] as String,
       data['isEmailVerified'] == true || data['is_email_verified'] == true,
+      emailTwoFactorEnabled: data['emailTwoFactorEnabled'] == true ||
+          data['email_2fa_enabled'] == true,
+    );
+  }
+}
+
+class ConnectedSession {
+  const ConnectedSession({
+    required this.id,
+    required this.device,
+    required this.ipFingerprint,
+    required this.createdAt,
+    required this.lastSeenAt,
+    required this.current,
+  });
+
+  final String id;
+  final String device;
+  final String ipFingerprint;
+  final DateTime createdAt;
+  final DateTime lastSeenAt;
+  final bool current;
+
+  factory ConnectedSession.fromJson(Map<String, dynamic> data) {
+    final id = data['id'];
+    final createdAt = DateTime.tryParse(data['createdAt']?.toString() ?? '');
+    final lastSeenAt = DateTime.tryParse(data['lastSeenAt']?.toString() ?? '');
+    if (id is! String || id.isEmpty || createdAt == null || lastSeenAt == null) {
+      throw const FormatException('Session connectée incorrecte.');
+    }
+    return ConnectedSession(
+      id: id,
+      device: data['device'] is String ? data['device'] as String : 'Appareil',
+      ipFingerprint: data['ipFingerprint'] is String
+          ? data['ipFingerprint'] as String
+          : '',
+      createdAt: createdAt,
+      lastSeenAt: lastSeenAt,
+      current: data['isCurrent'] == true,
     );
   }
 }
@@ -627,6 +672,21 @@ abstract class AuthApi {
   Future<Account> confirm(String challenge, String code);
   Future<Account> me();
   Future<Account?> restoreSession();
+  Future<List<ConnectedSession>> getConnectedSessions();
+  Future<void> revokeConnectedSession({
+    required String sessionId,
+    required String currentPassword,
+  });
+  Future<int> revokeOtherSessions(String currentPassword);
+  Future<bool> setEmailTwoFactor({
+    required bool enabled,
+    required String currentPassword,
+  });
+  Future<int> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  });
   Future<MemberProfile> getProfile();
   Future<MemberProfile> updateProfile({
     required String displayName,
