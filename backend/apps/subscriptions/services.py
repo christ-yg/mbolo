@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
+from .ebilling import EbillingClient, EbillingError
 from .models import (
     PremiumPrivacyPreference,
     ProfileBoost,
@@ -362,6 +363,8 @@ def serialize_payment_transaction(transaction: PaymentTransaction) -> dict:
         "currency": "XAF",
         "provider": transaction.provider,
         "provider_reference": transaction.provider_reference,
+        "provider_bill_id": transaction.provider_bill_id,
+        "provider_ussd_push_id": transaction.provider_ussd_push_id,
         "created_at": transaction.created_at,
         "updated_at": transaction.updated_at,
         "verified_at": transaction.verified_at,
@@ -376,13 +379,14 @@ def serialize_payment_transaction(transaction: PaymentTransaction) -> dict:
 
 
 @transaction.atomic
-def create_payment_checkout(*, user, plan: str, method: str) -> PaymentTransaction:
-    """
-    Crée une transaction locale avec un montant décidé exclusivement côté serveur.
-
-    En mode test, aucun prestataire externe n'est contacté. En production, cette
-    fonction devra déléguer l'initialisation à un adaptateur de paiement dédié.
-    """
+def create_payment_checkout(
+    *,
+    user,
+    plan: str,
+    method: str,
+    payer_phone: str = "",
+) -> PaymentTransaction:
+    """Crée la transaction locale et initie E-Billing si configuré."""
 
     if plan not in {SubscriptionPlan.PLUS, SubscriptionPlan.PRESTIGE}:
         raise ValueError("Offre Premium invalide.")
@@ -401,11 +405,21 @@ def create_payment_checkout(*, user, plan: str, method: str) -> PaymentTransacti
         else str(getattr(settings, "MBOLO_PAYMENT_PROVIDER", "")).strip()
     )
     if not provider:
-        raise RuntimeError(
-            "Le prestataire de paiement n'est pas encore configuré."
+        raise RuntimeError("Le prestataire de paiement n'est pas encore configuré.")
+
+    if provider == "ebilling" and method == PaymentMethod.BANK_CARD:
+        raise ValueError(
+            "Le paiement par carte E-Billing n'est pas encore activé dans Mbolo."
         )
 
-    transaction_obj = PaymentTransaction.objects.create(
+    if (
+        provider == "ebilling"
+        and method in {PaymentMethod.AIRTEL_MONEY, PaymentMethod.MOOV_MONEY}
+        and not payer_phone
+    ):
+        raise ValueError("Le numéro Mobile Money est requis.")
+
+    payment = PaymentTransaction.objects.create(
         user=user,
         plan=plan,
         method=method,
@@ -413,12 +427,51 @@ def create_payment_checkout(*, user, plan: str, method: str) -> PaymentTransacti
         amount_xaf=amount,
         provider=provider,
     )
-    transaction_obj.provider_reference = f"{provider}:{transaction_obj.id}"
-    transaction_obj.save(
-        update_fields=("provider_reference", "updated_at")
-    )
-    return transaction_obj
+    external_reference = f"mbolo-{payment.id}"
+    payment.provider_reference = external_reference
+    payment.save(update_fields=("provider_reference", "updated_at"))
 
+    if provider != "ebilling":
+        return payment
+
+    operator = (
+        "AIRTEL"
+        if method == PaymentMethod.AIRTEL_MONEY
+        else "MOOV"
+    )
+    payer_name = getattr(user, "email", "") or "Client Mbolo"
+
+    try:
+        checkout = EbillingClient().initiate_mobile_money(
+            amount_xaf=amount,
+            payer_phone=payer_phone,
+            payer_name=payer_name,
+            operator=operator,
+            description=f"{payment.get_plan_display()} - 30 jours",
+            external_reference=external_reference,
+        )
+    except (EbillingError, ValueError) as exc:
+        payment.status = PaymentStatus.FAILED
+        payment.failure_code = (
+            f"ebilling_http_{exc.status_code}"
+            if isinstance(exc, EbillingError) and exc.status_code
+            else "ebilling_init_failed"
+        )
+        payment.save(
+            update_fields=("status", "failure_code", "updated_at")
+        )
+        raise RuntimeError(str(exc)) from exc
+
+    payment.provider_bill_id = checkout.bill_id
+    payment.provider_ussd_push_id = checkout.ussd_push_id
+    payment.save(
+        update_fields=(
+            "provider_bill_id",
+            "provider_ussd_push_id",
+            "updated_at",
+        )
+    )
+    return payment
 
 @transaction.atomic
 def confirm_test_payment(*, user, transaction_id) -> tuple[PaymentTransaction, Subscription]:
@@ -510,6 +563,123 @@ def confirm_test_payment(*, user, transaction_id) -> tuple[PaymentTransaction, S
     )
 
     return payment, subscription
+
+
+def _activate_subscription_from_payment(
+    payment: PaymentTransaction,
+) -> tuple[PaymentTransaction, Subscription]:
+    """Active/prolonge Premium après une confirmation serveur fiable."""
+
+    if payment.status == PaymentStatus.SUCCEEDED:
+        subscription = Subscription.objects.get(user=payment.user)
+        return payment, subscription
+
+    expected_amount = get_plan_amount_xaf(payment.plan)
+    if payment.amount_xaf != expected_amount:
+        payment.status = PaymentStatus.FAILED
+        payment.failure_code = "amount_mismatch"
+        payment.save(
+            update_fields=("status", "failure_code", "updated_at")
+        )
+        raise ValueError("Le montant de la transaction est invalide.")
+
+    now = timezone.now()
+    payment.status = PaymentStatus.SUCCEEDED
+    payment.verified_at = now
+    payment.failure_code = ""
+    payment.save(
+        update_fields=(
+            "status",
+            "verified_at",
+            "failure_code",
+            "updated_at",
+        )
+    )
+
+    subscription, _created = Subscription.objects.select_for_update().get_or_create(
+        user=payment.user,
+        defaults={
+            "plan": payment.plan,
+            "status": SubscriptionStatus.ACTIVE,
+            "starts_at": now,
+            "ends_at": now + PAYMENT_DURATION,
+            "auto_renew": False,
+            "provider_reference": payment.provider_reference,
+        },
+    )
+
+    base = (
+        subscription.ends_at
+        if subscription.is_current and subscription.ends_at
+        else now
+    )
+    subscription.plan = payment.plan
+    subscription.status = SubscriptionStatus.ACTIVE
+    subscription.starts_at = now
+    subscription.ends_at = base + PAYMENT_DURATION
+    subscription.auto_renew = False
+    subscription.provider_reference = payment.provider_reference
+    subscription.save(
+        update_fields=(
+            "plan",
+            "status",
+            "starts_at",
+            "ends_at",
+            "auto_renew",
+            "provider_reference",
+            "updated_at",
+        )
+    )
+    return payment, subscription
+
+
+@transaction.atomic
+def refresh_ebilling_payment(*, payment: PaymentTransaction):
+    """Revalide l'état directement auprès d'E-Billing."""
+
+    locked = PaymentTransaction.objects.select_for_update().get(pk=payment.pk)
+    if locked.status == PaymentStatus.SUCCEEDED:
+        return locked
+
+    if locked.provider != "ebilling" or not locked.provider_ussd_push_id:
+        raise ValueError("Cette transaction n'est pas vérifiable via E-Billing.")
+
+    payload = EbillingClient().get_ussd_push_status(
+        locked.provider_ussd_push_id
+    )
+    state = str(
+        payload.get("state")
+        or payload.get("status")
+        or payload.get("ussd_push", {}).get("state")
+        or ""
+    ).strip().lower()
+
+    if state in {"paid", "succeeded", "success", "successful"}:
+        locked, _subscription = _activate_subscription_from_payment(locked)
+    elif state in {"failed", "failure", "rejected"}:
+        locked.status = PaymentStatus.FAILED
+        locked.failure_code = "provider_failed"
+        locked.save(
+            update_fields=("status", "failure_code", "updated_at")
+        )
+    elif state == "expired":
+        locked.status = PaymentStatus.EXPIRED
+        locked.failure_code = "provider_expired"
+        locked.save(
+            update_fields=("status", "failure_code", "updated_at")
+        )
+
+    return locked
+
+
+def refresh_ebilling_payment_by_reference(provider_reference: str):
+    payment = PaymentTransaction.objects.filter(
+        provider="ebilling",
+        provider_reference=provider_reference,
+    ).first()
+    if payment is None:
+        raise LookupError("Transaction E-Billing introuvable.")
+    return refresh_ebilling_payment(payment=payment)
 
 
 @transaction.atomic
