@@ -184,7 +184,7 @@ class _PremiumPageState extends State<PremiumPage> {
                 TextButton(onPressed: _paying ? null : () => _updatePayment(item, confirm: false), child: const Text('Annuler')),
                 if (item.canConfirmInTestMode) FilledButton(onPressed: _paying ? null : () => _updatePayment(item, confirm: true), child: const Text('Confirmer le test')),
               ]),
-            ]))),
+            ])))),
           ],
         ]),
       ),
