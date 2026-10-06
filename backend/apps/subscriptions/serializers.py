@@ -71,6 +71,11 @@ class PaymentCheckoutCreateSerializer(serializers.Serializer):
     method = serializers.ChoiceField(
         choices=("airtel_money", "moov_money", "bank_card")
     )
+    payer_phone = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=32,
+    )
 
 
 class PaymentTransactionSerializer(serializers.Serializer):
@@ -84,6 +89,8 @@ class PaymentTransactionSerializer(serializers.Serializer):
     currency = serializers.CharField()
     provider = serializers.CharField()
     provider_reference = serializers.CharField()
+    provider_bill_id = serializers.CharField()
+    provider_ussd_push_id = serializers.CharField()
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
     verified_at = serializers.DateTimeField(allow_null=True)
