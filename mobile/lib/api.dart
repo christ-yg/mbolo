@@ -667,6 +667,28 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<PremiumOverview> getPremiumOverview() async {
+    final response = await client.get<dynamic>('premium/overview/');
+    return PremiumOverview.fromJson(objectData(response.data));
+  }
+
+  @override
+  Future<PremiumPayment> createPremiumCheckout({required String plan, required String method}) async {
+    if (!const {'plus', 'prestige'}.contains(plan) || !const {'airtel_money', 'moov_money', 'bank_card'}.contains(method)) {
+      throw const FormatException('Offre ou moyen de paiement incorrect.');
+    }
+    return PremiumPayment.fromJson(await _postObject('premium/payments/checkout/', {'plan': plan, 'method': method}));
+  }
+
+  @override
+  Future<List<PremiumPayment>> getPremiumPaymentHistory() async {
+    final response = await client.get<dynamic>('premium/payments/history/');
+    final data = objectData(response.data);
+    if (data['transactions'] is! List) throw const FormatException('Historique des paiements incorrect.');
+    return (data['transactions'] as List).whereType<Map<String, dynamic>>().map(PremiumPayment.fromJson).toList(growable: false);
+  }
+
+  @override
   Future<void> logout() async {
     // Keep the session when the server cannot confirm revocation; allow retry.
     await _post('auth/logout/', {});

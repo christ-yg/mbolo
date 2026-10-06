@@ -687,6 +687,31 @@ class DemoApi implements AuthApi {
   }
 
   @override
+  Future<PremiumOverview> getPremiumOverview() async => const PremiumOverview(
+    subscription: PremiumSubscription(plan: 'free', planName: 'Gratuit', status: 'inactive', isPremium: false),
+    plans: <PremiumPlan>[
+      PremiumPlan(code: 'free', name: 'Gratuit', description: 'Les essentiels pour faire de belles rencontres.', features: <String>['Découverte', 'Matchs et messages'], priceLabel: 'Gratuit', amountXaf: 0, paymentAvailable: false),
+      PremiumPlan(code: 'plus', name: 'MBOLO Plus', description: 'Plus de liberté pour multiplier les rencontres.', features: <String>['Likes illimités', 'Voir qui te like', 'Rewind et Super Likes'], priceLabel: '4 900 FCFA / mois', amountXaf: 4900, paymentAvailable: true),
+      PremiumPlan(code: 'prestige', name: 'MBOLO Prestige', description: 'L’expérience la plus complète et prioritaire.', features: <String>['Tous les avantages Plus', 'Mode incognito', 'Boost de profil', 'Support prioritaire'], priceLabel: '9 900 FCFA / mois', amountXaf: 9900, paymentAvailable: true),
+    ],
+    paymentMethods: <PremiumPaymentMethod>[
+      PremiumPaymentMethod(code: 'airtel_money', name: 'Airtel Money', description: 'Paiement mobile sécurisé au Gabon.', available: true),
+      PremiumPaymentMethod(code: 'moov_money', name: 'Moov Money', description: 'Paiement mobile sans saisir ton code PIN dans MBOLO.', available: true),
+      PremiumPaymentMethod(code: 'bank_card', name: 'Carte bancaire', description: 'Visa ou Mastercard via le prestataire sécurisé.', available: false),
+    ],
+    paymentNotice: 'Démonstration : aucun débit réel ne sera effectué.',
+  );
+
+  @override
+  Future<PremiumPayment> createPremiumCheckout({required String plan, required String method}) async {
+    if (!const {'plus', 'prestige'}.contains(plan) || !const {'airtel_money', 'moov_money'}.contains(method)) throw const FormatException('Paiement indisponible.');
+    return PremiumPayment(id: 'demo-payment-1', planName: plan == 'plus' ? 'MBOLO Plus' : 'MBOLO Prestige', methodName: method == 'airtel_money' ? 'Airtel Money' : 'Moov Money', status: 'created', amountXaf: plan == 'plus' ? 4900 : 9900, currency: 'XAF', canConfirmInTestMode: true);
+  }
+
+  @override
+  Future<List<PremiumPayment>> getPremiumPaymentHistory() async => const <PremiumPayment>[];
+
+  @override
   Future<void> logout() async {
     _authenticated = false;
   }

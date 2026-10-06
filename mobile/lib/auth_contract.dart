@@ -653,6 +653,91 @@ class ConversationSummary {
   }
 }
 
+class PremiumPlan {
+  const PremiumPlan({required this.code, required this.name, required this.description, required this.features, required this.priceLabel, required this.amountXaf, required this.paymentAvailable});
+  final String code;
+  final String name;
+  final String description;
+  final List<String> features;
+  final String priceLabel;
+  final int amountXaf;
+  final bool paymentAvailable;
+
+  factory PremiumPlan.fromJson(Map<String, dynamic> data) => PremiumPlan(
+    code: data['code']?.toString() ?? '',
+    name: data['name']?.toString() ?? '',
+    description: data['description']?.toString() ?? '',
+    features: data['features'] is List ? (data['features'] as List).whereType<String>().toList(growable: false) : const <String>[],
+    priceLabel: data['price_label']?.toString() ?? '',
+    amountXaf: data['amount_xaf'] is int ? data['amount_xaf'] as int : 0,
+    paymentAvailable: data['payment_available'] == true,
+  );
+}
+
+class PremiumSubscription {
+  const PremiumSubscription({required this.plan, required this.planName, required this.status, required this.isPremium, this.endsAt});
+  final String plan;
+  final String planName;
+  final String status;
+  final bool isPremium;
+  final DateTime? endsAt;
+
+  factory PremiumSubscription.fromJson(Map<String, dynamic> data) => PremiumSubscription(
+    plan: data['plan']?.toString() ?? 'free',
+    planName: data['plan_name']?.toString() ?? 'Gratuit',
+    status: data['status']?.toString() ?? 'inactive',
+    isPremium: data['is_premium'] == true,
+    endsAt: DateTime.tryParse(data['ends_at']?.toString() ?? ''),
+  );
+}
+
+class PremiumPaymentMethod {
+  const PremiumPaymentMethod({required this.code, required this.name, required this.description, required this.available});
+  final String code;
+  final String name;
+  final String description;
+  final bool available;
+  factory PremiumPaymentMethod.fromJson(Map<String, dynamic> data) => PremiumPaymentMethod(
+    code: data['code']?.toString() ?? '', name: data['name']?.toString() ?? '',
+    description: data['description']?.toString() ?? '', available: data['available'] == true,
+  );
+}
+
+class PremiumOverview {
+  const PremiumOverview({required this.subscription, required this.plans, required this.paymentMethods, required this.paymentNotice});
+  final PremiumSubscription subscription;
+  final List<PremiumPlan> plans;
+  final List<PremiumPaymentMethod> paymentMethods;
+  final String paymentNotice;
+  factory PremiumOverview.fromJson(Map<String, dynamic> data) {
+    if (data['subscription'] is! Map<String, dynamic> || data['plans'] is! List || data['payment_methods'] is! List) {
+      throw const FormatException('Offres Premium incorrectes.');
+    }
+    return PremiumOverview(
+      subscription: PremiumSubscription.fromJson(data['subscription'] as Map<String, dynamic>),
+      plans: (data['plans'] as List).whereType<Map<String, dynamic>>().map(PremiumPlan.fromJson).toList(growable: false),
+      paymentMethods: (data['payment_methods'] as List).whereType<Map<String, dynamic>>().map(PremiumPaymentMethod.fromJson).toList(growable: false),
+      paymentNotice: data['payment_notice']?.toString() ?? '',
+    );
+  }
+}
+
+class PremiumPayment {
+  const PremiumPayment({required this.id, required this.planName, required this.methodName, required this.status, required this.amountXaf, required this.currency, required this.canConfirmInTestMode});
+  final String id;
+  final String planName;
+  final String methodName;
+  final String status;
+  final int amountXaf;
+  final String currency;
+  final bool canConfirmInTestMode;
+  factory PremiumPayment.fromJson(Map<String, dynamic> data) {
+    final id = data['id'];
+    if (id is! String || id.isEmpty) throw const FormatException('Transaction incorrecte.');
+    return PremiumPayment(id: id, planName: data['plan_name']?.toString() ?? '', methodName: data['method_name']?.toString() ?? '', status: data['status']?.toString() ?? '', amountXaf: data['amount_xaf'] is int ? data['amount_xaf'] as int : 0, currency: data['currency']?.toString() ?? 'XAF', canConfirmInTestMode: data['can_confirm_in_test_mode'] == true);
+  }
+}
+
 abstract class AuthApi {
   Future<Account> register({
     required String email,
@@ -750,6 +835,9 @@ abstract class AuthApi {
   Future<AppNotification> markNotificationRead(String notificationId);
   Future<void> markAllNotificationsRead();
   Future<void> deleteNotification(String notificationId);
+  Future<PremiumOverview> getPremiumOverview();
+  Future<PremiumPayment> createPremiumCheckout({required String plan, required String method});
+  Future<List<PremiumPayment>> getPremiumPaymentHistory();
   Future<void> logout();
   void close();
 }

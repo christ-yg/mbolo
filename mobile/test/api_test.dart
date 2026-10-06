@@ -57,6 +57,23 @@ class FakeServer implements HttpClientAdapter {
         'next': null,
         'previous': null,
       };
+    } else if (path.endsWith('/premium/overview/')) {
+      data = {
+        'data': {
+          'subscription': {'plan': 'free', 'plan_name': 'Gratuit', 'status': 'inactive', 'is_premium': false, 'ends_at': null},
+          'plans': [
+            {'code': 'plus', 'name': 'MBOLO Plus', 'description': 'Plus de liberté', 'features': ['Likes illimités'], 'price_label': '4 900 FCFA / mois', 'amount_xaf': 4900, 'payment_available': true},
+          ],
+          'payment_methods': [
+            {'code': 'airtel_money', 'name': 'Airtel Money', 'description': 'Paiement sécurisé', 'available': true},
+          ],
+          'payment_notice': 'Confirmation serveur obligatoire.',
+        },
+      };
+    } else if (path.endsWith('/premium/payments/history/')) {
+      data = {'data': {'transactions': <Map<String, dynamic>>[]}};
+    } else if (path.endsWith('/premium/payments/checkout/')) {
+      data = {'data': {'id': '99999999-9999-9999-9999-999999999999', 'plan_name': 'MBOLO Plus', 'method_name': 'Airtel Money', 'status': 'created', 'amount_xaf': 4900, 'currency': 'XAF', 'can_confirm_in_test_mode': false}};
     } else if (path.endsWith('/super-like/')) {
       data = {
         'entitled': true,
@@ -748,5 +765,28 @@ void main() {
     expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
   });
 
+  test('Premium catalogue and checkout remain server-driven', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final overview = await api.getPremiumOverview();
+    expect(overview.subscription.plan, 'free');
+    expect(overview.plans.single.amountXaf, 4900);
+    expect(overview.paymentMethods.single.name, 'Airtel Money');
+
+    final payment = await api.createPremiumCheckout(
+      plan: 'plus',
+      method: 'airtel_money',
+    );
+    expect(payment.status, 'created');
+    expect(payment.amountXaf, 4900);
+    expect(server.requests.last.data['plan'], 'plus');
+    expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
+    expect(await api.getPremiumPaymentHistory(), isEmpty);
+  });
 
 }

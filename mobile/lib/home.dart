@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'auth_contract.dart';
 import 'messages.dart';
 import 'notifications.dart';
+import 'premium.dart';
 import 'safety_actions.dart';
 import 'security.dart';
 
@@ -182,6 +183,11 @@ class _MboloHomeState extends State<MboloHome> {
     );
   }
 
+  Future<void> _openPremium() async {
+    await Navigator.of(context).push<void>(MaterialPageRoute<void>(builder: (context) => PremiumPage(api: widget.api)));
+    await _loadPremiumActions();
+  }
+
   Widget _discoveryPage() {
     if (_discoveryLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -267,6 +273,7 @@ class _MboloHomeState extends State<MboloHome> {
         onEditProfile: _openProfileEditor,
         onEditPhotos: _openPhotos,
         onEditPreferences: _openPreferences,
+        onPremium: _openPremium,
       ),
     ];
     return Scaffold(
@@ -638,12 +645,14 @@ class _ProfilePage extends StatelessWidget {
     required this.onEditProfile,
     required this.onEditPhotos,
     required this.onEditPreferences,
+    required this.onPremium,
   });
   final Account account;
   final Future<void> Function() onLogout;
   final VoidCallback onEditProfile;
   final VoidCallback onEditPhotos;
   final VoidCallback onEditPreferences;
+  final VoidCallback onPremium;
 
   @override
   Widget build(BuildContext context) {
@@ -718,6 +727,14 @@ class _ProfilePage extends StatelessWidget {
         Card(
           child: Column(
             children: [
+              ListTile(
+                leading: const Icon(Icons.workspace_premium, color: Color(0xFFB51F50)),
+                title: const Text('MBOLO Premium', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Plus, Prestige, Boost et avantages'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onPremium,
+              ),
+              const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
                 title: const Text('Compléter mon profil'),
