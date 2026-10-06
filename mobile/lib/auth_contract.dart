@@ -291,6 +291,31 @@ class DiscoveryPreferences {
 }
 
 
+
+class SafetyActionResult {
+  const SafetyActionResult({
+    required this.created,
+    required this.message,
+    this.deactivatedMatches = 0,
+  });
+
+  final bool created;
+  final String message;
+  final int deactivatedMatches;
+
+  factory SafetyActionResult.fromJson(Map<String, dynamic> data) {
+    return SafetyActionResult(
+      created: data['created'] == true,
+      message: data['message'] is String
+          ? data['message'] as String
+          : 'Action de sécurité enregistrée.',
+      deactivatedMatches: data['deactivated_matches'] is int
+          ? data['deactivated_matches'] as int
+          : 0,
+    );
+  }
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -420,6 +445,13 @@ abstract class AuthApi {
     required int maximumAge,
     required List<String> preferredGenders,
   });
+  Future<SafetyActionResult> blockProfile(String profileId);
+  Future<SafetyActionResult> reportProfile({
+    required String profileId,
+    required String reason,
+    required String description,
+  });
+  Future<void> unmatch(String matchId);
   Future<List<ConversationSummary>> getConversations();
   Future<List<ChatMessage>> getMessages(String conversationId);
   Future<ChatMessage> sendMessage(String conversationId, String body);
