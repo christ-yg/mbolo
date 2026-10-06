@@ -8,8 +8,8 @@ import 'auth_contract.dart';
 import 'session_store.dart';
 export 'auth_contract.dart';
 
-/// Native Android/iOS only. Cookies deliberately stay in memory in this version.
-/// No password, cookie or challenge is logged or written to disk.
+/// Native Android/iOS only. The Django session identifier is encrypted at rest.
+/// Passwords, CSRF values and authentication challenges are never persisted.
 class MboloApi implements AuthApi {
   MboloApi(String origin, {Dio? client, SessionStore? sessionStore})
     : origin = validateOrigin(origin),
