@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mbolo_mobile/api.dart';
+import 'package:mbolo_mobile/session_store.dart';
 
 class FakeServer implements HttpClientAdapter {
   final requests = <RequestOptions>[];
@@ -380,5 +381,37 @@ void main() {
     expect(interaction.data['decision'], 'like');
     expect(interaction.headers['X-CSRFToken'], 'csrf-test');
   });
+  test('Session is encrypted, restored and cleared without the password', () async {
+    final store = MemorySessionStore();
+    final firstServer = FakeServer();
+    final firstApi = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = firstServer,
+      sessionStore: store,
+    );
+    addTearDown(firstApi.close);
+
+    await firstApi.login('test@example.com', 'password');
+    expect(await store.read(), 'session-test');
+
+    final restoredServer = FakeServer();
+    final restoredApi = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = restoredServer,
+      sessionStore: store,
+    );
+    addTearDown(restoredApi.close);
+
+    final account = await restoredApi.restoreSession();
+    expect(account?.email, 'test@example.com');
+    expect(
+      restoredServer.requests.last.headers.values.join(';'),
+      contains('sessionid=session-test'),
+    );
+
+    await restoredApi.logout();
+    expect(await store.read(), isNull);
+  });
+
 
 }
