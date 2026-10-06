@@ -88,6 +88,41 @@ class _PremiumPageState extends State<PremiumPage> {
     }
   }
 
+  Future<void> _toggleIncognito(bool enabled) async {
+    try {
+      final privacy = await widget.api.updatePremiumPrivacy(enabled);
+      if (!mounted) return;
+      setState(() => _overview = PremiumOverview(subscription: _overview!.subscription, plans: _overview!.plans, paymentMethods: _overview!.paymentMethods, paymentNotice: _overview!.paymentNotice, privacy: privacy, boost: _overview!.boost));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(error))));
+    }
+  }
+
+  Future<void> _activateBoost() async {
+    try {
+      final boost = await widget.api.activatePremiumBoost();
+      if (!mounted) return;
+      setState(() => _overview = PremiumOverview(subscription: _overview!.subscription, plans: _overview!.plans, paymentMethods: _overview!.paymentMethods, paymentNotice: _overview!.paymentNotice, privacy: _overview!.privacy, boost: boost));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ton profil est mis en avant pendant ${boost.durationMinutes} minutes.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(error))));
+    }
+  }
+
+  Future<void> _updatePayment(PremiumPayment payment, {required bool confirm}) async {
+    setState(() => _paying = true);
+    try {
+      final updated = confirm ? await widget.api.confirmPremiumPaymentTest(payment.id) : await widget.api.cancelPremiumPayment(payment.id);
+      if (!mounted) return;
+      setState(() => _history = _history.map((item) => item.id == updated.id ? updated : item).toList(growable: false));
+      if (confirm) await _load();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(error))));
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,10 +157,34 @@ class _PremiumPageState extends State<PremiumPage> {
             ),
           )),
           Card(color: const Color(0xFFFFF4E8), child: Padding(padding: const EdgeInsets.all(16), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.lock_outline, color: Color(0xFF8B5520)), const SizedBox(width: 10), Expanded(child: Text(_overview!.paymentNotice))]))),
+          const SizedBox(height: 18),
+          Text('Avantages Prestige', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+          Card(child: Column(children: [
+            SwitchListTile(
+              secondary: const Icon(Icons.visibility_off_outlined),
+              title: const Text('Mode incognito'),
+              subtitle: Text(_overview!.privacy.available ? 'Seules les personnes que tu likes peuvent te voir.' : 'Disponible avec MBOLO Prestige.'),
+              value: _overview!.privacy.effective,
+              onChanged: _overview!.privacy.available ? _toggleIncognito : null,
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.rocket_launch_outlined),
+              title: Text(_overview!.boost.active ? 'Boost actif' : 'Booster mon profil'),
+              subtitle: Text(_overview!.boost.active ? 'Ton profil est actuellement prioritaire.' : '${_overview!.boost.remaining} boost restant · ${_overview!.boost.durationMinutes} minutes'),
+              trailing: FilledButton(onPressed: _overview!.boost.entitled && !_overview!.boost.active && _overview!.boost.remaining > 0 ? _activateBoost : null, child: Text(_overview!.boost.active ? 'Actif' : 'Activer')),
+            ),
+          ])),
           if (_history.isNotEmpty) ...[
             const SizedBox(height: 22),
             Text('Paiements récents', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-            ..._history.map((item) => ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.receipt_long_outlined), title: Text(item.planName), subtitle: Text('${item.methodName} · ${item.amountXaf} ${item.currency}'), trailing: Chip(label: Text(item.status))),),
+            ..._history.map((item) => Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(children: [
+              ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.receipt_long_outlined), title: Text(item.planName), subtitle: Text('${item.methodName} · ${item.amountXaf} ${item.currency}'), trailing: Chip(label: Text(item.status))),
+              if (item.status == 'created' || item.status == 'pending') Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                TextButton(onPressed: _paying ? null : () => _updatePayment(item, confirm: false), child: const Text('Annuler')),
+                if (item.canConfirmInTestMode) FilledButton(onPressed: _paying ? null : () => _updatePayment(item, confirm: true), child: const Text('Confirmer le test')),
+              ]),
+            ]))),
           ],
         ]),
       ),

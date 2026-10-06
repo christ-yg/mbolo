@@ -68,12 +68,22 @@ class FakeServer implements HttpClientAdapter {
             {'code': 'airtel_money', 'name': 'Airtel Money', 'description': 'Paiement sécurisé', 'available': true},
           ],
           'payment_notice': 'Confirmation serveur obligatoire.',
+          'privacy': {'incognito_enabled': false, 'incognito_available': false, 'effective_incognito': false},
+          'boost': {'entitled': false, 'active': false, 'active_until': null, 'duration_minutes': 30, 'allowance_per_7_days': 0, 'remaining': 0, 'next_available_at': null},
         },
       };
     } else if (path.endsWith('/premium/payments/history/')) {
       data = {'data': {'transactions': <Map<String, dynamic>>[]}};
     } else if (path.endsWith('/premium/payments/checkout/')) {
       data = {'data': {'id': '99999999-9999-9999-9999-999999999999', 'plan_name': 'MBOLO Plus', 'method_name': 'Airtel Money', 'status': 'created', 'amount_xaf': 4900, 'currency': 'XAF', 'can_confirm_in_test_mode': false}};
+    } else if (path.endsWith('/premium/privacy/')) {
+      data = {'data': {'incognito_enabled': true, 'incognito_available': true, 'effective_incognito': true}};
+    } else if (path.endsWith('/premium/boost/')) {
+      data = {'data': {'entitled': true, 'active': true, 'active_until': '2026-10-06T18:30:00Z', 'duration_minutes': 30, 'allowance_per_7_days': 1, 'remaining': 0, 'next_available_at': null}};
+    } else if (path.endsWith('/premium/payments/confirm-test/')) {
+      data = {'data': {'transaction': {'id': '99999999-9999-9999-9999-999999999999', 'plan_name': 'MBOLO Plus', 'method_name': 'Airtel Money', 'status': 'succeeded', 'amount_xaf': 4900, 'currency': 'XAF', 'can_confirm_in_test_mode': false}, 'subscription': {'plan': 'plus'}}};
+    } else if (path.endsWith('/premium/payments/cancel/')) {
+      data = {'data': {'id': '99999999-9999-9999-9999-999999999999', 'plan_name': 'MBOLO Plus', 'method_name': 'Airtel Money', 'status': 'canceled', 'amount_xaf': 4900, 'currency': 'XAF', 'can_confirm_in_test_mode': false}};
     } else if (path.endsWith('/super-like/')) {
       data = {
         'entitled': true,
@@ -787,6 +797,15 @@ void main() {
     expect(server.requests.last.data['plan'], 'plus');
     expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
     expect(await api.getPremiumPaymentHistory(), isEmpty);
+
+    final privacy = await api.updatePremiumPrivacy(true);
+    expect(privacy.effective, isTrue);
+    final boost = await api.activatePremiumBoost();
+    expect(boost.active, isTrue);
+    final confirmed = await api.confirmPremiumPaymentTest(payment.id);
+    expect(confirmed.status, 'succeeded');
+    final canceled = await api.cancelPremiumPayment(payment.id);
+    expect(canceled.status, 'canceled');
   });
 
 }

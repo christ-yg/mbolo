@@ -704,13 +704,15 @@ class PremiumPaymentMethod {
 }
 
 class PremiumOverview {
-  const PremiumOverview({required this.subscription, required this.plans, required this.paymentMethods, required this.paymentNotice});
+  const PremiumOverview({required this.subscription, required this.plans, required this.paymentMethods, required this.paymentNotice, required this.privacy, required this.boost});
   final PremiumSubscription subscription;
   final List<PremiumPlan> plans;
   final List<PremiumPaymentMethod> paymentMethods;
   final String paymentNotice;
+  final PremiumPrivacy privacy;
+  final PremiumBoost boost;
   factory PremiumOverview.fromJson(Map<String, dynamic> data) {
-    if (data['subscription'] is! Map<String, dynamic> || data['plans'] is! List || data['payment_methods'] is! List) {
+    if (data['subscription'] is! Map<String, dynamic> || data['plans'] is! List || data['payment_methods'] is! List || data['privacy'] is! Map<String, dynamic> || data['boost'] is! Map<String, dynamic>) {
       throw const FormatException('Offres Premium incorrectes.');
     }
     return PremiumOverview(
@@ -718,8 +720,35 @@ class PremiumOverview {
       plans: (data['plans'] as List).whereType<Map<String, dynamic>>().map(PremiumPlan.fromJson).toList(growable: false),
       paymentMethods: (data['payment_methods'] as List).whereType<Map<String, dynamic>>().map(PremiumPaymentMethod.fromJson).toList(growable: false),
       paymentNotice: data['payment_notice']?.toString() ?? '',
+      privacy: PremiumPrivacy.fromJson(data['privacy'] as Map<String, dynamic>),
+      boost: PremiumBoost.fromJson(data['boost'] as Map<String, dynamic>),
     );
   }
+}
+
+class PremiumPrivacy {
+  const PremiumPrivacy({required this.enabled, required this.available, required this.effective});
+  final bool enabled;
+  final bool available;
+  final bool effective;
+  factory PremiumPrivacy.fromJson(Map<String, dynamic> data) => PremiumPrivacy(enabled: data['incognito_enabled'] == true, available: data['incognito_available'] == true, effective: data['effective_incognito'] == true);
+}
+
+class PremiumBoost {
+  const PremiumBoost({required this.entitled, required this.active, required this.durationMinutes, required this.remaining, this.activeUntil, this.nextAvailableAt});
+  final bool entitled;
+  final bool active;
+  final int durationMinutes;
+  final int remaining;
+  final DateTime? activeUntil;
+  final DateTime? nextAvailableAt;
+  factory PremiumBoost.fromJson(Map<String, dynamic> data) => PremiumBoost(
+    entitled: data['entitled'] == true, active: data['active'] == true,
+    durationMinutes: data['duration_minutes'] is int ? data['duration_minutes'] as int : 0,
+    remaining: data['remaining'] is int ? data['remaining'] as int : 0,
+    activeUntil: DateTime.tryParse(data['active_until']?.toString() ?? ''),
+    nextAvailableAt: DateTime.tryParse(data['next_available_at']?.toString() ?? ''),
+  );
 }
 
 class PremiumPayment {
@@ -838,6 +867,10 @@ abstract class AuthApi {
   Future<PremiumOverview> getPremiumOverview();
   Future<PremiumPayment> createPremiumCheckout({required String plan, required String method});
   Future<List<PremiumPayment>> getPremiumPaymentHistory();
+  Future<PremiumPrivacy> updatePremiumPrivacy(bool enabled);
+  Future<PremiumBoost> activatePremiumBoost();
+  Future<PremiumPayment> confirmPremiumPaymentTest(String transactionId);
+  Future<PremiumPayment> cancelPremiumPayment(String transactionId);
   Future<void> logout();
   void close();
 }

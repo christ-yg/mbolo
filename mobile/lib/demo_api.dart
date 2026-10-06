@@ -6,6 +6,9 @@ import 'auth_contract.dart';
 class DemoApi implements AuthApi {
   static const account = Account('demo', 'demo@mbolo.test', true);
   bool _authenticated = false;
+  bool _incognito = false;
+  bool _boostActive = false;
+  final List<PremiumPayment> _premiumPayments = <PremiumPayment>[];
   bool _twoFactorEnabled = true;
   final List<ConnectedSession> _sessions = <ConnectedSession>[
     ConnectedSession(
@@ -687,29 +690,60 @@ class DemoApi implements AuthApi {
   }
 
   @override
-  Future<PremiumOverview> getPremiumOverview() async => const PremiumOverview(
-    subscription: PremiumSubscription(plan: 'free', planName: 'Gratuit', status: 'inactive', isPremium: false),
-    plans: <PremiumPlan>[
+  Future<PremiumOverview> getPremiumOverview() async => PremiumOverview(
+    subscription: const PremiumSubscription(plan: 'free', planName: 'Gratuit', status: 'inactive', isPremium: false),
+    plans: const <PremiumPlan>[
       PremiumPlan(code: 'free', name: 'Gratuit', description: 'Les essentiels pour faire de belles rencontres.', features: <String>['Découverte', 'Matchs et messages'], priceLabel: 'Gratuit', amountXaf: 0, paymentAvailable: false),
       PremiumPlan(code: 'plus', name: 'MBOLO Plus', description: 'Plus de liberté pour multiplier les rencontres.', features: <String>['Likes illimités', 'Voir qui te like', 'Rewind et Super Likes'], priceLabel: '4 900 FCFA / mois', amountXaf: 4900, paymentAvailable: true),
       PremiumPlan(code: 'prestige', name: 'MBOLO Prestige', description: 'L’expérience la plus complète et prioritaire.', features: <String>['Tous les avantages Plus', 'Mode incognito', 'Boost de profil', 'Support prioritaire'], priceLabel: '9 900 FCFA / mois', amountXaf: 9900, paymentAvailable: true),
     ],
-    paymentMethods: <PremiumPaymentMethod>[
+    paymentMethods: const <PremiumPaymentMethod>[
       PremiumPaymentMethod(code: 'airtel_money', name: 'Airtel Money', description: 'Paiement mobile sécurisé au Gabon.', available: true),
       PremiumPaymentMethod(code: 'moov_money', name: 'Moov Money', description: 'Paiement mobile sans saisir ton code PIN dans MBOLO.', available: true),
       PremiumPaymentMethod(code: 'bank_card', name: 'Carte bancaire', description: 'Visa ou Mastercard via le prestataire sécurisé.', available: false),
     ],
     paymentNotice: 'Démonstration : aucun débit réel ne sera effectué.',
+    privacy: PremiumPrivacy(enabled: _incognito, available: true, effective: _incognito),
+    boost: PremiumBoost(entitled: true, active: _boostActive, durationMinutes: 30, remaining: _boostActive ? 0 : 1),
   );
 
   @override
   Future<PremiumPayment> createPremiumCheckout({required String plan, required String method}) async {
     if (!const {'plus', 'prestige'}.contains(plan) || !const {'airtel_money', 'moov_money'}.contains(method)) throw const FormatException('Paiement indisponible.');
-    return PremiumPayment(id: 'demo-payment-1', planName: plan == 'plus' ? 'MBOLO Plus' : 'MBOLO Prestige', methodName: method == 'airtel_money' ? 'Airtel Money' : 'Moov Money', status: 'created', amountXaf: plan == 'plus' ? 4900 : 9900, currency: 'XAF', canConfirmInTestMode: true);
+    final payment = PremiumPayment(id: 'demo-payment-${_premiumPayments.length + 1}', planName: plan == 'plus' ? 'MBOLO Plus' : 'MBOLO Prestige', methodName: method == 'airtel_money' ? 'Airtel Money' : 'Moov Money', status: 'created', amountXaf: plan == 'plus' ? 4900 : 9900, currency: 'XAF', canConfirmInTestMode: true);
+    _premiumPayments.insert(0, payment);
+    return payment;
   }
 
   @override
-  Future<List<PremiumPayment>> getPremiumPaymentHistory() async => const <PremiumPayment>[];
+  Future<List<PremiumPayment>> getPremiumPaymentHistory() async => List<PremiumPayment>.unmodifiable(_premiumPayments);
+
+  @override
+  Future<PremiumPrivacy> updatePremiumPrivacy(bool enabled) async {
+    _incognito = enabled;
+    return PremiumPrivacy(enabled: enabled, available: true, effective: enabled);
+  }
+
+  @override
+  Future<PremiumBoost> activatePremiumBoost() async {
+    _boostActive = true;
+    return PremiumBoost(entitled: true, active: true, durationMinutes: 30, remaining: 0, activeUntil: DateTime.now().add(const Duration(minutes: 30)));
+  }
+
+  PremiumPayment _replacePayment(String id, String status) {
+    final index = _premiumPayments.indexWhere((item) => item.id == id);
+    if (index < 0) throw const FormatException('Transaction introuvable.');
+    final old = _premiumPayments[index];
+    final updated = PremiumPayment(id: old.id, planName: old.planName, methodName: old.methodName, status: status, amountXaf: old.amountXaf, currency: old.currency, canConfirmInTestMode: false);
+    _premiumPayments[index] = updated;
+    return updated;
+  }
+
+  @override
+  Future<PremiumPayment> confirmPremiumPaymentTest(String transactionId) async => _replacePayment(transactionId, 'succeeded');
+
+  @override
+  Future<PremiumPayment> cancelPremiumPayment(String transactionId) async => _replacePayment(transactionId, 'canceled');
 
   @override
   Future<void> logout() async {

@@ -689,6 +689,22 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<PremiumPrivacy> updatePremiumPrivacy(bool enabled) async => PremiumPrivacy.fromJson(await _patchObject('premium/privacy/', {'incognito_enabled': enabled}));
+
+  @override
+  Future<PremiumBoost> activatePremiumBoost() async => PremiumBoost.fromJson(await _postObject('premium/boost/', const {}));
+
+  @override
+  Future<PremiumPayment> confirmPremiumPaymentTest(String transactionId) async {
+    final data = await _postObject('premium/payments/confirm-test/', {'transaction_id': transactionId});
+    if (data['transaction'] is! Map<String, dynamic>) throw const FormatException('Confirmation de paiement incorrecte.');
+    return PremiumPayment.fromJson(data['transaction'] as Map<String, dynamic>);
+  }
+
+  @override
+  Future<PremiumPayment> cancelPremiumPayment(String transactionId) async => PremiumPayment.fromJson(await _postObject('premium/payments/cancel/', {'transaction_id': transactionId}));
+
+  @override
   Future<void> logout() async {
     // Keep the session when the server cannot confirm revocation; allow retry.
     await _post('auth/logout/', {});
