@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'auth_contract.dart';
 import 'messages.dart';
+import 'safety_actions.dart';
 
 class MboloHome extends StatefulWidget {
   const MboloHome({
@@ -158,7 +159,11 @@ class _MboloHomeState extends State<MboloHome> {
     }
     return _DiscoverPage(
       profile: _profiles.first,
+      api: widget.api,
       onNext: _next,
+      onSafetyComplete: () => setState(() {
+        _profiles = _profiles.skip(1).toList(growable: false);
+      }),
       working: _deciding,
     );
   }
@@ -222,12 +227,16 @@ class _MboloHomeState extends State<MboloHome> {
 class _DiscoverPage extends StatelessWidget {
   const _DiscoverPage({
     required this.profile,
+    required this.api,
     required this.onNext,
+    required this.onSafetyComplete,
     required this.working,
   });
 
   final DiscoveryProfile profile;
+  final AuthApi api;
   final Future<void> Function({required bool liked}) onNext;
+  final VoidCallback onSafetyComplete;
   final bool working;
 
   String _label(String value) {
@@ -285,6 +294,21 @@ class _DiscoverPage extends StatelessWidget {
                             Icons.verified,
                             color: Color(0xFF9D3451),
                           ),
+                        IconButton(
+                          tooltip: 'Actions de sécurité',
+                          onPressed: working
+                              ? null
+                              : () async {
+                                  final changed =
+                                      await showProfileSafetyActions(
+                                    context: context,
+                                    api: api,
+                                    profile: profile,
+                                  );
+                                  if (changed) onSafetyComplete();
+                                },
+                          icon: const Icon(Icons.more_vert),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),
