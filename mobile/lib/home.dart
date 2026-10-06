@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'auth_contract.dart';
+import 'messages.dart';
 
 class MboloHome extends StatefulWidget {
   const MboloHome({
@@ -21,7 +22,6 @@ class MboloHome extends StatefulWidget {
 
 class _MboloHomeState extends State<MboloHome> {
   int _tab = 0;
-  final Set<String> _liked = <String>{};
   List<DiscoveryProfile> _profiles = <DiscoveryProfile>[];
   bool _discoveryLoading = true;
   bool _deciding = false;
@@ -60,7 +60,6 @@ class _MboloHomeState extends State<MboloHome> {
       );
       if (!mounted) return;
       setState(() {
-        if (liked) _liked.add(current.displayName);
         _profiles = _profiles.skip(1).toList(growable: false);
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -168,7 +167,7 @@ class _MboloHomeState extends State<MboloHome> {
   Widget build(BuildContext context) {
     final pages = <Widget>[
       _discoveryPage(),
-      _ActivityPage(liked: _liked.toList(growable: false)),
+      MessagesPage(api: widget.api),
       _SafetyPage(onOpenProfile: () => setState(() => _tab = 3)),
       _ProfilePage(
         account: widget.account,
@@ -200,9 +199,9 @@ class _MboloHomeState extends State<MboloHome> {
             label: 'Découvrir',
           ),
           NavigationDestination(
-            icon: Icon(Icons.bolt_outlined),
-            selectedIcon: Icon(Icons.bolt),
-            label: 'Activité',
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: 'Messages',
           ),
           NavigationDestination(
             icon: Icon(Icons.shield_outlined),
@@ -367,43 +366,6 @@ class _ProfilePhotoFallback extends StatelessWidget {
       child: const Center(
         child: Icon(Icons.person, size: 150, color: Colors.white70),
       ),
-    );
-  }
-}
-
-class _ActivityPage extends StatelessWidget {
-  const _ActivityPage({required this.liked});
-  final List<String> liked;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        Text('Ton activité', style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 8),
-        Text(
-          '${liked.length} intérêt${liked.length == 1 ? '' : 's'} '
-          'envoyé${liked.length == 1 ? '' : 's'}',
-        ),
-        const SizedBox(height: 20),
-        if (liked.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('Tes likes et futurs matchs apparaîtront ici.'),
-            ),
-          )
-        else
-          ...liked.map(
-            (name) => ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.person)),
-              title: Text(name),
-              subtitle: const Text('Intérêt envoyé'),
-              trailing: const Icon(Icons.favorite, color: Color(0xFF9D3451)),
-            ),
-          ),
-      ],
     );
   }
 }
