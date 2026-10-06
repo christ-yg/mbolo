@@ -84,7 +84,7 @@ void main() {
     expect(find.text('Profil'), findsOneWidget);
   });
 
-  testWidgets('A like is listed in activity and logout returns to login', (
+  testWidgets('Messaging opens and logout returns to login', (
     tester,
   ) async {
     await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
@@ -103,10 +103,11 @@ void main() {
     );
     await tester.tap(find.text('Ça me plaît'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Activité'));
+    await tester.tap(find.text('Messages'));
     await tester.pumpAndSettle();
-    expect(find.text('1 intérêt envoyé'), findsOneWidget);
-    expect(find.text('Arielle'), findsOneWidget);
+    expect(find.text('Messages'), findsWidgets);
+    expect(find.text('Grâce'), findsOneWidget);
+    expect(find.textContaining('Heureuse de faire ta connaissance'), findsOneWidget);
 
     await tester.tap(find.text('Profil'));
     await tester.pumpAndSettle();
