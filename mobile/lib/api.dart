@@ -55,7 +55,7 @@ class MboloApi implements AuthApi {
   Future<void> _captureSessionCookie(Response<dynamic> response) async {
     final values = response.headers.map['set-cookie'] ?? const <String>[];
     for (final value in values) {
-      final match = RegExp(r'(?:^|;\\s*)sessionid=([^;]*)').firstMatch(value);
+      final match = RegExp(r'(?:^|;\s*)sessionid=([^;]*)').firstMatch(value);
       if (match == null) continue;
       final sessionId = match.group(1)?.trim() ?? '';
       if (sessionId.isEmpty) {
