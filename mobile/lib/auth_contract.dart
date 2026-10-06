@@ -411,6 +411,7 @@ abstract class AuthApi {
   Future<LoginResult> login(String email, String password);
   Future<Account> confirm(String challenge, String code);
   Future<Account> me();
+  Future<Account?> restoreSession();
   Future<MemberProfile> getProfile();
   Future<MemberProfile> updateProfile({
     required String displayName,
