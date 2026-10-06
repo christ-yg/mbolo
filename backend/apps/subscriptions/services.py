@@ -177,7 +177,8 @@ def get_plan_catalog() -> list[dict]:
 
 
 def get_payment_methods() -> list[dict]:
-    configured = bool(getattr(settings, "MBOLO_PAYMENT_PROVIDER", ""))
+    provider = str(getattr(settings, "MBOLO_PAYMENT_PROVIDER", "")).strip()
+    configured = bool(provider)
     return [
         {
             "code": "airtel_money",
@@ -204,7 +205,7 @@ def get_payment_methods() -> list[dict]:
                 "Visa ou Mastercard via la page sécurisée du prestataire. "
                 "Le numéro complet et le CVV ne transitent pas par Mbolo."
             ),
-            "available": configured,
+            "available": configured and provider != "ebilling",
         },
     ]
 
