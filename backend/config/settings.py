@@ -492,3 +492,31 @@ if not MBOLO_PAYMENT_TEST_MODE and not MBOLO_PAYMENT_PROVIDER:
     raise RuntimeError(
         "MBOLO_PAYMENT_PROVIDER doit être défini lorsque le mode test est désactivé."
     )
+
+
+# ============================================================
+# E-BILLING — MOBILE MONEY GABON
+# ============================================================
+EBILLING_ENV = env("EBILLING_ENV", default="lab").strip().lower()
+_EBILLING_DEFAULT_BASE_URLS = {
+    "lab": "https://lab.billing-easy.net",
+    "staging": "https://stg.billing-easy.com",
+    "production": "https://www.billing-easy.com",
+}
+EBILLING_BASE_URL = env(
+    "EBILLING_BASE_URL",
+    default=_EBILLING_DEFAULT_BASE_URLS.get(
+        EBILLING_ENV,
+        _EBILLING_DEFAULT_BASE_URLS["lab"],
+    ),
+).rstrip("/")
+EBILLING_CLIENT_ID = env("EBILLING_CLIENT_ID", default="").strip()
+EBILLING_CLIENT_SECRET = env("EBILLING_CLIENT_SECRET", default="").strip()
+EBILLING_HTTP_TIMEOUT_SECONDS = env.int(
+    "EBILLING_HTTP_TIMEOUT_SECONDS",
+    default=15,
+)
+EBILLING_WEBHOOK_SIGNING_KEY = env(
+    "EBILLING_WEBHOOK_SIGNING_KEY",
+    default="",
+).strip()
