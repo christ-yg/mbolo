@@ -170,7 +170,10 @@ void main() {
 
   testWidgets('Password reset link changes the password', (tester) async {
     await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
-    await tester.tap(find.text('J’ai reçu mon lien'));
+    final receivedLink = find.text('J’ai reçu mon lien');
+    await tester.ensureVisible(receivedLink);
+    await tester.pumpAndSettle();
+    await tester.tap(receivedLink);
     await tester.pumpAndSettle();
 
     await tester.enterText(
