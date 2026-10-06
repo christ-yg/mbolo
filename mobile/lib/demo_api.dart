@@ -73,6 +73,8 @@ class DemoApi implements AuthApi {
   ];
 
   final List<ProfilePhoto> _photos = <ProfilePhoto>[];
+  final Set<String> _blockedProfiles = <String>{};
+  bool _demoMatchActive = true;
 
   DiscoveryPreferences _preferences = const DiscoveryPreferences(
     minimumAge: 18,
@@ -295,7 +297,47 @@ class DemoApi implements AuthApi {
   }
 
   @override
+  Future<SafetyActionResult> blockProfile(String profileId) async {
+    if (!_discoveryProfiles.any((profile) => profile.id == profileId)) {
+      throw const FormatException('Profil absent.');
+    }
+    final created = _blockedProfiles.add(profileId);
+    if (profileId == _discoveryProfiles[1].id) _demoMatchActive = false;
+    return SafetyActionResult(
+      created: created,
+      message: created ? 'Ce profil a été bloqué.' : 'Ce profil est déjà bloqué.',
+      deactivatedMatches: profileId == _discoveryProfiles[1].id ? 1 : 0,
+    );
+  }
+
+  @override
+  Future<SafetyActionResult> reportProfile({
+    required String profileId,
+    required String reason,
+    required String description,
+  }) async {
+    if (!_discoveryProfiles.any((profile) => profile.id == profileId) ||
+        reason.isEmpty ||
+        (reason == 'other' && description.trim().isEmpty)) {
+      throw const FormatException('Signalement incorrect.');
+    }
+    return const SafetyActionResult(
+      created: true,
+      message: 'Le signalement a été transmis à la modération.',
+    );
+  }
+
+  @override
+  Future<void> unmatch(String matchId) async {
+    if (matchId != 'demo-match-1') {
+      throw const FormatException('Match absent.');
+    }
+    _demoMatchActive = false;
+  }
+
+  @override
   Future<List<ConversationSummary>> getConversations() async {
+    if (!_demoMatchActive) return <ConversationSummary>[];
     return <ConversationSummary>[
       ConversationSummary(
         id: 'demo-conversation-1',
