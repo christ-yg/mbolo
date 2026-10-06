@@ -27,9 +27,7 @@ class EncryptedSessionStore implements SessionStore {
   EncryptedSessionStore({
     FlutterSecureStorage? storage,
   }) : _storage = storage ?? const FlutterSecureStorage(
-          aOptions: AndroidOptions(
-            storageNamespace: 'mbolo_session',
-          ),
+          aOptions: AndroidOptions(),
         );
 
   static const _key = 'django_session_id';
