@@ -37,4 +37,25 @@ void main() {
       throwsA(isA<FormatException>()),
     );
   });
+
+  test('la démo liste les matchs et permet de répondre aux likes', () async {
+    final api = DemoApi();
+
+    final matches = await api.getMatches();
+    expect(matches, hasLength(1));
+    expect(matches.single.otherProfile.displayName, 'Grâce');
+
+    final likes = await api.getReceivedLikes();
+    expect(likes, hasLength(2));
+    expect(likes.first.identityRevealed, isFalse);
+    expect(likes.first.superLike, isTrue);
+
+    final result = await api.respondToReceivedLike(
+      interactionId: likes.first.interactionId,
+      decision: 'like',
+    );
+    expect(result.matched, isTrue);
+    expect(result.revealedProfile, isNotNull);
+    expect(await api.getReceivedLikes(), hasLength(1));
+  });
 }

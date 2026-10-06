@@ -384,6 +384,48 @@ class MboloApi implements AuthApi {
     );
   }
 
+  @override
+  Future<List<MatchSummary>> getMatches() async {
+    final response = await client.get<dynamic>(
+      'matches/',
+      queryParameters: const {'page_size': 50},
+    );
+    return _paginatedResults(
+      response.data,
+      MatchSummary.fromJson,
+      'Liste des matchs incorrecte.',
+    );
+  }
+
+  @override
+  Future<List<ReceivedLike>> getReceivedLikes() async {
+    final response = await client.get<dynamic>(
+      'likes-received/',
+      queryParameters: const {'page_size': 50},
+    );
+    return _paginatedResults(
+      response.data,
+      ReceivedLike.fromJson,
+      'Liste des likes reçus incorrecte.',
+    );
+  }
+
+  @override
+  Future<ReceivedLikeResult> respondToReceivedLike({
+    required String interactionId,
+    required String decision,
+  }) async {
+    if (decision != 'like' && decision != 'pass') {
+      throw const FormatException('Réponse au like incorrecte.');
+    }
+    return ReceivedLikeResult.fromJson(
+      await _postObject(
+        'likes-received/$interactionId/respond/',
+        {'decision': decision},
+      ),
+    );
+  }
+
   List<T> _paginatedResults<T>(
     dynamic raw,
     T Function(Map<String, dynamic>) decoder,

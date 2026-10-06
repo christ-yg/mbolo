@@ -14,7 +14,11 @@ class MessagesPage extends StatefulWidget {
 
 class _MessagesPageState extends State<MessagesPage> {
   List<ConversationSummary> _conversations = <ConversationSummary>[];
+  List<MatchSummary> _matches = <MatchSummary>[];
+  List<ReceivedLike> _likes = <ReceivedLike>[];
+  int _section = 0;
   bool _loading = true;
+  String? _workingLike;
   String? _error;
 
   @override
@@ -30,11 +34,76 @@ class _MessagesPageState extends State<MessagesPage> {
     });
     try {
       final conversations = await widget.api.getConversations();
-      if (mounted) setState(() => _conversations = conversations);
+      final matches = await widget.api.getMatches();
+      final likes = await widget.api.getReceivedLikes();
+      if (mounted) {
+        setState(() {
+          _conversations = conversations;
+          _matches = matches;
+          _likes = likes;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = friendlyError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openMatch(MatchSummary match) async {
+    ConversationSummary? conversation;
+    for (final item in _conversations) {
+      if (item.matchId == match.id) {
+        conversation = item;
+        break;
+      }
+    }
+    if (conversation == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('La conversation sera disponible dans un instant.'),
+          ),
+        );
+      }
+      await _load();
+      return;
+    }
+    await _open(conversation);
+  }
+
+  Future<void> _respond(ReceivedLike like, String decision) async {
+    if (_workingLike != null) return;
+    setState(() => _workingLike = like.interactionId);
+    try {
+      final result = await widget.api.respondToReceivedLike(
+        interactionId: like.interactionId,
+        decision: decision,
+      );
+      if (!mounted) return;
+      setState(() => _likes.removeWhere(
+            (item) => item.interactionId == like.interactionId,
+          ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.matched
+                ? 'C’est un match${result.revealedProfile == null ? ' !' : ' avec ${result.revealedProfile!.displayName} !'}'
+                : decision == 'like'
+                    ? 'Ton intérêt a été envoyé.'
+                    : 'Profil passé en toute discrétion.',
+          ),
+        ),
+      );
+      if (result.matched) await _load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _workingLike = null);
     }
   }
 
@@ -104,7 +173,7 @@ class _MessagesPageState extends State<MessagesPage> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '${_conversations.length} conversation${_conversations.length > 1 ? 's' : ''} active${_conversations.length > 1 ? 's' : ''}',
+                        '${_matches.length} match${_matches.length > 1 ? 's' : ''} · ${_likes.length} intérêt${_likes.length > 1 ? 's' : ''}',
                       ),
                     ],
                   ),
@@ -126,6 +195,35 @@ class _MessagesPageState extends State<MessagesPage> {
             ),
           ),
           const SizedBox(height: 22),
+          SegmentedButton<int>(
+            segments: [
+              ButtonSegment<int>(
+                value: 0,
+                label: Text('Messages${_conversations.isEmpty ? '' : ' ${_conversations.length}'}'),
+              ),
+              ButtonSegment<int>(
+                value: 1,
+                label: Text('Matchs${_matches.isEmpty ? '' : ' ${_matches.length}'}'),
+              ),
+              ButtonSegment<int>(
+                value: 2,
+                label: Text('Likes${_likes.isEmpty ? '' : ' ${_likes.length}'}'),
+              ),
+            ],
+            selected: <int>{_section},
+            onSelectionChanged: (value) => setState(() => _section = value.first),
+            showSelectedIcon: false,
+          ),
+          const SizedBox(height: 22),
+          if (_section == 0) ..._messageSection(context),
+          if (_section == 1) ..._matchSection(context),
+          if (_section == 2) ..._likeSection(context),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _messageSection(BuildContext context) => <Widget>[
           Text(
             'Messages',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -159,70 +257,247 @@ class _MessagesPageState extends State<MessagesPage> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Card(
                   child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  onTap: () => _open(conversation),
-                  leading: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 26,
-                        backgroundColor: const Color(0xFFFFD8E3),
-                        backgroundImage: photo != null && photo.imageUrl.isNotEmpty
-                            ? NetworkImage(photo.imageUrl)
-                            : null,
-                        child: photo == null || photo.imageUrl.isEmpty
-                            ? const Icon(Icons.person_outline)
-                            : null,
-                      ),
-                      if (conversation.online)
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Theme.of(context).colorScheme.surface,
-                                width: 2,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    onTap: () => _open(conversation),
+                    leading: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: const Color(0xFFFFD8E3),
+                          backgroundImage:
+                              photo != null && photo.imageUrl.isNotEmpty
+                                  ? NetworkImage(photo.imageUrl)
+                                  : null,
+                          child: photo == null || photo.imageUrl.isEmpty
+                              ? const Icon(Icons.person_outline)
+                              : null,
+                        ),
+                        if (conversation.online)
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.surface,
+                                  width: 2,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                  title: Text(
-                    conversation.otherProfile.displayName,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: Text(
-                    last?.body ?? 'Commence la conversation',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (last != null)
-                        Text(
-                          _time(last.createdAt),
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                      if (conversation.unreadCount > 0) ...[
-                        const SizedBox(height: 4),
-                        Badge(label: Text('${conversation.unreadCount}')),
                       ],
-                    ],
-                  ),
+                    ),
+                    title: Text(
+                      conversation.otherProfile.displayName,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(
+                      last?.body ?? 'Commence la conversation',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (last != null)
+                          Text(
+                            _time(last.createdAt),
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        if (conversation.unreadCount > 0) ...[
+                          const SizedBox(height: 4),
+                          Badge(label: Text('${conversation.unreadCount}')),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
               );
             }),
-        ],
+        ];
+
+  List<Widget> _matchSection(BuildContext context) => <Widget>[
+        Text(
+          'Mes matchs',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 12),
+        if (_matches.isEmpty)
+          const _ConnectionsEmpty(
+            icon: Icons.favorite_border,
+            message: 'Tes prochains matchs apparaîtront ici.',
+          )
+        else
+          ..._matches.map((match) {
+            final profile = match.otherProfile;
+            final photo = profile.photos.isEmpty ? null : profile.photos.first;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Card(
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(14),
+                  onTap: () => _openMatch(match),
+                  leading: CircleAvatar(
+                    radius: 28,
+                    backgroundColor: const Color(0xFFFFD8E3),
+                    backgroundImage: photo != null && photo.imageUrl.isNotEmpty
+                        ? NetworkImage(photo.imageUrl)
+                        : null,
+                    child: photo == null || photo.imageUrl.isEmpty
+                        ? const Icon(Icons.person_outline)
+                        : null,
+                  ),
+                  title: Text(
+                    '${profile.displayName}, ${profile.age}',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: Text('${profile.city} · ${profile.datingIntent}'),
+                  trailing: const Icon(Icons.chat_bubble_rounded),
+                ),
+              ),
+            );
+          }),
+      ];
+
+  List<Widget> _likeSection(BuildContext context) => <Widget>[
+        Text(
+          'Ils s’intéressent à toi',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Leur identité reste protégée jusqu’au match. Réponds sans pression.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 12),
+        if (_likes.isEmpty)
+          const _ConnectionsEmpty(
+            icon: Icons.visibility_off_outlined,
+            message: 'Aucun nouvel intérêt pour le moment.',
+          )
+        else
+          ..._likes.map((like) {
+            final busy = _workingLike == like.interactionId;
+            final title = like.identityRevealed && like.displayName != null
+                ? like.displayName!
+                : 'Un profil de ${like.city}';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 27,
+                            backgroundColor: const Color(0xFFFFE2EA),
+                            backgroundImage: like.imageUrl != null
+                                ? NetworkImage(like.imageUrl!)
+                                : null,
+                            child: like.imageUrl == null
+                                ? Icon(like.hasPhoto
+                                    ? Icons.lock_outline
+                                    : Icons.person_outline)
+                                : null,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        title,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                    if (like.superLike) ...[
+                                      const SizedBox(width: 6),
+                                      const Icon(
+                                        Icons.star_rounded,
+                                        color: Color(0xFF6750A4),
+                                        size: 20,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                Text('${like.ageRange} · ${like.datingIntent}'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: busy ? null : () => _respond(like, 'pass'),
+                              icon: const Icon(Icons.close_rounded),
+                              label: const Text('Passer'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: busy ? null : () => _respond(like, 'like'),
+                              icon: busy
+                                  ? const SizedBox.square(
+                                      dimension: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.favorite_rounded),
+                              label: const Text('Accepter'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+      ];
+}
+
+class _ConnectionsEmpty extends StatelessWidget {
+  const _ConnectionsEmpty({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Icon(icon, size: 48),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+          ],
+        ),
       ),
     );
   }

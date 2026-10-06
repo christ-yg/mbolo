@@ -69,6 +69,62 @@ class FakeServer implements HttpClientAdapter {
             ? '44444444-4444-4444-4444-444444444444'
             : null,
       };
+    } else if (path.endsWith('/matches/')) {
+      data = {
+        'results': [
+          {
+            'id': '44444444-4444-4444-4444-444444444444',
+            'other_profile': {
+              'id': '22222222-2222-2222-2222-222222222222',
+              'display_name': 'Grâce',
+              'age': 29,
+              'city': 'libreville',
+              'biography': 'Profil de test.',
+              'dating_intent': 'serious_relationship',
+              'is_verified': true,
+              'photos': <Map<String, dynamic>>[],
+            },
+            'created_at': '2026-10-06T10:00:00Z',
+          },
+        ],
+      };
+    } else if (path.endsWith('/likes-received/')) {
+      data = {
+        'results': [
+          {
+            'interaction_id': '55555555-5555-5555-5555-555555555555',
+            'city': 'Libreville',
+            'age_range': '25–29 ans',
+            'dating_intent': 'Relation sérieuse',
+            'has_photo': true,
+            'profile_id': null,
+            'display_name': null,
+            'image_url': null,
+            'received_at': '2026-10-06T11:00:00Z',
+            'is_identity_revealed': false,
+            'is_super_like': true,
+          },
+        ],
+      };
+    } else if (path.endsWith(
+      '/likes-received/55555555-5555-5555-5555-555555555555/respond/',
+    )) {
+      data = {
+        'decision': options.data['decision'],
+        'matched': true,
+        'match_created': true,
+        'match_id': '44444444-4444-4444-4444-444444444444',
+        'revealed_profile': {
+          'id': '22222222-2222-2222-2222-222222222222',
+          'display_name': 'Grâce',
+          'age': 29,
+          'city': 'libreville',
+          'biography': 'Profil de test.',
+          'dating_intent': 'serious_relationship',
+          'is_verified': true,
+          'photos': <Map<String, dynamic>>[],
+        },
+      };
     } else if (path.endsWith('/notifications/')) {
       if (options.method == 'DELETE') {
         status = 204;
@@ -207,6 +263,31 @@ void main() {
     });
     expect(result.account, isNull);
     expect(result.challenge, 'test-challenge');
+  });
+
+  test('Matches and received likes follow the private API contract', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final matches = await api.getMatches();
+    expect(matches.single.otherProfile.displayName, 'Grâce');
+
+    final likes = await api.getReceivedLikes();
+    expect(likes.single.identityRevealed, isFalse);
+    expect(likes.single.displayName, isNull);
+    expect(likes.single.superLike, isTrue);
+
+    final result = await api.respondToReceivedLike(
+      interactionId: likes.single.interactionId,
+      decision: 'like',
+    );
+    expect(result.matched, isTrue);
+    expect(result.revealedProfile?.displayName, 'Grâce');
+    expect(server.requests.last.data['decision'], 'like');
   });
 
   test(

@@ -271,6 +271,115 @@ class InteractionResult {
   }
 }
 
+class MatchSummary {
+  const MatchSummary({
+    required this.id,
+    required this.otherProfile,
+    required this.createdAt,
+  });
+
+  final String id;
+  final DiscoveryProfile otherProfile;
+  final DateTime createdAt;
+
+  factory MatchSummary.fromJson(Map<String, dynamic> data) {
+    final id = data['id'];
+    final profile = data['other_profile'];
+    final createdAt = DateTime.tryParse(data['created_at']?.toString() ?? '');
+    if (id is! String ||
+        id.isEmpty ||
+        profile is! Map<String, dynamic> ||
+        createdAt == null) {
+      throw const FormatException('Match incomplet.');
+    }
+    return MatchSummary(
+      id: id,
+      otherProfile: DiscoveryProfile.fromJson(profile),
+      createdAt: createdAt,
+    );
+  }
+}
+
+class ReceivedLike {
+  const ReceivedLike({
+    required this.interactionId,
+    required this.city,
+    required this.ageRange,
+    required this.datingIntent,
+    required this.hasPhoto,
+    required this.identityRevealed,
+    required this.superLike,
+    required this.receivedAt,
+    this.profileId,
+    this.displayName,
+    this.imageUrl,
+  });
+
+  final String interactionId;
+  final String city;
+  final String ageRange;
+  final String datingIntent;
+  final bool hasPhoto;
+  final bool identityRevealed;
+  final bool superLike;
+  final DateTime receivedAt;
+  final String? profileId;
+  final String? displayName;
+  final String? imageUrl;
+
+  factory ReceivedLike.fromJson(Map<String, dynamic> data) {
+    final id = data['interaction_id'];
+    final receivedAt = DateTime.tryParse(data['received_at']?.toString() ?? '');
+    if (id is! String || id.isEmpty || receivedAt == null) {
+      throw const FormatException('Like reçu incomplet.');
+    }
+    return ReceivedLike(
+      interactionId: id,
+      city: data['city'] is String ? data['city'] as String : 'Ville inconnue',
+      ageRange: data['age_range'] is String ? data['age_range'] as String : '',
+      datingIntent:
+          data['dating_intent'] is String ? data['dating_intent'] as String : '',
+      hasPhoto: data['has_photo'] == true,
+      identityRevealed: data['is_identity_revealed'] == true,
+      superLike: data['is_super_like'] == true,
+      receivedAt: receivedAt,
+      profileId: data['profile_id'] is String ? data['profile_id'] as String : null,
+      displayName:
+          data['display_name'] is String ? data['display_name'] as String : null,
+      imageUrl: data['image_url'] is String ? data['image_url'] as String : null,
+    );
+  }
+}
+
+class ReceivedLikeResult {
+  const ReceivedLikeResult({
+    required this.decision,
+    required this.matched,
+    required this.matchCreated,
+    this.matchId,
+    this.revealedProfile,
+  });
+
+  final String decision;
+  final bool matched;
+  final bool matchCreated;
+  final String? matchId;
+  final DiscoveryProfile? revealedProfile;
+
+  factory ReceivedLikeResult.fromJson(Map<String, dynamic> data) {
+    final rawProfile = data['revealed_profile'];
+    return ReceivedLikeResult(
+      decision: data['decision'] is String ? data['decision'] as String : '',
+      matched: data['matched'] == true,
+      matchCreated: data['match_created'] == true,
+      matchId: data['match_id'] is String ? data['match_id'] as String : null,
+      revealedProfile: rawProfile is Map<String, dynamic>
+          ? DiscoveryProfile.fromJson(rawProfile)
+          : null,
+    );
+  }
+}
+
 class ProfilePhoto {
   const ProfilePhoto({
     required this.id,
@@ -510,6 +619,12 @@ abstract class AuthApi {
     required String description,
   });
   Future<void> unmatch(String matchId);
+  Future<List<MatchSummary>> getMatches();
+  Future<List<ReceivedLike>> getReceivedLikes();
+  Future<ReceivedLikeResult> respondToReceivedLike({
+    required String interactionId,
+    required String decision,
+  });
   Future<List<ConversationSummary>> getConversations();
   Future<List<ChatMessage>> getMessages(String conversationId);
   Future<ChatMessage> sendMessage(String conversationId, String body);

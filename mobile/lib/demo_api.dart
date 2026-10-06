@@ -95,6 +95,28 @@ class DemoApi implements AuthApi {
     ),
   ];
   bool _demoMatchActive = true;
+  final List<ReceivedLike> _receivedLikes = <ReceivedLike>[
+    ReceivedLike(
+      interactionId: 'demo-like-1',
+      city: 'Libreville',
+      ageRange: '25–29 ans',
+      datingIntent: 'Relation sérieuse',
+      hasPhoto: true,
+      identityRevealed: false,
+      superLike: true,
+      receivedAt: DateTime(2026, 10, 6, 12, 30),
+    ),
+    ReceivedLike(
+      interactionId: 'demo-like-2',
+      city: 'Akanda',
+      ageRange: '30–34 ans',
+      datingIntent: 'Faire connaissance',
+      hasPhoto: true,
+      identityRevealed: false,
+      superLike: false,
+      receivedAt: DateTime(2026, 10, 6, 9, 15),
+    ),
+  ];
 
   DiscoveryPreferences _preferences = const DiscoveryPreferences(
     minimumAge: 18,
@@ -373,6 +395,44 @@ class DemoApi implements AuthApi {
       throw const FormatException('Match absent.');
     }
     _demoMatchActive = false;
+  }
+
+  @override
+  Future<List<MatchSummary>> getMatches() async {
+    if (!_demoMatchActive) return <MatchSummary>[];
+    return <MatchSummary>[
+      MatchSummary(
+        id: 'demo-match-1',
+        otherProfile: _discoveryProfiles[1],
+        createdAt: DateTime(2026, 10, 5, 18),
+      ),
+    ];
+  }
+
+  @override
+  Future<List<ReceivedLike>> getReceivedLikes() async =>
+      List<ReceivedLike>.unmodifiable(_receivedLikes);
+
+  @override
+  Future<ReceivedLikeResult> respondToReceivedLike({
+    required String interactionId,
+    required String decision,
+  }) async {
+    final index = _receivedLikes.indexWhere(
+      (item) => item.interactionId == interactionId,
+    );
+    if (index < 0 || (decision != 'like' && decision != 'pass')) {
+      throw const FormatException('Réponse de démonstration incorrecte.');
+    }
+    _receivedLikes.removeAt(index);
+    final matched = decision == 'like';
+    return ReceivedLikeResult(
+      decision: decision,
+      matched: matched,
+      matchCreated: matched,
+      matchId: matched ? 'demo-match-2' : null,
+      revealedProfile: matched ? _discoveryProfiles.first : null,
+    );
   }
 
   @override
