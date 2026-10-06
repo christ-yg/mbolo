@@ -136,6 +136,13 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Chrome · Windows'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Exporter mes données'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Désactiver mon compte'), findsOneWidget);
+    expect(find.text('Supprimer définitivement'), findsOneWidget);
   });
 
   testWidgets('Registration validates consent and returns to login', (

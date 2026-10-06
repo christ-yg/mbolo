@@ -295,6 +295,15 @@ class _SessionScreenState extends State<SessionScreen> {
     }
   }
 
+  Future<void> _accountClosed() async {
+    if (!mounted) return;
+    setState(() {
+      _account = null;
+      _challenge = null;
+      _password.clear();
+    });
+  }
+
   String get _title {
     if (_challenge != null) return 'Confirme ta connexion';
     switch (_mode) {
@@ -342,6 +351,7 @@ class _SessionScreenState extends State<SessionScreen> {
         account: _account!,
         api: widget.api,
         onLogout: _logout,
+        onAccountClosed: _accountClosed,
       );
     }
 

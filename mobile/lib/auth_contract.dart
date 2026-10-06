@@ -687,6 +687,9 @@ abstract class AuthApi {
     required String newPassword,
     required String newPasswordConfirmation,
   });
+  Future<Map<String, dynamic>> exportPersonalData();
+  Future<void> deactivateAccount(String currentPassword);
+  Future<void> deleteAccount(String currentPassword);
   Future<MemberProfile> getProfile();
   Future<MemberProfile> updateProfile({
     required String displayName,

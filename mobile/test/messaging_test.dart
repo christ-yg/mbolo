@@ -101,4 +101,16 @@ void main() {
     );
     expect((await api.me()).emailTwoFactorEnabled, isFalse);
   });
+
+  test('la démo exporte les données puis supprime le compte', () async {
+    final api = DemoApi();
+    await api.confirm('demo-challenge', '123456');
+
+    final export = await api.exportPersonalData();
+    expect(export['export'], isA<Map<String, dynamic>>());
+
+    await api.deleteAccount('MboloDemo!');
+    await expectLater(api.me(), throwsA(isA<FormatException>()));
+    expect(await api.getConnectedSessions(), isEmpty);
+  });
 }

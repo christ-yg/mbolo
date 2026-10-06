@@ -234,6 +234,19 @@ class FakeServer implements HttpClientAdapter {
         'message': 'Mot de passe modifié.',
         'data': {'revokedSessions': 1},
       };
+    } else if (path.endsWith('/auth/privacy/export/')) {
+      data = {
+        'export': {
+          'generated_at': '2026-10-06T15:00:00Z',
+          'account': {'email': 'test@example.com'},
+        },
+      };
+    } else if (path.endsWith('/auth/security/deactivate/')) {
+      data = {'message': 'Compte désactivé.'};
+      headers['set-cookie'] = ['sessionid=; Path=/; Secure; HttpOnly'];
+    } else if (path.endsWith('/auth/privacy/delete/')) {
+      data = {'message': 'Compte supprimé.'};
+      headers['set-cookie'] = ['sessionid=; Path=/; Secure; HttpOnly'];
     } else if (path.endsWith('/profiles/photos/')) {
       final photo = {
         'id': '11111111-1111-1111-1111-111111111111',
@@ -424,6 +437,33 @@ void main() {
       ),
       1,
     );
+  });
+
+  test('Privacy export and account closure use protected contracts', () async {
+    final server = FakeServer();
+    final store = MemorySessionStore();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+      sessionStore: store,
+    );
+    addTearDown(api.close);
+
+    final export = await api.exportPersonalData();
+    expect(export['export'], isA<Map<String, dynamic>>());
+
+    await api.login('test@example.com', 'mot-de-passe-actuel');
+    expect(await store.read(), 'session-test');
+    await api.deactivateAccount('mot-de-passe-actuel');
+    expect(await store.read(), isNull);
+    final deactivation = server.requests.last;
+    expect(deactivation.data['confirmation'], 'DESACTIVER');
+
+    await api.login('test@example.com', 'mot-de-passe-actuel');
+    await api.deleteAccount('mot-de-passe-actuel');
+    expect(await store.read(), isNull);
+    final deletion = server.requests.last;
+    expect(deletion.data['confirmation'], 'SUPPRIMER DEFINITIVEMENT');
   });
 
   test(

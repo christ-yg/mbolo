@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'auth_contract.dart';
 
@@ -7,10 +10,12 @@ class SecurityPage extends StatefulWidget {
     super.key,
     required this.api,
     required this.initialAccount,
+    required this.onAccountClosed,
   });
 
   final AuthApi api;
   final Account initialAccount;
+  final Future<void> Function() onAccountClosed;
 
   @override
   State<SecurityPage> createState() => _SecurityPageState();
@@ -229,6 +234,149 @@ class _SecurityPageState extends State<SecurityPage> {
     }
   }
 
+  Future<void> _exportData() async {
+    if (_working) return;
+    setState(() => _working = true);
+    try {
+      final data = await widget.api.exportPersonalData();
+      final formatted = const JsonEncoder.withIndent('  ').convert(data);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Mes données MBOLO'),
+          content: SizedBox(
+            width: 560,
+            height: 420,
+            child: SingleChildScrollView(
+              child: SelectableText(formatted),
+            ),
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: formatted));
+                if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                if (mounted) _notice('Export copié dans le presse-papiers.');
+              },
+              icon: const Icon(Icons.copy_all_outlined),
+              label: const Text('Copier'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Fermer'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (mounted) _notice(friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<String?> _confirmDanger({
+    required String title,
+    required String explanation,
+    required String phrase,
+    required String actionLabel,
+  }) async {
+    final password = TextEditingController();
+    final confirmation = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(explanation),
+              const SizedBox(height: 16),
+              TextField(
+                controller: password,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Mot de passe actuel',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text('Écris exactement : $phrase'),
+              const SizedBox(height: 6),
+              TextField(
+                controller: confirmation,
+                decoration: const InputDecoration(labelText: 'Confirmation'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () {
+              if (password.text.isEmpty || confirmation.text != phrase) return;
+              Navigator.of(dialogContext).pop(password.text);
+            },
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
+    password.dispose();
+    confirmation.dispose();
+    return result;
+  }
+
+  Future<void> _deactivateAccount() async {
+    if (_working) return;
+    final password = await _confirmDanger(
+      title: 'Désactiver mon compte ?',
+      explanation:
+          'Ton profil disparaîtra de Découvrir et toutes tes sessions seront fermées.',
+      phrase: 'DESACTIVER',
+      actionLabel: 'Désactiver',
+    );
+    if (password == null || !mounted) return;
+    setState(() => _working = true);
+    try {
+      await widget.api.deactivateAccount(password);
+      if (mounted) await widget.onAccountClosed();
+    } catch (error) {
+      if (mounted) _notice(friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    if (_working) return;
+    final password = await _confirmDanger(
+      title: 'Supprimer définitivement mon compte ?',
+      explanation:
+          'Cette action efface définitivement tes données personnelles et ne peut pas être annulée.',
+      phrase: 'SUPPRIMER DEFINITIVEMENT',
+      actionLabel: 'Supprimer définitivement',
+    );
+    if (password == null || !mounted) return;
+    setState(() => _working = true);
+    try {
+      await widget.api.deleteAccount(password);
+      if (mounted) await widget.onAccountClosed();
+    } catch (error) {
+      if (mounted) _notice(friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
   String _date(DateTime value) {
     final local = value.toLocal();
     return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')} à ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
@@ -356,6 +504,48 @@ class _SecurityPageState extends State<SecurityPage> {
                 ),
               ),
             ),
+          const SizedBox(height: 24),
+          Text(
+            'Confidentialité et compte',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 10),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  enabled: !_working,
+                  leading: const Icon(Icons.download_outlined),
+                  title: const Text('Exporter mes données'),
+                  subtitle: const Text('Consulter et copier une archive JSON portable.'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _working ? null : _exportData,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  enabled: !_working,
+                  leading: const Icon(Icons.pause_circle_outline),
+                  title: const Text('Désactiver mon compte'),
+                  subtitle: const Text('Masquer le profil et fermer les sessions.'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _working ? null : _deactivateAccount,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  enabled: !_working,
+                  textColor: Theme.of(context).colorScheme.error,
+                  iconColor: Theme.of(context).colorScheme.error,
+                  leading: const Icon(Icons.delete_forever_outlined),
+                  title: const Text('Supprimer définitivement'),
+                  subtitle: const Text('Effacer le compte et ses données personnelles.'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _working ? null : _deleteAccount,
+                ),
+              ],
+            ),
+          ),
           if (_working) ...[
             const SizedBox(height: 12),
             const LinearProgressIndicator(),

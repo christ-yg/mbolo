@@ -250,6 +250,40 @@ class MboloApi implements AuthApi {
     return revoked;
   }
 
+  @override
+  Future<Map<String, dynamic>> exportPersonalData() async {
+    final response = await client.get<dynamic>('auth/privacy/export/');
+    final raw = response.data;
+    if (raw is! Map<String, dynamic>) {
+      throw const FormatException('Export des données incorrect.');
+    }
+    return Map<String, dynamic>.unmodifiable(raw);
+  }
+
+  Future<void> _clearLocalSession() async {
+    await cookies.deleteAll();
+    _sessionId = null;
+    await sessionStore.clear();
+  }
+
+  @override
+  Future<void> deactivateAccount(String currentPassword) async {
+    await _post('auth/security/deactivate/', {
+      'current_password': currentPassword,
+      'confirmation': 'DESACTIVER',
+    });
+    await _clearLocalSession();
+  }
+
+  @override
+  Future<void> deleteAccount(String currentPassword) async {
+    await _post('auth/privacy/delete/', {
+      'current_password': currentPassword,
+      'confirmation': 'SUPPRIMER DEFINITIVEMENT',
+    });
+    await _clearLocalSession();
+  }
+
 
   @override
   Future<Account?> restoreSession() async {
@@ -636,9 +670,7 @@ class MboloApi implements AuthApi {
   Future<void> logout() async {
     // Keep the session when the server cannot confirm revocation; allow retry.
     await _post('auth/logout/', {});
-    await cookies.deleteAll();
-    _sessionId = null;
-    await sessionStore.clear();
+    await _clearLocalSession();
   }
 
   @override

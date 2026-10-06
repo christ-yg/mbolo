@@ -272,6 +272,47 @@ class DemoApi implements AuthApi {
     return revokeOtherSessions(currentPassword);
   }
 
+  @override
+  Future<Map<String, dynamic>> exportPersonalData() async =>
+      <String, dynamic>{
+        'export': <String, dynamic>{
+          'generated_at': DateTime.now().toUtc().toIso8601String(),
+          'account': <String, dynamic>{
+            'email': account.email,
+            'email_verified': account.verified,
+            'email_2fa_enabled': _twoFactorEnabled,
+          },
+          'profile': <String, dynamic>{
+            'display_name': _profile.displayName,
+            'city': _profile.city,
+            'dating_intent': _profile.datingIntent,
+            'interests': _profile.interests,
+          },
+          'connected_sessions': _sessions.length,
+        },
+      };
+
+  @override
+  Future<void> deactivateAccount(String currentPassword) async {
+    if (!_validDemoPassword(currentPassword)) {
+      throw const FormatException('Mot de passe incorrect.');
+    }
+    _authenticated = false;
+    _sessions.clear();
+  }
+
+  @override
+  Future<void> deleteAccount(String currentPassword) async {
+    if (!_validDemoPassword(currentPassword)) {
+      throw const FormatException('Mot de passe incorrect.');
+    }
+    _authenticated = false;
+    _sessions.clear();
+    _photos.clear();
+    _messages.clear();
+    _receivedLikes.clear();
+  }
+
 
   @override
   Future<Account?> restoreSession() async {

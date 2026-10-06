@@ -13,11 +13,13 @@ class MboloHome extends StatefulWidget {
     required this.account,
     required this.api,
     required this.onLogout,
+    required this.onAccountClosed,
   });
 
   final Account account;
   final AuthApi api;
   final Future<void> Function() onLogout;
+  final Future<void> Function() onAccountClosed;
 
   @override
   State<MboloHome> createState() => _MboloHomeState();
@@ -254,7 +256,11 @@ class _MboloHomeState extends State<MboloHome> {
     final pages = <Widget>[
       _discoveryPage(),
       MessagesPage(api: widget.api),
-      SecurityPage(api: widget.api, initialAccount: widget.account),
+      SecurityPage(
+        api: widget.api,
+        initialAccount: widget.account,
+        onAccountClosed: widget.onAccountClosed,
+      ),
       _ProfilePage(
         account: widget.account,
         onLogout: widget.onLogout,
