@@ -42,12 +42,14 @@ export async function updatePremiumPrivacy(
 export async function createPremiumCheckout(
   plan: "plus" | "prestige",
   method: "airtel_money" | "moov_money" | "bank_card",
+  payerPhone = "",
 ): Promise<PremiumPaymentTransaction> {
   const response = await httpClient.post<{
     data: PremiumPaymentTransaction;
   }>("/v1/premium/payments/checkout/", {
     plan,
     method,
+    payer_phone: payerPhone,
   });
   return response.data.data;
 }
@@ -78,5 +80,17 @@ export async function getPremiumPaymentHistory(): Promise<PremiumPaymentHistory>
   const response = await httpClient.get<{
     data: PremiumPaymentHistory;
   }>("/v1/premium/payments/history/");
+  return response.data.data;
+}
+
+
+export async function refreshPremiumPayment(
+  transactionId: string,
+): Promise<PremiumPaymentTransaction> {
+  const response = await httpClient.post<{
+    data: PremiumPaymentTransaction;
+  }>("/v1/premium/payments/refresh/", {
+    transaction_id: transactionId,
+  });
   return response.data.data;
 }

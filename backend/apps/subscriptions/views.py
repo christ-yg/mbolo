@@ -1,5 +1,5 @@
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -29,6 +29,8 @@ from .services import (
     confirm_test_payment,
     create_payment_checkout,
     get_payment_history,
+    refresh_ebilling_payment,
+    refresh_ebilling_payment_by_reference,
     serialize_payment_transaction,
 )
 
@@ -177,6 +179,7 @@ class PaymentCheckoutView(APIView):
                 user=request.user,
                 plan=serializer.validated_data["plan"],
                 method=serializer.validated_data["method"],
+                payer_phone=serializer.validated_data.get("payer_phone", ""),
             )
         except ValueError as exc:
             return Response(
@@ -301,3 +304,84 @@ class PaymentHistoryView(APIView):
                 "data": PaymentHistorySerializer(payload).data
             }
         )
+
+
+class PaymentRefreshView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request: Request) -> Response:
+        serializer = PaymentConfirmationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        from .models import PaymentTransaction
+
+        payment = PaymentTransaction.objects.filter(
+            id=serializer.validated_data["transaction_id"],
+            user=request.user,
+        ).first()
+        if payment is None:
+            return Response(
+                {"detail": "Transaction introuvable."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            payment = refresh_ebilling_payment(payment=payment)
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except RuntimeError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {
+                "data": PaymentTransactionSerializer(
+                    serialize_payment_transaction(payment)
+                ).data
+            }
+        )
+
+
+class EbillingWebhookView(APIView):
+    """Notification E-Billing: le corps sert seulement à retrouver la transaction.
+
+    Le statut de paiement n'est jamais accepté directement depuis le webhook :
+    Mbolo réinterroge E-Billing avec ses propres identifiants serveur.
+    """
+
+    permission_classes = (AllowAny,)
+    authentication_classes = ()
+
+    def post(self, request: Request) -> Response:
+        reference = (
+            request.data.get("reference")
+            or request.data.get("external_reference")
+            or request.data.get("client_transaction_id")
+        )
+        if not reference:
+            return Response(
+                {"detail": "Référence manquante."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            refresh_ebilling_payment_by_reference(str(reference))
+        except LookupError:
+            # Réponse 200 pour éviter une boucle de livraison sur une référence
+            # inconnue, tout en ne révélant aucune donnée de paiement.
+            return Response({"ok": True})
+        except RuntimeError:
+            # Une indisponibilité du prestataire mérite un retry du webhook.
+            return Response(
+                {"detail": "Vérification E-Billing temporairement indisponible."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except ValueError:
+            return Response({"ok": True})
+
+        return Response({"ok": True})

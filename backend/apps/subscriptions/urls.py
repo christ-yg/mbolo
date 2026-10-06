@@ -5,6 +5,8 @@ from .views import (
     PaymentCheckoutView,
     PaymentConfirmTestView,
     PaymentHistoryView,
+    PaymentRefreshView,
+    EbillingWebhookView,
     ProfileBoostView,
     PremiumOverviewView,
     PremiumPrivacyView,
@@ -48,5 +50,15 @@ urlpatterns = [
         "payments/history/",
         PaymentHistoryView.as_view(),
         name="premium-payment-history",
+    ),
+    path(
+        "payments/refresh/",
+        PaymentRefreshView.as_view(),
+        name="premium-payment-refresh",
+    ),
+    path(
+        "payments/ebilling/webhook/",
+        EbillingWebhookView.as_view(),
+        name="premium-payment-ebilling-webhook",
     ),
 ]

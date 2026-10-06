@@ -87,6 +87,8 @@ export interface PremiumPaymentTransaction {
   currency: "XAF";
   provider: string;
   provider_reference: string;
+  provider_bill_id: string;
+  provider_ussd_push_id: string;
   created_at: string;
   updated_at: string;
   verified_at: string | null;

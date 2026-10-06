@@ -8,6 +8,7 @@ import {
   createPremiumCheckout,
   getPremiumOverview,
   getPremiumPaymentHistory,
+  refreshPremiumPayment,
   updatePremiumPrivacy,
 } from "../../api/premiumService";
 import type {
@@ -59,6 +60,7 @@ export function PremiumPage() {
   const [history, setHistory] = useState<PremiumPaymentTransaction[]>([]);
   const [isPaymentBusy, setIsPaymentBusy] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
+  const [payerPhone, setPayerPhone] = useState("");
 
   async function loadOverview(): Promise<void> {
     const result = await getPremiumOverview();
@@ -149,10 +151,13 @@ export function PremiumPage() {
       const result = await createPremiumCheckout(
         selectedPlan,
         selectedMethod,
+        payerPhone,
       );
       setTransaction(result);
       setPaymentMessage(
-        "Transaction créée côté serveur. Aucun argent réel n'a été débité.",
+        result.provider === "ebilling"
+          ? "Une demande de paiement a été envoyée sur ton téléphone. Confirme-la avec ton code Mobile Money, jamais dans Mbolo."
+          : "Transaction test créée côté serveur. Aucun argent réel n'a été débité.",
       );
       await loadHistory();
     } catch (caught: unknown) {
@@ -174,6 +179,29 @@ export function PremiumPage() {
         `Paiement test confirmé. ${result.subscription.plan_name} est maintenant actif.`,
       );
       await Promise.all([loadOverview(), loadHistory()]);
+    } catch (caught: unknown) {
+      setError(normalizeApiError(caught).message);
+    } finally {
+      setIsPaymentBusy(false);
+    }
+  }
+
+  async function handleRefreshPayment(): Promise<void> {
+    if (!transaction || isPaymentBusy) return;
+    setIsPaymentBusy(true);
+    setError("");
+
+    try {
+      const result = await refreshPremiumPayment(transaction.id);
+      setTransaction(result);
+      if (result.status === "succeeded") {
+        setPaymentMessage("Paiement confirmé par E-Billing. Ton abonnement est actif.");
+        await Promise.all([loadOverview(), loadHistory()]);
+      } else {
+        setPaymentMessage(
+          "Le paiement est encore en attente. Confirme la demande sur ton téléphone puis vérifie à nouveau.",
+        );
+      }
     } catch (caught: unknown) {
       setError(normalizeApiError(caught).message);
     } finally {
@@ -312,6 +340,7 @@ export function PremiumPage() {
                           setSelectedPlan(plan.code);
                           setTransaction(null);
                           setPaymentMessage("");
+                          setPayerPhone("");
                         }
                       }}
                     >
@@ -478,6 +507,7 @@ export function PremiumPage() {
                         name="premium-payment-method"
                         value={method.code}
                         checked={selectedMethod === method.code}
+                        disabled={!method.available}
                         onChange={() => setSelectedMethod(method.code)}
                       />
                       <span>
@@ -488,6 +518,25 @@ export function PremiumPage() {
                   ))}
                 </fieldset>
 
+                {selectedMethod === "airtel_money"
+                || selectedMethod === "moov_money" ? (
+                  <label className="premium-checkout-phone">
+                    <span>Numéro Mobile Money</span>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      value={payerPhone}
+                      onChange={(event) => setPayerPhone(event.target.value)}
+                      placeholder="077xxxxxx ou 24177xxxxxxx"
+                    />
+                    <small>
+                      E-Billing enverra la confirmation USSD sur ce numéro.
+                      Mbolo ne demande jamais ton PIN.
+                    </small>
+                  </label>
+                ) : null}
+
                 <div className="premium-checkout-dialog__notice">
                   Aucun débit réel. Aucun PIN, OTP, PAN ou CVV ne sera demandé.
                 </div>
@@ -495,12 +544,20 @@ export function PremiumPage() {
                 <button
                   type="button"
                   className="premium-checkout-dialog__primary"
-                  disabled={isPaymentBusy}
+                  disabled={
+                    isPaymentBusy
+                    || !overview.payment_methods.find(
+                      (method) => method.code === selectedMethod,
+                    )?.available
+                    || ((selectedMethod === "airtel_money"
+                      || selectedMethod === "moov_money")
+                      && payerPhone.trim().length === 0)
+                  }
                   onClick={() => void handleCreateCheckout()}
                 >
                   {isPaymentBusy
                     ? "Création sécurisée…"
-                    : "Créer la transaction test"}
+                    : "Lancer le paiement"}
                 </button>
               </>
             ) : (
@@ -512,6 +569,22 @@ export function PremiumPage() {
                   Transaction {transaction.id.slice(0, 8).toUpperCase()}
                 </strong>
                 <p>{paymentMessage}</p>
+
+                {transaction.status === "pending"
+                && transaction.provider === "ebilling" ? (
+                  <div className="premium-checkout-result__actions">
+                    <button
+                      type="button"
+                      className="premium-checkout-dialog__primary"
+                      disabled={isPaymentBusy}
+                      onClick={() => void handleRefreshPayment()}
+                    >
+                      {isPaymentBusy
+                        ? "Vérification E-Billing…"
+                        : "J’ai confirmé sur mon téléphone"}
+                    </button>
+                  </div>
+                ) : null}
 
                 {transaction.status === "pending"
                 && transaction.can_confirm_in_test_mode ? (
