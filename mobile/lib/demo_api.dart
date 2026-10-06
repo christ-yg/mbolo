@@ -61,6 +61,17 @@ class DemoApi implements AuthApi {
     ),
   ];
 
+  final List<ChatMessage> _messages = <ChatMessage>[
+    ChatMessage(
+      id: 'demo-message-1',
+      body: 'Bonsoir ! Heureuse de faire ta connaissance 😊',
+      createdAt: DateTime(2026, 10, 5, 18, 30),
+      mine: false,
+      read: false,
+      readReceiptsAvailable: false,
+    ),
+  ];
+
   final List<ProfilePhoto> _photos = <ProfilePhoto>[];
 
   DiscoveryPreferences _preferences = const DiscoveryPreferences(
@@ -281,6 +292,71 @@ class DemoApi implements AuthApi {
       advancedFiltersAvailable: false,
     );
     return _preferences;
+  }
+
+  @override
+  Future<List<ConversationSummary>> getConversations() async {
+    return <ConversationSummary>[
+      ConversationSummary(
+        id: 'demo-conversation-1',
+        matchId: 'demo-match-1',
+        otherProfile: _discoveryProfiles[1],
+        lastMessage: _messages.isEmpty ? null : _messages.last,
+        unreadCount: _messages.where((message) => !message.mine && !message.read).length,
+        online: true,
+        updatedAt: _messages.isEmpty
+            ? DateTime(2026, 10, 5, 18)
+            : _messages.last.createdAt,
+      ),
+    ];
+  }
+
+  @override
+  Future<List<ChatMessage>> getMessages(String conversationId) async {
+    if (conversationId != 'demo-conversation-1') {
+      throw const FormatException('Conversation absente.');
+    }
+    return List<ChatMessage>.unmodifiable(_messages);
+  }
+
+  @override
+  Future<ChatMessage> sendMessage(String conversationId, String body) async {
+    final trimmed = body.trim();
+    if (conversationId != 'demo-conversation-1' ||
+        trimmed.isEmpty ||
+        trimmed.length > 2000) {
+      throw const FormatException('Message de démonstration incorrect.');
+    }
+    final message = ChatMessage(
+      id: 'demo-message-${_messages.length + 1}',
+      body: trimmed,
+      createdAt: DateTime.now(),
+      mine: true,
+      read: false,
+      readReceiptsAvailable: false,
+    );
+    _messages.add(message);
+    return message;
+  }
+
+  @override
+  Future<void> markConversationRead(String conversationId) async {
+    if (conversationId != 'demo-conversation-1') {
+      throw const FormatException('Conversation absente.');
+    }
+    for (var index = 0; index < _messages.length; index += 1) {
+      final message = _messages[index];
+      if (!message.mine && !message.read) {
+        _messages[index] = ChatMessage(
+          id: message.id,
+          body: message.body,
+          createdAt: message.createdAt,
+          mine: false,
+          read: true,
+          readReceiptsAvailable: message.readReceiptsAvailable,
+        );
+      }
+    }
   }
 
   @override
