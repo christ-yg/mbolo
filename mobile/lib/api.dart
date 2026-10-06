@@ -273,6 +273,65 @@ class MboloApi implements AuthApi {
     );
   }
 
+  List<T> _paginatedResults<T>(
+    dynamic raw,
+    T Function(Map<String, dynamic>) decoder,
+    String errorMessage,
+  ) {
+    if (raw is! Map<String, dynamic> || raw['results'] is! List) {
+      throw FormatException(errorMessage);
+    }
+    return (raw['results'] as List).map((item) {
+      if (item is! Map<String, dynamic>) throw FormatException(errorMessage);
+      return decoder(item);
+    }).toList(growable: false);
+  }
+
+  @override
+  Future<List<ConversationSummary>> getConversations() async {
+    final response = await client.get<dynamic>(
+      'conversations/',
+      queryParameters: const {'page_size': 50},
+    );
+    return _paginatedResults(
+      response.data,
+      ConversationSummary.fromJson,
+      'Liste des conversations incorrecte.',
+    );
+  }
+
+  @override
+  Future<List<ChatMessage>> getMessages(String conversationId) async {
+    final response = await client.get<dynamic>(
+      'conversations/$conversationId/messages/',
+      queryParameters: const {'page_size': 100},
+    );
+    return _paginatedResults(
+      response.data,
+      ChatMessage.fromJson,
+      'Historique des messages incorrect.',
+    );
+  }
+
+  @override
+  Future<ChatMessage> sendMessage(String conversationId, String body) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty || trimmed.length > 2000) {
+      throw const FormatException('Le message doit contenir entre 1 et 2000 caractères.');
+    }
+    return ChatMessage.fromJson(
+      await _postObject(
+        'conversations/$conversationId/messages/',
+        {'body': trimmed},
+      ),
+    );
+  }
+
+  @override
+  Future<void> markConversationRead(String conversationId) async {
+    await _post('conversations/$conversationId/read/', {});
+  }
+
   @override
   Future<void> logout() async {
     // Keep the session when the server cannot confirm revocation; allow retry.
