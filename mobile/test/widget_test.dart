@@ -130,6 +130,11 @@ void main() {
     expect(find.text('Centre de sécurité'), findsOneWidget);
     expect(find.text('Double authentification e-mail'), findsOneWidget);
     expect(find.text('MBOLO · Android'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Chrome · Windows'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Chrome · Windows'), findsOneWidget);
   });
 

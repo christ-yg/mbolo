@@ -83,6 +83,7 @@ void main() {
 
   test('la démo protège la 2FA et les appareils par mot de passe', () async {
     final api = DemoApi();
+    await api.confirm('demo-challenge', '123456');
     expect(await api.getConnectedSessions(), hasLength(2));
 
     await api.revokeConnectedSession(
