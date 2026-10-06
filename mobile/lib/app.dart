@@ -40,7 +40,7 @@ class MboloApp extends StatelessWidget {
                 ),
               ),
             )
-          : SessionScreen(api: api!),
+          : SessionScreen(api: api!, restoreSession: !demo),
     );
   }
 }
@@ -48,8 +48,13 @@ class MboloApp extends StatelessWidget {
 enum _AuthMode { login, register, reset }
 
 class SessionScreen extends StatefulWidget {
-  const SessionScreen({super.key, required this.api});
+  const SessionScreen({
+    super.key,
+    required this.api,
+    this.restoreSession = true,
+  });
   final AuthApi api;
+  final bool restoreSession;
 
   @override
   State<SessionScreen> createState() => _SessionScreenState();
@@ -65,7 +70,7 @@ class _SessionScreenState extends State<SessionScreen> {
   LoginResult? _challenge;
   _AuthMode _mode = _AuthMode.login;
   bool _busy = false;
-  bool _restoring = true;
+  late bool _restoring;
   bool _hidePassword = true;
   bool _acceptTerms = false;
   bool _confirmAdult = false;
@@ -75,7 +80,8 @@ class _SessionScreenState extends State<SessionScreen> {
   @override
   void initState() {
     super.initState();
-    _restoreSession();
+    _restoring = widget.restoreSession;
+    if (_restoring) _restoreSession();
   }
 
   Future<void> _restoreSession() async {

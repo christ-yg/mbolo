@@ -48,6 +48,7 @@ void main() {
   testWidgets('Empty credentials are rejected locally', (tester) async {
     final api = MboloApi('https://example.com');
     await tester.pumpWidget(MboloApp(api: api));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Se connecter'));
     await tester.pump();
     expect(find.text('Entre ton adresse e-mail.'), findsOneWidget);

@@ -172,8 +172,6 @@ class MboloApi implements AuthApi {
         _sessionId = null;
         await sessionStore.clear();
         await cookies.deleteAll();
-    _sessionId = null;
-    await sessionStore.clear();
         return null;
       }
       rethrow;
@@ -435,6 +433,8 @@ class MboloApi implements AuthApi {
     // Keep the session when the server cannot confirm revocation; allow retry.
     await _post('auth/logout/', {});
     await cookies.deleteAll();
+    _sessionId = null;
+    await sessionStore.clear();
   }
 
   @override
