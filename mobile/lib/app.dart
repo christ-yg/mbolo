@@ -65,11 +65,29 @@ class _SessionScreenState extends State<SessionScreen> {
   LoginResult? _challenge;
   _AuthMode _mode = _AuthMode.login;
   bool _busy = false;
+  bool _restoring = true;
   bool _hidePassword = true;
   bool _acceptTerms = false;
   bool _confirmAdult = false;
   String? _error;
   String? _notice;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    try {
+      final account = await widget.api.restoreSession();
+      if (mounted) setState(() => _account = account);
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -224,6 +242,18 @@ class _SessionScreenState extends State<SessionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_restoring) {
+      return const Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Semantics(
+              label: 'Restauration de la session sécurisée',
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        ),
+      );
+    }
     if (_account != null) {
       return MboloHome(
         account: _account!,
