@@ -15,7 +15,7 @@ concurrency:
 jobs:
   flutter:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install pinned Flutter SDK
@@ -36,3 +36,16 @@ jobs:
       - name: Build browser preview (shared Flutter screens, fake account)
         working-directory: mobile
         run: flutter build web --target lib/main_preview.dart
+      - name: Prepare hardened Android project
+        working-directory: mobile
+        run: bash tool/prepare_android.sh
+      - name: Build installable Android demo APK
+        working-directory: mobile
+        run: flutter build apk --release --target lib/main_preview.dart
+      - name: Publish Android demo APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mbolo-android-demo-${{ github.sha }}
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14

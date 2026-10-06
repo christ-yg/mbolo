@@ -9,8 +9,8 @@ Application Flutter native Android d'abord. Source backend vérifiée : `main`
 Le client appelle réellement `/api/v1/csrf/`, `auth/login/`,
 `auth/login/2fa/confirm/`, `auth/me/`, `auth/logout/`.
 Le backend utilise des sessions Django, pas JWT. Aucune modification backend nécessaire.
-Cookies en mémoire uniquement : redémarrer l'application impose une reconnexion.
-La persistance Keychain/Keystore reste à réaliser. Aucun secret ni mot de passe journalisé.
+L'identifiant de session est conservé dans Keychain/Keystore et restauré au redémarrage.
+Aucun mot de passe, jeton CSRF ou challenge 2FA n'est persisté ni journalisé.
 HTTPS obligatoire, redirections désactivées et délais réseau bornés.
 
 ## Exécuter après installation de Flutter
@@ -23,14 +23,7 @@ flutter pub get
 dart format lib test
 flutter analyze
 flutter test
-flutter create --platforms=android --project-name mbolo_mobile .
-```
-
-Avant le lancement Android, ajouter la permission INTERNET dans le manifeste
-principal `android/app/src/main/AndroidManifest.xml` (sous `manifest`) :
-
-```xml
-<uses-permission android:name="android.permission.INTERNET" />
+bash tool/prepare_android.sh
 ```
 
 ```sh
@@ -40,7 +33,10 @@ flutter run --dart-define=MBOLO_API_ORIGIN=https://VOTRE-HOTE-DE-TEST
 Utiliser une instance de test HTTPS joignable depuis le téléphone, avec certificat
 valide et ALLOWED_HOSTS configuré. L'origine doit être sans chemin `/api`.
 Ne pas désactiver la vérification TLS. Le serveur et le site gardent leur configuration CSRF.
-Pas encore de projet Android généré/validé, d'APK signé, ni de publication boutique.
+Le script prépare le projet Android, ajoute la permission Internet, nomme l'application
+MBOLO et interdit le trafic HTTP non chiffré. La CI produit un APK de démonstration
+signé pour test par Android, mais aucune clé de production ni publication boutique
+n'est encore configurée.
 Ne pas utiliser Flutter Web avec ce client natif.
 
 ## Plan du lot de 100
@@ -53,12 +49,12 @@ Les numéros sont des unités de travail planifiées, pas des fonctionnalités d
 | 011–020 | Client HTTP, cookies, CSRF, erreurs et tests | Code écrit, validation à exécuter |
 | 021–030 | Connexion, 2FA, session et déconnexion | Code écrit, validation à exécuter |
 | 031–040 | Inscription, majorité, CGU et vérification e-mail | Inscription et consentements réalisés |
-| 041–050 | Récupération du mot de passe et sécurité session | Réinitialisation privée réalisée |
+| 041–050 | Récupération du mot de passe et sécurité session | Réinitialisation complète et session chiffrée |
 | 051–060 | Onboarding et lecture/édition du profil | Profil complet et préférences synchronisés |
-| 061–070 | Photos, validation et permissions minimales | À réaliser |
+| 061–070 | Photos, validation et permissions minimales | Galerie et sélection de photos réalisées |
 | 071–080 | Navigation et gestion des états réseau | Navigation d’aperçu écrite |
-| 081–090 | Persistance sécurisée, accessibilité et tests téléphone | À réaliser |
-| 091–100 | Projet Android, compilation, CI et bilan du lot | À réaliser |
+| 081–090 | Persistance sécurisée, accessibilité et tests téléphone | Persistance et tests automatisés réalisés ; téléphone à valider |
+| 091–100 | Projet Android, compilation, CI et bilan du lot | Génération Android et APK démo automatisées |
 
 La découverte, les matchs, la messagerie et les notifications push viendront ensuite.
 L'application mobile n'est pas encore prête à être distribuée.
@@ -129,5 +125,5 @@ flutter run -d edge -t lib/main_preview.dart --web-hostname 127.0.0.1 --web-port
 Formatage Dart, diff, contrôle des secrets et épinglage des actions vérifiés.
 Tests Flutter et compilation non exécutés localement : initialisation du SDK bloquée
 par le contrôle automatique après détection d'un accès aux métadonnées cloud.
-Le workflow GitHub lance analyse, tests et compilation de l'aperçu web.
+Le workflow GitHub lance analyse, tests, compilation Web et génération de l'APK démo.
 Le premier refus de publication a été suivi de l'accord explicite de l'utilisateur.
