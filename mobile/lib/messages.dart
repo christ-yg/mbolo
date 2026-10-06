@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'auth_contract.dart';
+import 'safety_actions.dart';
 
 class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key, required this.api});
@@ -246,6 +247,16 @@ class _ConversationPageState extends State<ConversationPage> {
     }
   }
 
+  Future<void> _openSafetyActions() async {
+    final changed = await showProfileSafetyActions(
+      context: context,
+      api: widget.api,
+      profile: widget.conversation.otherProfile,
+      matchId: widget.conversation.matchId,
+    );
+    if (changed && mounted) Navigator.of(context).pop();
+  }
+
   String _time(DateTime value) {
     final local = value.toLocal();
     return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
@@ -266,6 +277,13 @@ class _ConversationPageState extends State<ConversationPage> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Actions de sécurité',
+            onPressed: _openSafetyActions,
+            icon: const Icon(Icons.more_vert),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
