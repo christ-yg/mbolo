@@ -136,6 +136,11 @@ class DemoApi implements AuthApi {
 
 
   @override
+  Future<Account?> restoreSession() async {
+    return _authenticated ? account : null;
+  }
+
+  @override
   Future<MemberProfile> getProfile() async => _profile;
 
   @override
