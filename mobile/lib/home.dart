@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'auth_contract.dart';
 import 'messages.dart';
+import 'notifications.dart';
 import 'safety_actions.dart';
 
 class MboloHome extends StatefulWidget {
@@ -26,12 +27,32 @@ class _MboloHomeState extends State<MboloHome> {
   List<DiscoveryProfile> _profiles = <DiscoveryProfile>[];
   bool _discoveryLoading = true;
   bool _deciding = false;
+  int _notificationUnread = 0;
   String? _discoveryError;
 
   @override
   void initState() {
     super.initState();
     _loadDiscovery();
+    _loadNotificationCount();
+  }
+
+  Future<void> _loadNotificationCount() async {
+    try {
+      final count = await widget.api.getNotificationUnreadCount();
+      if (mounted) setState(() => _notificationUnread = count);
+    } catch (_) {
+      // The main experience remains available when the badge cannot refresh.
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => NotificationsPage(api: widget.api),
+      ),
+    );
+    await _loadNotificationCount();
   }
 
   Future<void> _loadDiscovery() async {
@@ -186,6 +207,17 @@ class _MboloHomeState extends State<MboloHome> {
       appBar: AppBar(
         title: const _MboloWordmark(),
         actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: _openNotifications,
+            icon: Badge(
+              isLabelVisible: _notificationUnread > 0,
+              label: Text(
+                _notificationUnread > 99 ? '99+' : '$_notificationUnread',
+              ),
+              child: const Icon(Icons.notifications_none_rounded),
+            ),
+          ),
           IconButton(
             tooltip: 'Sécurité',
             onPressed: () => setState(() => _tab = 2),

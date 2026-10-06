@@ -74,6 +74,26 @@ class DemoApi implements AuthApi {
 
   final List<ProfilePhoto> _photos = <ProfilePhoto>[];
   final Set<String> _blockedProfiles = <String>{};
+  final List<AppNotification> _notifications = <AppNotification>[
+    AppNotification(
+      id: 'notification-match',
+      kind: 'match',
+      title: 'Nouveau match avec Grâce',
+      body: 'Vous vous plaisez mutuellement. Lance la conversation !',
+      targetPath: '/messages',
+      read: false,
+      createdAt: DateTime(2026, 10, 6, 10, 30),
+    ),
+    AppNotification(
+      id: 'notification-security',
+      kind: 'security',
+      title: 'Ton compte est protégé',
+      body: 'La connexion à deux facteurs est active.',
+      targetPath: '/settings/security',
+      read: true,
+      createdAt: DateTime(2026, 10, 5, 18, 15),
+    ),
+  ];
   bool _demoMatchActive = true;
 
   DiscoveryPreferences _preferences = const DiscoveryPreferences(
@@ -419,6 +439,34 @@ class DemoApi implements AuthApi {
         );
       }
     }
+  }
+
+  @override
+  Future<List<AppNotification>> getNotifications() async =>
+      List<AppNotification>.unmodifiable(_notifications);
+
+  @override
+  Future<int> getNotificationUnreadCount() async =>
+      _notifications.where((item) => !item.read).length;
+
+  @override
+  Future<AppNotification> markNotificationRead(String notificationId) async {
+    final index = _notifications.indexWhere((item) => item.id == notificationId);
+    if (index < 0) throw const FormatException('Notification introuvable.');
+    _notifications[index] = _notifications[index].copyWith(read: true);
+    return _notifications[index];
+  }
+
+  @override
+  Future<void> markAllNotificationsRead() async {
+    for (var index = 0; index < _notifications.length; index += 1) {
+      _notifications[index] = _notifications[index].copyWith(read: true);
+    }
+  }
+
+  @override
+  Future<void> deleteNotification(String notificationId) async {
+    _notifications.removeWhere((item) => item.id == notificationId);
   }
 
   @override

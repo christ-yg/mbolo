@@ -84,6 +84,57 @@ String friendlyError(Object error) {
 }
 
 
+class AppNotification {
+  const AppNotification({
+    required this.id,
+    required this.kind,
+    required this.title,
+    required this.body,
+    required this.targetPath,
+    required this.read,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String kind;
+  final String title;
+  final String body;
+  final String targetPath;
+  final bool read;
+  final DateTime createdAt;
+
+  factory AppNotification.fromJson(Map<String, dynamic> data) {
+    final createdAt = DateTime.tryParse(data['created_at']?.toString() ?? '');
+    if (data['id'] is! String ||
+        (data['id'] as String).isEmpty ||
+        data['kind'] is! String ||
+        data['title'] is! String ||
+        createdAt == null) {
+      throw const FormatException('Notification incomplète.');
+    }
+    return AppNotification(
+      id: data['id'] as String,
+      kind: data['kind'] as String,
+      title: data['title'] as String,
+      body: data['body'] is String ? data['body'] as String : '',
+      targetPath:
+          data['target_path'] is String ? data['target_path'] as String : '',
+      read: data['is_read'] == true,
+      createdAt: createdAt,
+    );
+  }
+
+  AppNotification copyWith({bool? read}) => AppNotification(
+        id: id,
+        kind: kind,
+        title: title,
+        body: body,
+        targetPath: targetPath,
+        read: read ?? this.read,
+        createdAt: createdAt,
+      );
+}
+
 class MemberProfile {
   const MemberProfile({
     required this.displayName,
@@ -463,6 +514,11 @@ abstract class AuthApi {
   Future<List<ChatMessage>> getMessages(String conversationId);
   Future<ChatMessage> sendMessage(String conversationId, String body);
   Future<void> markConversationRead(String conversationId);
+  Future<List<AppNotification>> getNotifications();
+  Future<int> getNotificationUnreadCount();
+  Future<AppNotification> markNotificationRead(String notificationId);
+  Future<void> markAllNotificationsRead();
+  Future<void> deleteNotification(String notificationId);
   Future<void> logout();
   void close();
 }

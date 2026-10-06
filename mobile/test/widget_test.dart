@@ -245,4 +245,24 @@ void main() {
     expect(find.text('Enregistrer mes préférences'), findsOneWidget);
   });
 
+  testWidgets('Notification centre reads account activity', (tester) async {
+    await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
+    await tester.enterText(find.byType(TextFormField).at(0), 'demo@mbolo.test');
+    await tester.enterText(find.byType(TextFormField).at(1), 'MboloDemo!');
+    await tester.tap(find.text('Se connecter'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.tap(find.text('Confirmer'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Notifications'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nouveau match avec Grâce'), findsOneWidget);
+    expect(find.text('1 nouvelle'), findsOneWidget);
+
+    await tester.tap(find.text('Tout lire'));
+    await tester.pumpAndSettle();
+    expect(find.text('0 nouvelle'), findsOneWidget);
+  });
+
 }

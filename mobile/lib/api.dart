@@ -444,6 +444,52 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<List<AppNotification>> getNotifications() async {
+    final response = await client.get<dynamic>('notifications/');
+    return _paginatedResults(
+      response.data,
+      AppNotification.fromJson,
+      'Notifications indisponibles.',
+    );
+  }
+
+  @override
+  Future<int> getNotificationUnreadCount() async {
+    final response = await client.get<dynamic>('notifications/unread-count/');
+    final data = objectData(response.data);
+    final count = data['unread_count'];
+    if (count is! int || count < 0) {
+      throw const FormatException('Compteur de notifications incorrect.');
+    }
+    return count;
+  }
+
+  @override
+  Future<AppNotification> markNotificationRead(String notificationId) async {
+    return AppNotification.fromJson(
+      await _postObject('notifications/$notificationId/read/', {}),
+    );
+  }
+
+  @override
+  Future<void> markAllNotificationsRead() async {
+    await _post('notifications/read-all/', {});
+  }
+
+  @override
+  Future<void> deleteNotification(String notificationId) async {
+    final csrf = await client.get<dynamic>('csrf/');
+    final token = objectData(csrf.data)['csrfToken'];
+    if (token is! String || token.isEmpty) {
+      throw const FormatException('Protection CSRF indisponible.');
+    }
+    await client.delete<dynamic>(
+      'notifications/$notificationId/',
+      options: Options(headers: {'X-CSRFToken': token}),
+    );
+  }
+
+  @override
   Future<void> logout() async {
     // Keep the session when the server cannot confirm revocation; allow retry.
     await _post('auth/logout/', {});

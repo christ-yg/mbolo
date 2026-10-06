@@ -69,6 +69,47 @@ class FakeServer implements HttpClientAdapter {
             ? '44444444-4444-4444-4444-444444444444'
             : null,
       };
+    } else if (path.endsWith('/notifications/')) {
+      if (options.method == 'DELETE') {
+        status = 204;
+        data = <String, dynamic>{};
+      } else {
+        data = {
+          'results': [
+            {
+              'id': '99999999-9999-9999-9999-999999999999',
+              'kind': 'match',
+              'title': 'Nouveau match',
+              'body': 'Une belle rencontre commence.',
+              'target_path': '/messages',
+              'is_read': false,
+              'read_at': null,
+              'created_at': '2026-10-06T10:30:00Z',
+            },
+          ],
+          'count': 1,
+          'next': null,
+          'previous': null,
+        };
+      }
+    } else if (path.endsWith('/notifications/unread-count/')) {
+      data = {'unread_count': 1};
+    } else if (path.endsWith('/notifications/read-all/')) {
+      data = {'marked_count': 1, 'read_at': '2026-10-06T11:00:00Z'};
+    } else if (path.endsWith('/notifications/99999999-9999-9999-9999-999999999999/read/')) {
+      data = {
+        'id': '99999999-9999-9999-9999-999999999999',
+        'kind': 'match',
+        'title': 'Nouveau match',
+        'body': 'Une belle rencontre commence.',
+        'target_path': '/messages',
+        'is_read': true,
+        'read_at': '2026-10-06T11:00:00Z',
+        'created_at': '2026-10-06T10:30:00Z',
+      };
+    } else if (path.endsWith('/notifications/99999999-9999-9999-9999-999999999999/')) {
+      status = 204;
+      data = <String, dynamic>{};
     } else if (path.endsWith('/profiles/photos/')) {
       final photo = {
         'id': '11111111-1111-1111-1111-111111111111',
@@ -427,6 +468,27 @@ void main() {
 
     await restoredApi.logout();
     expect(await store.read(), isNull);
+  });
+
+  test('Notification centre uses protected account routes', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final items = await api.getNotifications();
+    expect(items, hasLength(1));
+    expect(items.single.title, 'Nouveau match');
+    expect(await api.getNotificationUnreadCount(), 1);
+
+    final updated = await api.markNotificationRead(items.single.id);
+    expect(updated.read, isTrue);
+    await api.markAllNotificationsRead();
+    await api.deleteNotification(items.single.id);
+    expect(server.requests.last.method, 'DELETE');
+    expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
   });
 
 
