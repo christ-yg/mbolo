@@ -32,8 +32,8 @@ void main() {
   test('la démo refuse un message vide', () async {
     final api = DemoApi();
 
-    expect(
-      () => api.sendMessage('demo-conversation-1', '   '),
+    await expectLater(
+      api.sendMessage('demo-conversation-1', '   '),
       throwsA(isA<FormatException>()),
     );
   });
