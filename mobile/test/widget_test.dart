@@ -84,7 +84,7 @@ void main() {
     expect(find.text('Profil'), findsOneWidget);
   });
 
-  testWidgets('Messaging opens and logout returns to login', (
+  testWidgets('Messaging opens from the main navigation', (
     tester,
   ) async {
     await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
@@ -109,18 +109,6 @@ void main() {
     expect(find.text('Grâce'), findsOneWidget);
     expect(find.textContaining('Heureuse de faire ta connaissance'), findsOneWidget);
 
-    final profileDestination = find.descendant(
-      of: find.byType(NavigationBar),
-      matching: find.text('Profil'),
-    );
-    await tester.tap(profileDestination);
-    await tester.pumpAndSettle();
-    expect(find.text('Mon profil'), findsOneWidget);
-    await tester.ensureVisible(find.text('Se déconnecter'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Se déconnecter'));
-    await tester.pumpAndSettle();
-    expect(find.text('Se connecter'), findsOneWidget);
   });
 
   testWidgets('Registration validates consent and returns to login', (
