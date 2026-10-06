@@ -78,12 +78,61 @@ class _MessagesPageState extends State<MessagesPage> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 96),
         children: [
-          Text('Messages', style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 4),
-          const Text('Discute uniquement avec tes matchs actifs.'),
-          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFFE3EA), Color(0xFFFFF1E9)],
+              ),
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tes connexions',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${_conversations.length} conversation${_conversations.length > 1 ? 's' : ''} active${_conversations.length > 1 ? 's' : ''}',
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.forum_rounded,
+                    color: Color(0xFFB51F50),
+                    size: 28,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            'Messages',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 12),
           if (_conversations.isEmpty)
             const Card(
               child: Padding(
@@ -103,14 +152,29 @@ class _MessagesPageState extends State<MessagesPage> {
           else
             ..._conversations.map((conversation) {
               final last = conversation.lastMessage;
-              return Card(
-                child: ListTile(
+              final photo = conversation.otherProfile.photos.isEmpty
+                  ? null
+                  : conversation.otherProfile.photos.first;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Card(
+                  child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   onTap: () => _open(conversation),
                   leading: Stack(
                     children: [
-                      const CircleAvatar(
+                      CircleAvatar(
                         radius: 26,
-                        child: Icon(Icons.person_outline),
+                        backgroundColor: const Color(0xFFFFD8E3),
+                        backgroundImage: photo != null && photo.imageUrl.isNotEmpty
+                            ? NetworkImage(photo.imageUrl)
+                            : null,
+                        child: photo == null || photo.imageUrl.isEmpty
+                            ? const Icon(Icons.person_outline)
+                            : null,
                       ),
                       if (conversation.online)
                         Positioned(
@@ -131,7 +195,10 @@ class _MessagesPageState extends State<MessagesPage> {
                         ),
                     ],
                   ),
-                  title: Text(conversation.otherProfile.displayName),
+                  title: Text(
+                    conversation.otherProfile.displayName,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   subtitle: Text(
                     last?.body ?? 'Commence la conversation',
                     maxLines: 1,
@@ -150,6 +217,7 @@ class _MessagesPageState extends State<MessagesPage> {
                         Badge(label: Text('${conversation.unreadCount}')),
                       ],
                     ],
+                  ),
                   ),
                 ),
               );

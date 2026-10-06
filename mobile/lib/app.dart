@@ -21,10 +21,59 @@ class MboloApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF9D3451)),
-        scaffoldBackgroundColor: const Color(0xFFFFF8F4),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFB51F50),
+          primary: const Color(0xFFB51F50),
+          secondary: const Color(0xFFFF6B6B),
+          surface: const Color(0xFFFFFBFC),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFFFF7F9),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFFFF7F9),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: false,
+        ),
+        cardTheme: const CardThemeData(
+          color: Colors.white,
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(28)),
+            side: BorderSide(color: Color(0x0FB51F50)),
+          ),
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          backgroundColor: Colors.white,
+          indicatorColor: Color(0xFFFFD8E3),
+          height: 76,
+          elevation: 0,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 54),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+        ),
+        chipTheme: const ChipThemeData(
+          backgroundColor: Color(0xFFFFEDF2),
+          side: BorderSide.none,
+          shape: StadiumBorder(),
+        ),
         inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(18)),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(18)),
+            borderSide: BorderSide(color: Color(0x1FB51F50)),
+          ),
         ),
       ),
       home: api == null

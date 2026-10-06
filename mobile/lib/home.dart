@@ -184,7 +184,7 @@ class _MboloHomeState extends State<MboloHome> {
     ];
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MBOLO'),
+        title: const _MboloWordmark(),
         actions: [
           IconButton(
             tooltip: 'Sécurité',
@@ -194,10 +194,21 @@ class _MboloHomeState extends State<MboloHome> {
         ],
       ),
       body: SafeArea(child: pages[_tab]),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (value) => setState(() => _tab = value),
-        destinations: const [
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x18000000),
+              blurRadius: 24,
+              offset: Offset(0, -8),
+            ),
+          ],
+        ),
+        child: NavigationBar(
+          selectedIndex: _tab,
+          onDestinationSelected: (value) => setState(() => _tab = value),
+          destinations: const [
           NavigationDestination(
             icon: Icon(Icons.favorite_outline),
             selectedIcon: Icon(Icons.favorite),
@@ -218,8 +229,42 @@ class _MboloHomeState extends State<MboloHome> {
             selectedIcon: Icon(Icons.person),
             label: 'Profil',
           ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _MboloWordmark extends StatelessWidget {
+  const _MboloWordmark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFFF6B6B), Color(0xFFB51F50)],
+            ),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.favorite, color: Colors.white, size: 21),
+        ),
+        const SizedBox(width: 10),
+        const Text(
+          'MBOLO',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 2.2,
+            fontSize: 21,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -254,19 +299,25 @@ class _DiscoverPage extends StatelessWidget {
             orElse: () => profile.photos.first,
           );
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
       children: [
-        Text('Découvrir', style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 4),
-        const Text('Des profils compatibles, filtrés en toute sécurité.'),
-        const SizedBox(height: 20),
+        Text(
+          'Une belle rencontre\ncommence ici ✨',
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                height: 1.08,
+              ),
+        ),
+        const SizedBox(height: 8),
+        const Text('Sélection personnalisée • Profils protégés'),
+        const SizedBox(height: 18),
         Card(
           clipBehavior: Clip.antiAlias,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(
-                height: 300,
+                height: 390,
                 child: photo != null && photo.imageUrl.isNotEmpty
                     ? Image.network(
                         photo.imageUrl,
@@ -277,7 +328,7 @@ class _DiscoverPage extends StatelessWidget {
                     : const _ProfilePhotoFallback(),
               ),
               Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -286,7 +337,9 @@ class _DiscoverPage extends StatelessWidget {
                         Expanded(
                           child: Text(
                             '${profile.displayName}, ${profile.age}',
-                            style: Theme.of(context).textTheme.headlineSmall,
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
                           ),
                         ),
                         if (profile.verified)
@@ -354,14 +407,27 @@ class _DiscoverPage extends StatelessWidget {
           children: [
             OutlinedButton.icon(
               onPressed: working ? null : () => onNext(liked: false),
-              icon: const Icon(Icons.close),
+              icon: const Icon(Icons.close, size: 24),
               label: const Text('Passer'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(118, 56),
+                foregroundColor: const Color(0xFF5C4A50),
+                side: const BorderSide(color: Color(0x225C4A50)),
+                shape: const StadiumBorder(),
+              ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             FilledButton.icon(
               onPressed: working ? null : () => onNext(liked: true),
-              icon: const Icon(Icons.favorite),
+              icon: const Icon(Icons.favorite, size: 24),
               label: const Text('Ça me plaît'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(152, 58),
+                backgroundColor: const Color(0xFFB51F50),
+                shadowColor: const Color(0x66B51F50),
+                elevation: 8,
+                shape: const StadiumBorder(),
+              ),
             ),
           ],
         ),
@@ -452,25 +518,73 @@ class _ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
       children: [
-        const Center(
-          child: CircleAvatar(radius: 52, child: Icon(Icons.person, size: 58)),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFB51F50), Color(0xFF6F1735)],
+            ),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x3DB51F50),
+                blurRadius: 28,
+                offset: Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white70, width: 2),
+                ),
+                child: const CircleAvatar(
+                  radius: 48,
+                  backgroundColor: Color(0xFFFFD8E3),
+                  child: Icon(Icons.person, size: 55, color: Color(0xFF6F1735)),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Mon profil',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 27,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(account.email, style: const TextStyle(color: Colors.white70)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  account.verified ? '✓ E-mail confirmé' : 'E-mail à confirmer',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 26),
         Text(
-          'Mon profil',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineMedium,
+          'Mon espace',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
         ),
-        const SizedBox(height: 8),
-        Text(account.email, textAlign: TextAlign.center),
-        const SizedBox(height: 4),
-        Text(
-          account.verified ? 'Adresse e-mail confirmée' : 'E-mail à confirmer',
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
         Card(
           child: Column(
             children: [
