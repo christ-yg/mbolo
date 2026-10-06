@@ -243,12 +243,12 @@ class _SessionScreenState extends State<SessionScreen> {
   @override
   Widget build(BuildContext context) {
     if (_restoring) {
-      return const Scaffold(
+      return Scaffold(
         body: SafeArea(
           child: Center(
             child: Semantics(
               label: 'Restauration de la session sécurisée',
-              child: CircularProgressIndicator(),
+              child: const CircularProgressIndicator(),
             ),
           ),
         ),
