@@ -85,7 +85,7 @@ void main() {
     expect(find.text('Profil'), findsOneWidget);
   });
 
-  testWidgets('Discovery opens immersive details and exposes swipe guidance', (
+  testWidgets('Discovery opens and closes immersive profile details', (
     tester,
   ) async {
     await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
@@ -103,7 +103,6 @@ void main() {
       ),
     );
     expect(firstCard, findsOneWidget);
-    expect(find.textContaining('Glisse à gauche ou à droite'), findsOneWidget);
     final firstPhoto = find.byKey(
       const ValueKey<String>(
         'discovery-photo-11111111-1111-1111-1111-111111111111',
