@@ -59,6 +59,12 @@ class _MboloAppState extends State<MboloApp> {
           surface: const Color(0xFFFFFBFC),
         ),
         scaffoldBackgroundColor: const Color(0xFFFFF7F9),
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: _MboloPageTransitionsBuilder(),
+            TargetPlatform.iOS: _MboloPageTransitionsBuilder(),
+          },
+        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFFFFF7F9),
           surfaceTintColor: Colors.transparent,
@@ -118,6 +124,12 @@ class _MboloAppState extends State<MboloApp> {
           surface: const Color(0xFF21151D),
         ),
         scaffoldBackgroundColor: const Color(0xFF120C11),
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: _MboloPageTransitionsBuilder(),
+            TargetPlatform.iOS: _MboloPageTransitionsBuilder(),
+          },
+        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF120C11),
           surfaceTintColor: Colors.transparent,
@@ -166,6 +178,39 @@ class _MboloAppState extends State<MboloApp> {
               themeMode: _themeMode,
               onThemeChanged: _setTheme,
             ),
+    );
+  }
+}
+
+class _MboloPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _MboloPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) return child;
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0.035, 0.018),
+          end: Offset.zero,
+        ).animate(curved),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.992, end: 1).animate(curved),
+          child: child,
+        ),
+      ),
     );
   }
 }

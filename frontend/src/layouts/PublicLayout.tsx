@@ -2,6 +2,7 @@
 
 import { Link, Outlet, useLocation } from "react-router-dom";
 
+import { PremiumMotion } from "../components/common/PremiumMotion";
 import { RealtimeNotificationToast } from
   "../components/notifications/RealtimeNotificationToast";
 import { PublicHeader } from "../components/navigation/PublicHeader";
@@ -15,6 +16,7 @@ export function PublicLayout() {
         <PublicHeader />
         <RealtimeNotificationToast />
         <div className="route-stage" key={location.pathname}>
+          <PremiumMotion />
           <Outlet />
         </div>
 

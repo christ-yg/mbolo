@@ -101,11 +101,30 @@
 
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  .mbolo-motion-reveal { opacity: 1; transform: none; filter: none; }
 }
 
 .route-stage {
   min-height: 55vh;
   animation: mbolo-route-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mbolo-motion-reveal {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0) scale(0.992);
+  filter: blur(3px);
+  transition:
+    opacity 620ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 620ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 520ms ease;
+  transition-delay: calc(var(--motion-order, 0) * 55ms);
+  will-change: opacity, transform;
+}
+
+.mbolo-motion-reveal.is-motion-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
 }
 
 @keyframes mbolo-route-enter {
