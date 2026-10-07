@@ -2,6 +2,14 @@ import 'package:flutter/material.dart';
 
 import 'auth_contract.dart';
 
+// Les boutiques exigent leur système de facturation pour les abonnements
+// numériques. Les moyens Web externes restent donc invisibles dans les builds
+// distribués, jusqu'à l'intégration de Play Billing / Apple In-App Purchase.
+const bool _storeBillingRequired = bool.fromEnvironment(
+  'MBOLO_STORE_BILLING_REQUIRED',
+  defaultValue: true,
+);
+
 class PremiumPage extends StatefulWidget {
   const PremiumPage({super.key, required this.api});
   final AuthApi api;
@@ -43,9 +51,25 @@ class _PremiumPageState extends State<PremiumPage> {
   }
 
   Future<void> _choosePayment(PremiumPlan plan) async {
-    final available = _overview!.paymentMethods.where((item) => item.available).toList();
+    final available = _overview!.paymentMethods
+        .where(
+          (item) =>
+              item.available &&
+              (!_storeBillingRequired ||
+                  item.code == 'google_play' ||
+                  item.code == 'apple_iap'),
+        )
+        .toList();
     if (!plan.paymentAvailable || available.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Le paiement sera ouvert dès la validation du prestataire marchand.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _storeBillingRequired
+                ? 'L’abonnement sera disponible ici avec la facturation sécurisée de la boutique.'
+                : 'Le paiement sera ouvert dès la validation du prestataire marchand.',
+          ),
+        ),
+      );
       return;
     }
     final method = await showModalBottomSheet<PremiumPaymentMethod>(
@@ -200,11 +224,19 @@ class _PremiumPageState extends State<PremiumPage> {
                 const SizedBox(height: 8), Text(plan.description), const SizedBox(height: 12),
                 ...plan.features.map((feature) => Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Row(children: [const Icon(Icons.check_circle, size: 18, color: Color(0xFFB51F50)), const SizedBox(width: 8), Expanded(child: Text(feature))]))),
                 const SizedBox(height: 16),
-                SizedBox(width: double.infinity, child: FilledButton(onPressed: _paying ? null : () => _choosePayment(plan), child: Text(plan.paymentAvailable ? 'Choisir ${plan.name}' : 'Bientôt disponible'))),
+                SizedBox(width: double.infinity, child: FilledButton(onPressed: _paying ? null : () => _choosePayment(plan), child: Text(_storeBillingRequired ? 'Disponible bientôt sur la boutique' : plan.paymentAvailable ? 'Choisir ${plan.name}' : 'Bientôt disponible'))),
               ])),
             ),
           )),
           Card(color: const Color(0xFFFFF4E8), child: Padding(padding: const EdgeInsets.all(16), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.lock_outline, color: Color(0xFF8B5520)), const SizedBox(width: 10), Expanded(child: Text(_overview!.paymentNotice))]))),
+          if (_storeBillingRequired)
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.storefront_outlined),
+                title: Text('Paiement conforme à la boutique'),
+                subtitle: Text('Les abonnements mobiles seront activés avec Google Play Billing ou Apple In-App Purchase. Aucun paiement externe n’est proposé dans cette version.'),
+              ),
+            ),
           const SizedBox(height: 18),
           Text('Avantages Prestige', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
           Card(child: Column(children: [

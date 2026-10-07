@@ -37,6 +37,11 @@ Le script prépare le projet Android, ajoute la permission Internet, nomme l'app
 MBOLO et interdit le trafic HTTP non chiffré. La CI produit un APK de démonstration
 signé pour test par Android, mais aucune clé de production ni publication boutique
 n'est encore configurée.
+Les builds destinés aux boutiques utilisent par défaut
+`MBOLO_STORE_BILLING_REQUIRED=true`. Airtel Money et Moov Money restent réservés
+au site Web tant que Google Play Billing et Apple In-App Purchase ne sont pas
+intégrés. Pour une démonstration locale fictive uniquement, lancer
+`main_preview.dart` avec `--dart-define=MBOLO_STORE_BILLING_REQUIRED=false`.
 Ne pas utiliser Flutter Web avec ce client natif.
 
 ## Plan du lot de 100

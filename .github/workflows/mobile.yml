@@ -30,6 +30,9 @@ jobs:
       - name: Analyze
         working-directory: mobile
         run: flutter analyze
+      - name: Verify store compliance guard
+        working-directory: mobile
+        run: bash tool/check_store_compliance.sh
       - name: Test API contract and widgets
         working-directory: mobile
         run: flutter test
