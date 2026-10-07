@@ -85,7 +85,7 @@ void main() {
     expect(find.text('Profil'), findsOneWidget);
   });
 
-  testWidgets('Discovery profile opens details and supports swipe', (
+  testWidgets('Discovery opens immersive details and exposes swipe guidance', (
     tester,
   ) async {
     await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
@@ -103,6 +103,7 @@ void main() {
       ),
     );
     expect(firstCard, findsOneWidget);
+    expect(find.textContaining('Glisse à gauche ou à droite'), findsOneWidget);
     final firstPhoto = find.byKey(
       const ValueKey<String>(
         'discovery-photo-11111111-1111-1111-1111-111111111111',
@@ -122,10 +123,7 @@ void main() {
 
     await tester.tapAt(const Offset(12, 12));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(firstPhoto);
-    await tester.drag(firstPhoto, const Offset(-120, 0));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Grâce'), findsOneWidget);
+    expect(find.byType(DraggableScrollableSheet), findsNothing);
   });
 
   testWidgets('Messaging opens from the main navigation', (
