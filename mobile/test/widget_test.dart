@@ -122,7 +122,8 @@ void main() {
 
     await tester.tapAt(const Offset(12, 12));
     await tester.pumpAndSettle();
-    await tester.fling(firstPhoto, const Offset(-220, 0), 900);
+    await tester.ensureVisible(firstPhoto);
+    await tester.drag(firstPhoto, const Offset(-120, 0));
     await tester.pumpAndSettle();
     expect(find.textContaining('Grâce'), findsOneWidget);
   });
