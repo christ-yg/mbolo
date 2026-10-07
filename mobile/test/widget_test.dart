@@ -103,14 +103,20 @@ void main() {
       ),
     );
     expect(firstCard, findsOneWidget);
-    await tester.tap(firstCard);
+    final firstPhoto = find.byKey(
+      const ValueKey<String>(
+        'discovery-photo-11111111-1111-1111-1111-111111111111',
+      ),
+    );
+    expect(firstPhoto, findsOneWidget);
+    await tester.tap(firstPhoto);
     await tester.pumpAndSettle();
     expect(find.text('À propos'), findsOneWidget);
     expect(find.text('78% de compatibilité'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.fling(firstCard, const Offset(-220, 0), 900);
+    await tester.fling(firstPhoto, const Offset(-220, 0), 900);
     await tester.pumpAndSettle();
     expect(find.textContaining('Grâce'), findsOneWidget);
   });

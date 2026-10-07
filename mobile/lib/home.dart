@@ -653,6 +653,7 @@ class _DiscoverPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(
+                key: ValueKey<String>('discovery-photo-${profile.id}'),
                 height: 390,
                 child: photo != null && photo.imageUrl.isNotEmpty
                     ? Image.network(
