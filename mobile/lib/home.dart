@@ -8,6 +8,7 @@ import 'notifications.dart';
 import 'premium.dart';
 import 'safety_actions.dart';
 import 'security.dart';
+import 'showcase.dart';
 
 class MboloHome extends StatefulWidget {
   const MboloHome({
@@ -199,6 +200,18 @@ class _MboloHomeState extends State<MboloHome> {
     await _loadPremiumActions();
   }
 
+  Future<void> _openShowcase() async {
+    await Navigator.of(context).push<void>(
+      PageRouteBuilder<void>(
+        pageBuilder: (context, animation, secondaryAnimation) => const MboloShowcasePage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          child: ScaleTransition(scale: Tween<double>(begin: 0.98, end: 1).animate(animation), child: child),
+        ),
+      ),
+    );
+  }
+
   Widget _discoveryPage() {
     if (_discoveryLoading) {
       return const _DiscoverySkeleton();
@@ -291,6 +304,11 @@ class _MboloHomeState extends State<MboloHome> {
       appBar: AppBar(
         title: const _MboloWordmark(),
         actions: [
+          IconButton(
+            tooltip: 'Visite guidée',
+            onPressed: _openShowcase,
+            icon: const Icon(Icons.auto_awesome_rounded),
+          ),
           PopupMenuButton<ThemeMode>(
             tooltip: 'Apparence',
             initialValue: widget.themeMode,

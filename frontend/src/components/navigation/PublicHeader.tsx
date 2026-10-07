@@ -19,6 +19,7 @@ import { useAccountRealtime } from "../../hooks/useAccountRealtime";
 
 import { BrandLogo } from "../common/BrandLogo";
 import { ThemeToggle } from "../common/ThemeToggle";
+import { ProductTour } from "../common/ProductTour";
 
 import "./PublicHeader.css";
 
@@ -472,6 +473,7 @@ export function PublicHeader() {
           </nav>
 
           <div className="premium-header__actions">
+            <ProductTour />
             <ThemeToggle />
             {isInitializing ? (
               <span
