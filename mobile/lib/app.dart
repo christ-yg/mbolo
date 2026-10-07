@@ -1,17 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'auth_contract.dart';
 import 'home.dart';
 
-class MboloApp extends StatelessWidget {
+class MboloApp extends StatefulWidget {
   const MboloApp({super.key, this.api, this.demo = false});
   final bool demo;
   final AuthApi? api;
 
   @override
+  State<MboloApp> createState() => _MboloAppState();
+}
+
+class _MboloAppState extends State<MboloApp> {
+  static const _storage = FlutterSecureStorage();
+  ThemeMode _themeMode = ThemeMode.system;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreTheme();
+  }
+
+  Future<void> _restoreTheme() async {
+    final saved = await _storage.read(key: 'mbolo_theme_mode');
+    if (!mounted) return;
+    setState(() => _themeMode = switch (saved) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    });
+  }
+
+  Future<void> _setTheme(ThemeMode mode) async {
+    setState(() => _themeMode = mode);
+    await _storage.write(key: 'mbolo_theme_mode', value: mode.name);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'MBOLO',
-      builder: (context, child) => demo
+      themeMode: _themeMode,
+      builder: (context, child) => widget.demo
           ? Banner(
               message: 'DÉMO',
               location: BannerLocation.topEnd,
@@ -76,7 +107,47 @@ class MboloApp extends StatelessWidget {
           ),
         ),
       ),
-      home: api == null
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFE95C8D),
+          brightness: Brightness.dark,
+          primary: const Color(0xFFFF8FB5),
+          secondary: const Color(0xFFFFB36B),
+          surface: const Color(0xFF21151D),
+        ),
+        scaffoldBackgroundColor: const Color(0xFF120C11),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF120C11),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+        ),
+        cardTheme: const CardThemeData(
+          color: Color(0xFF21151D),
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(28)),
+            side: BorderSide(color: Color(0x33FF8FB5)),
+          ),
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          backgroundColor: Color(0xFF1B1118),
+          indicatorColor: Color(0xFF603047),
+          height: 76,
+          elevation: 0,
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: Color(0xFF281A23),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(18)),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+      home: widget.api == null
           ? const Scaffold(
               body: SafeArea(
                 child: Center(
@@ -89,7 +160,12 @@ class MboloApp extends StatelessWidget {
                 ),
               ),
             )
-          : SessionScreen(api: api!, restoreSession: !demo),
+          : SessionScreen(
+              api: widget.api!,
+              restoreSession: !widget.demo,
+              themeMode: _themeMode,
+              onThemeChanged: _setTheme,
+            ),
     );
   }
 }
@@ -101,9 +177,13 @@ class SessionScreen extends StatefulWidget {
     super.key,
     required this.api,
     this.restoreSession = true,
+    required this.themeMode,
+    required this.onThemeChanged,
   });
   final AuthApi api;
   final bool restoreSession;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeChanged;
 
   @override
   State<SessionScreen> createState() => _SessionScreenState();
@@ -352,6 +432,8 @@ class _SessionScreenState extends State<SessionScreen> {
         api: widget.api,
         onLogout: _logout,
         onAccountClosed: _accountClosed,
+        themeMode: widget.themeMode,
+        onThemeChanged: widget.onThemeChanged,
       );
     }
 

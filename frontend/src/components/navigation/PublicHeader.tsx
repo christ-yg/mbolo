@@ -18,6 +18,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useAccountRealtime } from "../../hooks/useAccountRealtime";
 
 import { BrandLogo } from "../common/BrandLogo";
+import { ThemeToggle } from "../common/ThemeToggle";
 
 import "./PublicHeader.css";
 
@@ -471,6 +472,7 @@ export function PublicHeader() {
           </nav>
 
           <div className="premium-header__actions">
+            <ThemeToggle />
             {isInitializing ? (
               <span
                 className="premium-header__loading"

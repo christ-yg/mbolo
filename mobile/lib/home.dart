@@ -15,12 +15,16 @@ class MboloHome extends StatefulWidget {
     required this.api,
     required this.onLogout,
     required this.onAccountClosed,
+    required this.themeMode,
+    required this.onThemeChanged,
   });
 
   final Account account;
   final AuthApi api;
   final Future<void> Function() onLogout;
   final Future<void> Function() onAccountClosed;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeChanged;
 
   @override
   State<MboloHome> createState() => _MboloHomeState();
@@ -280,6 +284,17 @@ class _MboloHomeState extends State<MboloHome> {
       appBar: AppBar(
         title: const _MboloWordmark(),
         actions: [
+          PopupMenuButton<ThemeMode>(
+            tooltip: 'Apparence',
+            initialValue: widget.themeMode,
+            onSelected: widget.onThemeChanged,
+            icon: Icon(widget.themeMode == ThemeMode.dark ? Icons.dark_mode_rounded : Icons.brightness_6_rounded),
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: ThemeMode.system, child: ListTile(leading: Icon(Icons.settings_brightness), title: Text('Système'))),
+              PopupMenuItem(value: ThemeMode.light, child: ListTile(leading: Icon(Icons.light_mode), title: Text('Clair'))),
+              PopupMenuItem(value: ThemeMode.dark, child: ListTile(leading: Icon(Icons.dark_mode), title: Text('Sombre'))),
+            ],
+          ),
           IconButton(
             tooltip: 'Notifications',
             onPressed: _openNotifications,
@@ -300,8 +315,8 @@ class _MboloHomeState extends State<MboloHome> {
       ),
       body: SafeArea(child: pages[_tab]),
       bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
           boxShadow: [
             BoxShadow(
               color: Color(0x18000000),
