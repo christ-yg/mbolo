@@ -21,8 +21,8 @@ jobs:
       - name: Install pinned Flutter SDK
         shell: bash
         run: |
-          git clone --depth 1 --branch 3.35.7 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
-          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = adc901062556672b4138e18a4dc62a4be8f4b3c2
+          git clone --depth 1 --branch 3.47.5 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse --short=10 HEAD)" = 6a19cca564
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
       - name: Resolve dependencies
         working-directory: mobile
@@ -45,6 +45,12 @@ jobs:
       - name: Build installable Android demo APK
         working-directory: mobile
         run: flutter build apk --release --target lib/main_preview.dart
+      - name: Validate production Android App Bundle
+        working-directory: mobile
+        run: >-
+          flutter build appbundle --release --target lib/main.dart
+          --dart-define=MBOLO_API_ORIGIN=https://api.mbolo.ga
+          --dart-define=MBOLO_STORE_BILLING_REQUIRED=true
       - name: Publish Android demo APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
