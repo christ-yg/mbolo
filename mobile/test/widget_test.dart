@@ -111,6 +111,12 @@ void main() {
     expect(firstPhoto, findsOneWidget);
     await tester.tap(firstPhoto);
     await tester.pumpAndSettle();
+    expect(find.byType(DraggableScrollableSheet), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('À propos'),
+      220,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('À propos'), findsOneWidget);
     expect(find.text('78% de compatibilité'), findsOneWidget);
 
