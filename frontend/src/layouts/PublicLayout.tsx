@@ -29,6 +29,7 @@ export function PublicLayout() {
             <Link to="/legal/notice">Mentions légales</Link>
             <Link to="/legal/terms">Conditions</Link>
             <Link to="/legal/privacy">Confidentialité</Link>
+            <Link to="/account-deletion">Supprimer mon compte</Link>
             <Link to="/legal/cookies">Cookies</Link>
             <Link to="/legal/community">Communauté</Link>
           </nav>
