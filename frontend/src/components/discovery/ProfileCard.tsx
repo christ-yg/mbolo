@@ -76,7 +76,7 @@ interface ProfileCardProps {
  * "Sarah" devient "S".
  * Une valeur vide devient "M".
  */
-function getProfileInitials(displayName: string): string {
+function getProfileInitials(displayName?: string): string {
   /**
    * trim() supprime les espaces situés au début et à la fin.
    *
@@ -86,7 +86,7 @@ function getProfileInitials(displayName: string): string {
    *
    * slice(0, 2) conserve au maximum les deux premiers mots.
    */
-  const normalizedParts = displayName
+  const normalizedParts = (displayName ?? "")
     .trim()
     .split(/\s+/)
     .filter(Boolean)
@@ -122,11 +122,11 @@ function getProfileInitials(displayName: string): string {
  * devient :
  * "Serious dating"
  */
-function formatChoiceLabel(value: string): string {
+function formatChoiceLabel(value?: string): string {
   /**
    * Une chaîne vide reçoit un libellé neutre.
    */
-  if (!value.trim()) {
+  if (!value?.trim()) {
     return "Non précisé";
   }
 
@@ -186,7 +186,7 @@ export function ProfileCard({
    */
   const visiblePhotos = useMemo(
     () =>
-      [...profile.photos]
+      [...(profile.photos ?? [])]
         .filter((photo) => Boolean(photo.image_url))
         .sort(
           (first, second) =>
@@ -199,6 +199,8 @@ export function ProfileCard({
 
   const activePhoto =
     visiblePhotos[activePhotoIndex] ?? null;
+  const commonInterestLabels =
+    profile.common_interest_labels ?? [];
 
   /**
    * Chaque nouvelle carte recommence sur sa photo principale.
@@ -379,7 +381,7 @@ export function ProfileCard({
          */}
         <div className="discovery-profile-card__visual-copy">
           <p>
-            {profile.city_label.trim() ||
+            {profile.city_label?.trim() ||
               "Ville non précisée"}
           </p>
 
@@ -458,9 +460,9 @@ export function ProfileCard({
               <span aria-hidden="true">♥</span>
               <p>
                 <strong>
-                  {profile.common_interest_labels.length > 0
-                    ? `${profile.common_interest_labels.length} intérêt${
-                        profile.common_interest_labels.length > 1 ? "s" : ""
+                  {commonInterestLabels.length > 0
+                    ? `${commonInterestLabels.length} intérêt${
+                        commonInterestLabels.length > 1 ? "s" : ""
                       } en commun`
                     : "Découverte respectueuse"}
                 </strong>
@@ -470,14 +472,14 @@ export function ProfileCard({
           </div>
         </details>
 
-        {profile.common_interest_labels.length > 0 ? (
+        {commonInterestLabels.length > 0 ? (
           <section className="discovery-profile-card__compatibility">
             <div>
               <p className="section-heading__eyebrow">Compatibilité</p>
               <strong>{profile.compatibility_score}%</strong>
             </div>
             <div>
-              {profile.common_interest_labels.map((label) => (
+              {commonInterestLabels.map((label) => (
                 <span key={label}>{label}</span>
               ))}
             </div>
@@ -493,7 +495,7 @@ export function ProfileCard({
           </p>
 
           <p>
-            {profile.biography.trim() ||
+            {profile.biography?.trim() ||
               "Ce profil n’a pas encore ajouté de biographie."}
           </p>
         </section>
