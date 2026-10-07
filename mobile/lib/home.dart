@@ -541,19 +541,9 @@ class _DiscoverPage extends StatelessWidget {
           controller: controller,
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 32),
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: SizedBox(
-                height: 320,
-                child: photo != null && photo.imageUrl.isNotEmpty
-                    ? Image.network(
-                        photo.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const _ProfilePhotoFallback(),
-                      )
-                    : const _ProfilePhotoFallback(),
-              ),
+            _ProfileDetailGallery(
+              profile: profile,
+              initialPhoto: photo,
             ),
             const SizedBox(height: 20),
             Row(
@@ -1056,6 +1046,159 @@ class _TrustSignal extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileDetailGallery extends StatefulWidget {
+  const _ProfileDetailGallery({
+    required this.profile,
+    required this.initialPhoto,
+  });
+
+  final DiscoveryProfile profile;
+  final ProfilePhoto? initialPhoto;
+
+  @override
+  State<_ProfileDetailGallery> createState() =>
+      _ProfileDetailGalleryState();
+}
+
+class _ProfileDetailGalleryState extends State<_ProfileDetailGallery> {
+  late final List<ProfilePhoto> _photos = widget.profile.photos.isEmpty
+      ? widget.initialPhoto == null
+          ? const <ProfilePhoto>[]
+          : <ProfilePhoto>[widget.initialPhoto!]
+      : widget.profile.photos;
+  int _index = 0;
+
+  Future<void> _openFullscreen() async {
+    if (_photos.isEmpty) return;
+    await HapticFeedback.selectionClick();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4,
+                child: Center(
+                  child: Image.network(
+                    _photos[_index].imageUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const _ProfilePhotoFallback(),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 18,
+              right: 16,
+              child: SafeArea(
+                child: IconButton.filledTonal(
+                  tooltip: 'Fermer la photo',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 18,
+              bottom: 24,
+              child: SafeArea(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.64),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 7,
+                    ),
+                    child: Text(
+                      '${_index + 1}/${_photos.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: SizedBox(
+        height: 320,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (_photos.isEmpty)
+              const _ProfilePhotoFallback()
+            else
+              PageView.builder(
+                itemCount: _photos.length,
+                onPageChanged: (value) => setState(() => _index = value),
+                itemBuilder: (context, index) => GestureDetector(
+                  onTap: _openFullscreen,
+                  child: Image.network(
+                    _photos[index].imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const _ProfilePhotoFallback(),
+                  ),
+                ),
+              ),
+            if (_photos.isNotEmpty)
+              Positioned(
+                top: 14,
+                right: 14,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.58),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      '${_index + 1}/${_photos.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (_photos.isNotEmpty)
+              const Positioned(
+                right: 14,
+                bottom: 14,
+                child: CircleAvatar(
+                  backgroundColor: Color(0x99000000),
+                  child: Icon(Icons.zoom_out_map_rounded, color: Colors.white),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
