@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'auth_contract.dart';
@@ -98,6 +99,11 @@ class _MboloHomeState extends State<MboloHome> {
 
   Future<void> _next({required bool liked, bool superLike = false}) async {
     if (_deciding || _profiles.isEmpty) return;
+    if (superLike) {
+      await HapticFeedback.mediumImpact();
+    } else {
+      await HapticFeedback.lightImpact();
+    }
     final current = _profiles.first;
     setState(() => _deciding = true);
     try {
@@ -137,6 +143,7 @@ class _MboloHomeState extends State<MboloHome> {
 
   Future<void> _rewind() async {
     if (_deciding || _rewindState?.available != true) return;
+    await HapticFeedback.selectionClick();
     setState(() => _deciding = true);
     try {
       final profile = await widget.api.rewindLastPass();
@@ -194,7 +201,7 @@ class _MboloHomeState extends State<MboloHome> {
 
   Widget _discoveryPage() {
     if (_discoveryLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const _DiscoverySkeleton();
     }
     if (_discoveryError != null) {
       return Center(
@@ -313,7 +320,24 @@ class _MboloHomeState extends State<MboloHome> {
           ),
         ],
       ),
-      body: SafeArea(child: pages[_tab]),
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.035, 0),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          ),
+          child: KeyedSubtree(key: ValueKey<int>(_tab), child: pages[_tab]),
+        ),
+      ),
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
@@ -327,7 +351,11 @@ class _MboloHomeState extends State<MboloHome> {
         ),
         child: NavigationBar(
           selectedIndex: _tab,
-          onDestinationSelected: (value) => setState(() => _tab = value),
+          onDestinationSelected: (value) {
+            if (value == _tab) return;
+            HapticFeedback.selectionClick();
+            setState(() => _tab = value);
+          },
           destinations: const [
           NavigationDestination(
             icon: Icon(Icons.favorite_outline),
@@ -352,6 +380,72 @@ class _MboloHomeState extends State<MboloHome> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _DiscoverySkeleton extends StatefulWidget {
+  const _DiscoverySkeleton();
+
+  @override
+  State<_DiscoverySkeleton> createState() => _DiscoverySkeletonState();
+}
+
+class _DiscoverySkeletonState extends State<_DiscoverySkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1250),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final color = Color.lerp(
+          scheme.surfaceContainerHighest.withValues(alpha: 0.52),
+          scheme.primary.withValues(alpha: 0.18),
+          _controller.value,
+        )!;
+        Widget block({required double height, double? width, double radius = 18}) =>
+            Container(
+              width: width,
+              height: height,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(radius),
+              ),
+            );
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
+          children: [
+            block(height: 390, radius: 30),
+            const SizedBox(height: 18),
+            block(height: 28, width: 220),
+            const SizedBox(height: 10),
+            block(height: 18),
+            const SizedBox(height: 8),
+            block(height: 18, width: 270),
+            const SizedBox(height: 22),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                block(height: 58, width: 58, radius: 29),
+                block(height: 70, width: 70, radius: 35),
+                block(height: 58, width: 58, radius: 29),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 }

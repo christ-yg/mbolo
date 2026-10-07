@@ -1,6 +1,6 @@
 /** Structure commune de toutes les pages publiques et privées. */
 
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { RealtimeNotificationToast } from
   "../components/notifications/RealtimeNotificationToast";
@@ -8,12 +8,15 @@ import { PublicHeader } from "../components/navigation/PublicHeader";
 import { NotificationProvider } from "../context/NotificationContext";
 
 export function PublicLayout() {
+  const location = useLocation();
   return (
     <NotificationProvider>
       <div className="public-layout">
         <PublicHeader />
         <RealtimeNotificationToast />
-        <Outlet />
+        <div className="route-stage" key={location.pathname}>
+          <Outlet />
+        </div>
 
         <footer className="public-footer">
           <p>© 2026 Mbolo · Rencontres adultes, respectueuses et sécurisées.</p>
