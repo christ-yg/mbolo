@@ -120,7 +120,7 @@ void main() {
     expect(find.text('À propos'), findsOneWidget);
     expect(find.text('78% de compatibilité'), findsOneWidget);
 
-    await tester.pageBack();
+    await tester.tapAt(const Offset(12, 12));
     await tester.pumpAndSettle();
     await tester.fling(firstPhoto, const Offset(-220, 0), 900);
     await tester.pumpAndSettle();
