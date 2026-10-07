@@ -85,6 +85,36 @@ void main() {
     expect(find.text('Profil'), findsOneWidget);
   });
 
+  testWidgets('Discovery profile opens details and supports swipe', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
+    await tester.enterText(find.byType(TextFormField).at(0), 'demo@mbolo.test');
+    await tester.enterText(find.byType(TextFormField).at(1), 'MboloDemo!');
+    await tester.tap(find.text('Se connecter'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.tap(find.text('Confirmer'));
+    await tester.pumpAndSettle();
+
+    final firstCard = find.byKey(
+      const ValueKey<String>(
+        'discovery-card-11111111-1111-1111-1111-111111111111',
+      ),
+    );
+    expect(firstCard, findsOneWidget);
+    await tester.tap(firstCard);
+    await tester.pumpAndSettle();
+    expect(find.text('À propos'), findsOneWidget);
+    expect(find.text('78% de compatibilité'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.fling(firstCard, const Offset(-220, 0), 900);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Grâce'), findsOneWidget);
+  });
+
   testWidgets('Messaging opens from the main navigation', (
     tester,
   ) async {

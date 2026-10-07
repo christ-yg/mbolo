@@ -524,6 +524,102 @@ class _DiscoverPage extends StatelessWidget {
     return '${spaced[0].toUpperCase()}${spaced.substring(1)}';
   }
 
+  Future<void> _showProfileDetails(
+    BuildContext context,
+    ProfilePhoto? photo,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.82,
+        minChildSize: 0.55,
+        maxChildSize: 0.94,
+        builder: (context, controller) => ListView(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(22, 4, 22, 32),
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: SizedBox(
+                height: 320,
+                child: photo != null && photo.imageUrl.isNotEmpty
+                    ? Image.network(
+                        photo.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const _ProfilePhotoFallback(),
+                      )
+                    : const _ProfilePhotoFallback(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${profile.displayName}, ${profile.age}',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ),
+                if (profile.verified)
+                  const Icon(Icons.verified, color: Color(0xFF9D3451)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              [_label(profile.city), profile.distanceLabel]
+                  .where((value) => value.isNotEmpty)
+                  .join(' • '),
+            ),
+            const SizedBox(height: 18),
+            _ProfileDetailMetric(
+              icon: Icons.favorite_outline_rounded,
+              label: _label(profile.datingIntent),
+            ),
+            if (profile.compatibilityScore > 0)
+              _ProfileDetailMetric(
+                icon: Icons.auto_awesome_rounded,
+                label: '${profile.compatibilityScore}% de compatibilité',
+              ),
+            if (profile.biography.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Text(
+                'À propos',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(profile.biography),
+            ],
+            if (profile.interestLabels.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Text(
+                'Centres d’intérêt',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: profile.interestLabels
+                    .map((label) => Chip(label: Text(label)))
+                    .toList(growable: false),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final photo = profile.photos.isEmpty
@@ -545,9 +641,15 @@ class _DiscoverPage extends StatelessWidget {
         const SizedBox(height: 8),
         const Text('Sélection personnalisée • Profils protégés'),
         const SizedBox(height: 18),
-        Card(
-          clipBehavior: Clip.antiAlias,
-          child: Column(
+        _SwipeableProfileCard(
+          key: ValueKey<String>('discovery-card-${profile.id}'),
+          enabled: !working,
+          onTap: () => _showProfileDetails(context, photo),
+          onSwipe: (liked) => onNext(liked: liked),
+          child: Card(
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(
@@ -633,7 +735,22 @@ class _DiscoverPage extends StatelessWidget {
                 ),
               ),
             ],
+            ),
           ),
+        ),
+        const SizedBox(height: 10),
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.swipe_rounded, size: 18),
+            SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                'Glisse à gauche ou à droite • Touche pour découvrir',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 18),
         if (superLikeState != null || rewindState != null) ...[
@@ -737,6 +854,128 @@ class _DiscoverPage extends StatelessWidget {
           const LinearProgressIndicator(),
         ],
       ],
+    );
+  }
+}
+
+class _SwipeableProfileCard extends StatefulWidget {
+  const _SwipeableProfileCard({
+    super.key,
+    required this.child,
+    required this.onSwipe,
+    required this.onTap,
+    required this.enabled,
+  });
+
+  final Widget child;
+  final Future<void> Function(bool liked) onSwipe;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  State<_SwipeableProfileCard> createState() =>
+      _SwipeableProfileCardState();
+}
+
+class _SwipeableProfileCardState extends State<_SwipeableProfileCard> {
+  double _drag = 0;
+
+  Future<void> _finish(DragEndDetails details) async {
+    final velocity = details.primaryVelocity ?? 0;
+    final accepted = _drag.abs() >= 85 || velocity.abs() >= 650;
+    final liked = _drag > 0 || (_drag == 0 && velocity > 0);
+    if (mounted) setState(() => _drag = 0);
+    if (!accepted || !widget.enabled) return;
+    await HapticFeedback.mediumImpact();
+    await widget.onSwipe(liked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final progress = (_drag.abs() / (width * 0.36)).clamp(0.0, 1.0);
+    final liked = _drag >= 0;
+    return GestureDetector(
+      onTap: widget.enabled ? widget.onTap : null,
+      onHorizontalDragUpdate: widget.enabled
+          ? (details) => setState(
+                () => _drag = (_drag + details.delta.dx).clamp(-140.0, 140.0),
+              )
+          : null,
+      onHorizontalDragEnd: widget.enabled ? _finish : null,
+      child: AnimatedContainer(
+        duration: _drag == 0
+            ? const Duration(milliseconds: 220)
+            : Duration.zero,
+        curve: Curves.easeOutCubic,
+        transformAlignment: Alignment.center,
+        transform: Matrix4.identity()
+          ..translate(_drag, _drag.abs() * 0.025)
+          ..rotateZ(_drag / width * 0.075),
+        child: Stack(
+          children: [
+            widget.child,
+            if (_drag.abs() > 8)
+              Positioned(
+                top: 28,
+                left: liked ? 24 : null,
+                right: liked ? null : 24,
+                child: Opacity(
+                  opacity: progress,
+                  child: Transform.rotate(
+                    angle: liked ? -0.08 : 0.08,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: liked
+                            ? const Color(0xFFB51F50)
+                            : const Color(0xFF20242A),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        liked ? 'J’AIME' : 'PASSER',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.4,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileDetailMetric extends StatelessWidget {
+  const _ProfileDetailMetric({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
