@@ -298,17 +298,13 @@ class _MboloHomeState extends State<MboloHome> {
         onEditPhotos: _openPhotos,
         onEditPreferences: _openPreferences,
         onPremium: _openPremium,
+        onShowcase: _openShowcase,
       ),
     ];
     return Scaffold(
       appBar: AppBar(
         title: const _MboloWordmark(),
         actions: [
-          IconButton(
-            tooltip: 'Visite guidée',
-            onPressed: _openShowcase,
-            icon: const Icon(Icons.auto_awesome_rounded),
-          ),
           PopupMenuButton<ThemeMode>(
             tooltip: 'Apparence',
             initialValue: widget.themeMode,
@@ -773,6 +769,7 @@ class _ProfilePage extends StatelessWidget {
     required this.onEditPhotos,
     required this.onEditPreferences,
     required this.onPremium,
+    required this.onShowcase,
   });
   final Account account;
   final Future<void> Function() onLogout;
@@ -780,6 +777,7 @@ class _ProfilePage extends StatelessWidget {
   final VoidCallback onEditPhotos;
   final VoidCallback onEditPreferences;
   final VoidCallback onPremium;
+  final VoidCallback onShowcase;
 
   @override
   Widget build(BuildContext context) {
@@ -854,6 +852,22 @@ class _ProfilePage extends StatelessWidget {
         Card(
           child: Column(
             children: [
+              ListTile(
+                leading: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Color(0xFFB51F50),
+                ),
+                title: const Text(
+                  'Visite guidée MBOLO',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text(
+                  'Découvrir la vision et les avantages',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onShowcase,
+              ),
+              const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.workspace_premium, color: Color(0xFFB51F50)),
                 title: const Text('MBOLO Premium', style: TextStyle(fontWeight: FontWeight.w800)),
