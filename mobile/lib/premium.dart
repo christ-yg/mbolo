@@ -197,12 +197,16 @@ class _PremiumPageState extends State<PremiumPage> {
 
   @override
   Widget build(BuildContext context) {
+    final paidPlans = _overview?.plans
+            .where((plan) => plan.code != 'free')
+            .toList(growable: false) ??
+        const <PremiumPlan>[];
     return Scaffold(
       appBar: AppBar(title: const Text('MBOLO Premium')),
       body: _loading ? const Center(child: CircularProgressIndicator()) : _error != null ? Center(child: FilledButton(onPressed: _load, child: const Text('Réessayer'))) : RefreshIndicator(
         onRefresh: _load,
         child: ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 32), children: [
-          Container(
+          _PremiumEntrance(index: 0, child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF391126), Color(0xFFB51F50), Color(0xFFE08A35)]), borderRadius: BorderRadius.circular(28)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -212,14 +216,16 @@ class _PremiumPageState extends State<PremiumPage> {
               const SizedBox(height: 6),
               Text(_overview!.subscription.isPremium ? 'Ton abonnement est actif.' : 'Plus de possibilités, toujours avec sécurité et respect.', style: const TextStyle(color: Colors.white70, fontSize: 15)),
             ]),
-          ),
+          )),
           const SizedBox(height: 20),
-          ..._overview!.plans.where((plan) => plan.code != 'free').map((plan) => Padding(
+          ...paidPlans.asMap().entries.map((entry) {
+            final plan = entry.value;
+            return _PremiumEntrance(index: entry.key + 1, child: Padding(
             padding: const EdgeInsets.only(bottom: 14),
             child: Card(
               elevation: plan.code == 'prestige' ? 5 : 1,
               child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [Expanded(child: Text(plan.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900))), if (plan.code == 'prestige') const Chip(label: Text('ULTIME'))]),
+                Row(children: [Expanded(child: Text(plan.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900))), Chip(label: Text(plan.code == 'prestige' ? 'ULTIME' : 'POPULAIRE'))]),
                 Text(plan.priceLabel, style: const TextStyle(color: Color(0xFFB51F50), fontSize: 18, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8), Text(plan.description), const SizedBox(height: 12),
                 ...plan.features.map((feature) => Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Row(children: [const Icon(Icons.check_circle, size: 18, color: Color(0xFFB51F50)), const SizedBox(width: 8), Expanded(child: Text(feature))]))),
@@ -227,7 +233,8 @@ class _PremiumPageState extends State<PremiumPage> {
                 SizedBox(width: double.infinity, child: FilledButton(onPressed: _paying ? null : () => _choosePayment(plan), child: Text(_storeBillingRequired ? 'Disponible bientôt sur la boutique' : plan.paymentAvailable ? 'Choisir ${plan.name}' : 'Bientôt disponible'))),
               ])),
             ),
-          )),
+          )));
+          }),
           Card(color: const Color(0xFFFFF4E8), child: Padding(padding: const EdgeInsets.all(16), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.lock_outline, color: Color(0xFF8B5520)), const SizedBox(width: 10), Expanded(child: Text(_overview!.paymentNotice))]))),
           if (_storeBillingRequired)
             const Card(
@@ -277,6 +284,36 @@ class _PremiumPageState extends State<PremiumPage> {
             ])))),
           ],
         ]),
+      ),
+    );
+  }
+}
+
+class _PremiumEntrance extends StatelessWidget {
+  const _PremiumEntrance({required this.index, required this.child});
+
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: reduceMotion
+          ? Duration.zero
+          : Duration(milliseconds: 480 + (index * 110)),
+      curve: Curves.easeOutCubic,
+      child: child,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 24 * (1 - value)),
+          child: Transform.scale(
+            scale: 0.975 + (0.025 * value),
+            child: child,
+          ),
+        ),
       ),
     );
   }

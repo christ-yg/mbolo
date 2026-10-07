@@ -297,6 +297,14 @@ export function PremiumPage() {
                         <span className="premium-redesign-plan-card__badge">
                           Offre actuelle
                         </span>
+                      ) : plan.code === "plus" ? (
+                        <span className="premium-redesign-plan-card__badge premium-redesign-plan-card__badge--recommended">
+                          Le plus choisi
+                        </span>
+                      ) : plan.code === "prestige" ? (
+                        <span className="premium-redesign-plan-card__badge premium-redesign-plan-card__badge--prestige">
+                          Expérience ultime
+                        </span>
                       ) : null}
                     </div>
 
