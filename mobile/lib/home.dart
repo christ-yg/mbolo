@@ -910,7 +910,7 @@ class _SwipeableProfileCardState extends State<_SwipeableProfileCard> {
         curve: Curves.easeOutCubic,
         transformAlignment: Alignment.center,
         transform: Matrix4.identity()
-          ..translate(_drag, _drag.abs() * 0.025)
+          ..translateByDouble(_drag, _drag.abs() * 0.025, 0, 1)
           ..rotateZ(_drag / width * 0.075),
         child: Stack(
           children: [
