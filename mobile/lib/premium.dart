@@ -147,6 +147,30 @@ class _PremiumPageState extends State<PremiumPage> {
     }
   }
 
+  String _paymentStatusLabel(String status) => switch (status) {
+        'created' => 'Créé',
+        'pending' => 'En attente',
+        'succeeded' => 'Réussi',
+        'failed' => 'Échoué',
+        'canceled' => 'Annulé',
+        'expired' => 'Expiré',
+        _ => 'À vérifier',
+      };
+
+  Color _paymentStatusColor(String status) => switch (status) {
+        'succeeded' => const Color(0xFF16794B),
+        'failed' || 'canceled' || 'expired' => const Color(0xFF9A2D36),
+        _ => const Color(0xFF9A5B13),
+      };
+
+  IconData _paymentStatusIcon(String status) => switch (status) {
+        'succeeded' => Icons.check_circle_outline,
+        'failed' => Icons.error_outline,
+        'canceled' => Icons.cancel_outlined,
+        'expired' => Icons.timer_off_outlined,
+        _ => Icons.hourglass_top_rounded,
+      };
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -203,8 +227,18 @@ class _PremiumPageState extends State<PremiumPage> {
             const SizedBox(height: 22),
             Text('Paiements récents', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
             ..._history.map((item) => Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(children: [
-              ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.receipt_long_outlined), title: Text(item.planName), subtitle: Text('${item.methodName} · ${item.amountXaf} ${item.currency}'), trailing: Chip(label: Text(item.status))),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(_paymentStatusIcon(item.status), color: _paymentStatusColor(item.status)),
+                title: Text(item.planName),
+                subtitle: Text('${item.methodName} · ${item.amountXaf} ${item.currency}${item.customerPhoneMasked.isEmpty ? '' : '\n${item.customerPhoneMasked}'}'),
+                trailing: Chip(
+                  avatar: Icon(_paymentStatusIcon(item.status), size: 16, color: _paymentStatusColor(item.status)),
+                  label: Text(_paymentStatusLabel(item.status)),
+                ),
+              ),
               if (item.status == 'created' || item.status == 'pending') Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                IconButton(onPressed: _paying ? null : _load, tooltip: 'Actualiser le statut', icon: const Icon(Icons.refresh)),
                 TextButton(onPressed: _paying ? null : () => _updatePayment(item, confirm: false), child: const Text('Annuler')),
                 if (item.canConfirmInTestMode) FilledButton(onPressed: _paying ? null : () => _updatePayment(item, confirm: true), child: const Text('Confirmer le test')),
               ]),
