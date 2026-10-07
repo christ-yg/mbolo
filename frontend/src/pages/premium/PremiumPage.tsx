@@ -15,6 +15,7 @@ import type {
   PremiumPaymentMethod,
   PremiumPaymentTransaction,
 } from "../../types/premium";
+import { usePremiumStageMotion } from "./usePremiumStageMotion";
 
 import "./PremiumPage.css";
 
@@ -59,6 +60,7 @@ export function PremiumPage() {
   const [history, setHistory] = useState<PremiumPaymentTransaction[]>([]);
   const [isPaymentBusy, setIsPaymentBusy] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
+  const stageRef = usePremiumStageMotion(overview !== null);
 
   async function loadOverview(): Promise<void> {
     const result = await getPremiumOverview();
@@ -207,7 +209,12 @@ export function PremiumPage() {
   }
 
   return (
-    <main className="premium-redesign-page">
+    <main className="premium-redesign-page" ref={stageRef}>
+      <div className="premium-redesign-atmosphere" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
       <section className="premium-redesign-hero" aria-labelledby="premium-title">
         <div className="premium-redesign-hero__content">
           <p className="premium-redesign-eyebrow">Mbolo Premium</p>
@@ -281,6 +288,7 @@ export function PremiumPage() {
                         ? "premium-redesign-plan-card--unavailable"
                         : "",
                     ].join(" ")}
+                    tabIndex={0}
                   >
                     <div className="premium-redesign-plan-card__top">
                       <div>

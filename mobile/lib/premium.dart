@@ -220,20 +220,17 @@ class _PremiumPageState extends State<PremiumPage> {
           const SizedBox(height: 20),
           ...paidPlans.asMap().entries.map((entry) {
             final plan = entry.value;
-            return _PremiumEntrance(index: entry.key + 1, child: Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: Card(
-              elevation: plan.code == 'prestige' ? 5 : 1,
-              child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [Expanded(child: Text(plan.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900))), Chip(label: Text(plan.code == 'prestige' ? 'ULTIME' : 'POPULAIRE'))]),
-                Text(plan.priceLabel, style: const TextStyle(color: Color(0xFFB51F50), fontSize: 18, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8), Text(plan.description), const SizedBox(height: 12),
-                ...plan.features.map((feature) => Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Row(children: [const Icon(Icons.check_circle, size: 18, color: Color(0xFFB51F50)), const SizedBox(width: 8), Expanded(child: Text(feature))]))),
-                const SizedBox(height: 16),
-                SizedBox(width: double.infinity, child: FilledButton(onPressed: _paying ? null : () => _choosePayment(plan), child: Text(_storeBillingRequired ? 'Disponible bientôt sur la boutique' : plan.paymentAvailable ? 'Choisir ${plan.name}' : 'Bientôt disponible'))),
-              ])),
-            ),
-          ));
+            return _PremiumEntrance(
+              index: entry.key + 1,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _PremiumPlanCard(
+                  plan: plan,
+                  busy: _paying,
+                  onPressed: () => _choosePayment(plan),
+                ),
+              ),
+            );
           }),
           Card(color: const Color(0xFFFFF4E8), child: Padding(padding: const EdgeInsets.all(16), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.lock_outline, color: Color(0xFF8B5520)), const SizedBox(width: 10), Expanded(child: Text(_overview!.paymentNotice))]))),
           if (_storeBillingRequired)
@@ -312,6 +309,147 @@ class _PremiumEntrance extends StatelessWidget {
           child: Transform.scale(
             scale: 0.975 + (0.025 * value),
             child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumPlanCard extends StatefulWidget {
+  const _PremiumPlanCard({
+    required this.plan,
+    required this.busy,
+    required this.onPressed,
+  });
+
+  final PremiumPlan plan;
+  final bool busy;
+  final VoidCallback onPressed;
+
+  @override
+  State<_PremiumPlanCard> createState() => _PremiumPlanCardState();
+}
+
+class _PremiumPlanCardState extends State<_PremiumPlanCard> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final prestige = widget.plan.code == 'prestige';
+    final foreground = prestige ? Colors.white : scheme.onSurface;
+    final muted = prestige ? Colors.white70 : scheme.onSurfaceVariant;
+    final accent = prestige ? const Color(0xFFFFD58A) : scheme.primary;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedScale(
+        scale: _hovered ? 1.018 : 1,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: prestige
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF2B0E1D), Color(0xFF721D45), Color(0xFFB54C71)],
+                  )
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [scheme.surface, scheme.primaryContainer.withValues(alpha: 0.58)],
+                  ),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: prestige ? const Color(0x55FFD58A) : scheme.primary.withValues(alpha: 0.22)),
+            boxShadow: [
+              BoxShadow(
+                color: prestige
+                    ? const Color(0x55391126)
+                    : scheme.primary.withValues(alpha: _hovered ? 0.22 : 0.12),
+                blurRadius: _hovered ? 42 : 28,
+                offset: Offset(0, _hovered ? 16 : 10),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  AnimatedRotation(
+                    turns: _hovered ? 0.04 : 0,
+                    duration: const Duration(milliseconds: 260),
+                    child: Icon(
+                      prestige ? Icons.diamond_outlined : Icons.auto_awesome,
+                      color: accent,
+                      size: 32,
+                    ),
+                  ),
+                  const Spacer(),
+                  Chip(
+                    backgroundColor: prestige ? Colors.white12 : scheme.primaryContainer,
+                    side: BorderSide.none,
+                    label: Text(
+                      prestige ? 'EXPÉRIENCE ULTIME' : 'LE PLUS CHOISI',
+                      style: TextStyle(color: foreground, fontWeight: FontWeight.w800, fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Text(
+                widget.plan.name,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: foreground,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(widget.plan.priceLabel, style: TextStyle(color: accent, fontSize: 20, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 10),
+              Text(widget.plan.description, style: TextStyle(color: muted, height: 1.45)),
+              const SizedBox(height: 16),
+              ...widget.plan.features.map(
+                (feature) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.check_circle_rounded, size: 19, color: accent),
+                      const SizedBox(width: 9),
+                      Expanded(child: Text(feature, style: TextStyle(color: foreground, height: 1.35))),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: widget.busy ? null : widget.onPressed,
+                  icon: Icon(prestige ? Icons.workspace_premium : Icons.favorite_rounded),
+                  label: Text(
+                    _storeBillingRequired
+                        ? 'Disponible bientôt sur la boutique'
+                        : widget.plan.paymentAvailable
+                            ? 'Choisir ${widget.plan.name}'
+                            : 'Bientôt disponible',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: prestige ? const Color(0xFFFFD58A) : scheme.primary,
+                    foregroundColor: prestige ? const Color(0xFF351220) : scheme.onPrimary,
+                    minimumSize: const Size.fromHeight(56),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

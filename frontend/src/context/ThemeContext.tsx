@@ -1,22 +1,11 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
-
-export type ThemePreference = "light" | "dark" | "system";
-
-interface ThemeContextValue {
-  preference: ThemePreference;
-  resolvedTheme: "light" | "dark";
-  setPreference: (preference: ThemePreference) => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+import { ThemeContext, type ThemePreference } from "./themeContextValue";
 const storageKey = "mbolo-theme";
 
 function readPreference(): ThemePreference {
@@ -54,10 +43,4 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     [preference, resolvedTheme, setPreference],
   );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
-}
-
-export function useTheme(): ThemeContextValue {
-  const value = useContext(ThemeContext);
-  if (value === null) throw new Error("useTheme doit être utilisé dans ThemeProvider.");
-  return value;
 }

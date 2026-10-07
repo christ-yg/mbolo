@@ -1,4 +1,4 @@
-import { useTheme, type ThemePreference } from "../../context/ThemeContext";
+import { useTheme, type ThemePreference } from "../../context/themeContextValue";
 
 import "./ThemeToggle.css";
 
