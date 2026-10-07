@@ -708,9 +708,11 @@ class DemoApi implements AuthApi {
   );
 
   @override
-  Future<PremiumPayment> createPremiumCheckout({required String plan, required String method}) async {
+  Future<PremiumPayment> createPremiumCheckout({required String plan, required String method, required String phoneNumber}) async {
     if (!const {'plus', 'prestige'}.contains(plan) || !const {'airtel_money', 'moov_money'}.contains(method)) throw const FormatException('Paiement indisponible.');
-    final payment = PremiumPayment(id: 'demo-payment-${_premiumPayments.length + 1}', planName: plan == 'plus' ? 'MBOLO Plus' : 'MBOLO Prestige', methodName: method == 'airtel_money' ? 'Airtel Money' : 'Moov Money', status: 'created', amountXaf: plan == 'plus' ? 4900 : 9900, currency: 'XAF', canConfirmInTestMode: true);
+    final digits = phoneNumber.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 8) throw const FormatException('Numéro Mobile Money incorrect.');
+    final payment = PremiumPayment(id: 'demo-payment-${_premiumPayments.length + 1}', planName: plan == 'plus' ? 'MBOLO Plus' : 'MBOLO Prestige', methodName: method == 'airtel_money' ? 'Airtel Money' : 'Moov Money', status: 'created', amountXaf: plan == 'plus' ? 4900 : 9900, currency: 'XAF', canConfirmInTestMode: true, customerPhoneMasked: '+241••••${digits.substring(digits.length - 4)}');
     _premiumPayments.insert(0, payment);
     return payment;
   }
@@ -734,7 +736,7 @@ class DemoApi implements AuthApi {
     final index = _premiumPayments.indexWhere((item) => item.id == id);
     if (index < 0) throw const FormatException('Transaction introuvable.');
     final old = _premiumPayments[index];
-    final updated = PremiumPayment(id: old.id, planName: old.planName, methodName: old.methodName, status: status, amountXaf: old.amountXaf, currency: old.currency, canConfirmInTestMode: false);
+    final updated = PremiumPayment(id: old.id, planName: old.planName, methodName: old.methodName, status: status, amountXaf: old.amountXaf, currency: old.currency, canConfirmInTestMode: false, customerPhoneMasked: old.customerPhoneMasked);
     _premiumPayments[index] = updated;
     return updated;
   }

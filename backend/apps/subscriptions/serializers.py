@@ -71,6 +71,26 @@ class PaymentCheckoutCreateSerializer(serializers.Serializer):
     method = serializers.ChoiceField(
         choices=("airtel_money", "moov_money", "bank_card")
     )
+    phone_number = serializers.CharField(
+        required=False, allow_blank=True, max_length=32, write_only=True
+    )
+
+    def validate(self, attrs):
+        method = attrs["method"]
+        raw_phone = attrs.get("phone_number", "")
+        if method not in {"airtel_money", "moov_money"}:
+            attrs["phone_number"] = ""
+            return attrs
+
+        digits = "".join(character for character in raw_phone if character.isdigit())
+        if digits.startswith("241"):
+            digits = digits[3:]
+        if len(digits) not in {8, 9}:
+            raise serializers.ValidationError(
+                {"phone_number": "Saisis un numéro Mobile Money gabonais valide."}
+            )
+        attrs["phone_number"] = f"+241{digits}"
+        return attrs
 
 
 class PaymentTransactionSerializer(serializers.Serializer):
@@ -84,6 +104,7 @@ class PaymentTransactionSerializer(serializers.Serializer):
     currency = serializers.CharField()
     provider = serializers.CharField()
     provider_reference = serializers.CharField()
+    customer_phone_masked = serializers.CharField()
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
     verified_at = serializers.DateTimeField(allow_null=True)

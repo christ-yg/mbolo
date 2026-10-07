@@ -673,11 +673,11 @@ class MboloApi implements AuthApi {
   }
 
   @override
-  Future<PremiumPayment> createPremiumCheckout({required String plan, required String method}) async {
+  Future<PremiumPayment> createPremiumCheckout({required String plan, required String method, required String phoneNumber}) async {
     if (!const {'plus', 'prestige'}.contains(plan) || !const {'airtel_money', 'moov_money', 'bank_card'}.contains(method)) {
       throw const FormatException('Offre ou moyen de paiement incorrect.');
     }
-    return PremiumPayment.fromJson(await _postObject('premium/payments/checkout/', {'plan': plan, 'method': method}));
+    return PremiumPayment.fromJson(await _postObject('premium/payments/checkout/', {'plan': plan, 'method': method, 'phone_number': phoneNumber.trim()}));
   }
 
   @override

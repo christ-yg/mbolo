@@ -752,7 +752,7 @@ class PremiumBoost {
 }
 
 class PremiumPayment {
-  const PremiumPayment({required this.id, required this.planName, required this.methodName, required this.status, required this.amountXaf, required this.currency, required this.canConfirmInTestMode});
+  const PremiumPayment({required this.id, required this.planName, required this.methodName, required this.status, required this.amountXaf, required this.currency, required this.canConfirmInTestMode, this.customerPhoneMasked = ''});
   final String id;
   final String planName;
   final String methodName;
@@ -760,10 +760,11 @@ class PremiumPayment {
   final int amountXaf;
   final String currency;
   final bool canConfirmInTestMode;
+  final String customerPhoneMasked;
   factory PremiumPayment.fromJson(Map<String, dynamic> data) {
     final id = data['id'];
     if (id is! String || id.isEmpty) throw const FormatException('Transaction incorrecte.');
-    return PremiumPayment(id: id, planName: data['plan_name']?.toString() ?? '', methodName: data['method_name']?.toString() ?? '', status: data['status']?.toString() ?? '', amountXaf: data['amount_xaf'] is int ? data['amount_xaf'] as int : 0, currency: data['currency']?.toString() ?? 'XAF', canConfirmInTestMode: data['can_confirm_in_test_mode'] == true);
+    return PremiumPayment(id: id, planName: data['plan_name']?.toString() ?? '', methodName: data['method_name']?.toString() ?? '', status: data['status']?.toString() ?? '', amountXaf: data['amount_xaf'] is int ? data['amount_xaf'] as int : 0, currency: data['currency']?.toString() ?? 'XAF', canConfirmInTestMode: data['can_confirm_in_test_mode'] == true, customerPhoneMasked: data['customer_phone_masked']?.toString() ?? '');
   }
 }
 
@@ -865,7 +866,7 @@ abstract class AuthApi {
   Future<void> markAllNotificationsRead();
   Future<void> deleteNotification(String notificationId);
   Future<PremiumOverview> getPremiumOverview();
-  Future<PremiumPayment> createPremiumCheckout({required String plan, required String method});
+  Future<PremiumPayment> createPremiumCheckout({required String plan, required String method, required String phoneNumber});
   Future<List<PremiumPayment>> getPremiumPaymentHistory();
   Future<PremiumPrivacy> updatePremiumPrivacy(bool enabled);
   Future<PremiumBoost> activatePremiumBoost();

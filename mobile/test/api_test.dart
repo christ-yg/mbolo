@@ -75,7 +75,7 @@ class FakeServer implements HttpClientAdapter {
     } else if (path.endsWith('/premium/payments/history/')) {
       data = {'data': {'transactions': <Map<String, dynamic>>[]}};
     } else if (path.endsWith('/premium/payments/checkout/')) {
-      data = {'data': {'id': '99999999-9999-9999-9999-999999999999', 'plan_name': 'MBOLO Plus', 'method_name': 'Airtel Money', 'status': 'created', 'amount_xaf': 4900, 'currency': 'XAF', 'can_confirm_in_test_mode': false}};
+      data = {'data': {'id': '99999999-9999-9999-9999-999999999999', 'plan_name': 'MBOLO Plus', 'method_name': 'Airtel Money', 'status': 'created', 'amount_xaf': 4900, 'currency': 'XAF', 'customer_phone_masked': '+241••••3456', 'can_confirm_in_test_mode': false}};
     } else if (path.endsWith('/premium/privacy/')) {
       data = {'data': {'incognito_enabled': true, 'incognito_available': true, 'effective_incognito': true}};
     } else if (path.endsWith('/premium/boost/')) {
@@ -791,10 +791,13 @@ void main() {
     final payment = await api.createPremiumCheckout(
       plan: 'plus',
       method: 'airtel_money',
+      phoneNumber: '07123456',
     );
     expect(payment.status, 'created');
     expect(payment.amountXaf, 4900);
+    expect(payment.customerPhoneMasked, '+241••••3456');
     expect(server.requests.last.data['plan'], 'plus');
+    expect(server.requests.last.data['phone_number'], '07123456');
     expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
     expect(await api.getPremiumPaymentHistory(), isEmpty);
 

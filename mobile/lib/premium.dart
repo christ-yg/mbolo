@@ -70,15 +70,39 @@ class _PremiumPageState extends State<PremiumPage> {
       ),
     );
     if (method == null || !mounted) return;
+    final phoneController = TextEditingController();
+    final phoneNumber = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.phone_android, color: Color(0xFFB51F50)),
+        title: Text('Numéro ${method.name}'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Saisis le numéro qui recevra la demande de paiement. Ton code PIN reste secret.'),
+          const SizedBox(height: 14),
+          TextField(
+            controller: phoneController,
+            keyboardType: TextInputType.phone,
+            autofillHints: const [AutofillHints.telephoneNumber],
+            decoration: const InputDecoration(prefixText: '+241 ', labelText: 'Numéro Mobile Money'),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          FilledButton(onPressed: () => Navigator.pop(context, phoneController.text), child: const Text('Continuer')),
+        ],
+      ),
+    );
+    phoneController.dispose();
+    if (phoneNumber == null || phoneNumber.trim().isEmpty || !mounted) return;
     setState(() => _paying = true);
     try {
-      final payment = await widget.api.createPremiumCheckout(plan: plan.code, method: method.code);
+      final payment = await widget.api.createPremiumCheckout(plan: plan.code, method: method.code, phoneNumber: phoneNumber);
       if (!mounted) return;
       setState(() => _history = <PremiumPayment>[payment, ..._history]);
       await showDialog<void>(context: context, builder: (context) => AlertDialog(
         icon: const Icon(Icons.verified_user_outlined, size: 42, color: Color(0xFFB51F50)),
         title: const Text('Demande créée'),
-        content: Text('${payment.planName} · ${payment.methodName}\n${payment.amountXaf} ${payment.currency}\n\nLe serveur confirmera le paiement avant d’activer l’abonnement.'),
+        content: Text('${payment.planName} · ${payment.methodName}\n${payment.amountXaf} ${payment.currency}\n${payment.customerPhoneMasked}\n\nLe serveur confirmera le paiement avant d’activer l’abonnement.'),
         actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Compris'))],
       ));
     } catch (error) {

@@ -177,6 +177,7 @@ class PaymentCheckoutView(APIView):
                 user=request.user,
                 plan=serializer.validated_data["plan"],
                 method=serializer.validated_data["method"],
+                phone_number=serializer.validated_data.get("phone_number", ""),
             )
         except ValueError as exc:
             return Response(
