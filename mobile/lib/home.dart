@@ -853,22 +853,6 @@ class _ProfilePage extends StatelessWidget {
           child: Column(
             children: [
               ListTile(
-                leading: const Icon(
-                  Icons.auto_awesome_rounded,
-                  color: Color(0xFFB51F50),
-                ),
-                title: const Text(
-                  'Visite guidée MBOLO',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                subtitle: const Text(
-                  'Découvrir la vision et les avantages',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: onShowcase,
-              ),
-              const Divider(height: 1),
-              ListTile(
                 leading: const Icon(Icons.workspace_premium, color: Color(0xFFB51F50)),
                 title: const Text('MBOLO Premium', style: TextStyle(fontWeight: FontWeight.w800)),
                 subtitle: const Text('Plus, Prestige, Boost et avantages'),
@@ -902,6 +886,22 @@ class _ProfilePage extends StatelessWidget {
                 leading: Icon(Icons.privacy_tip_outlined),
                 title: Text('Confidentialité'),
                 trailing: Icon(Icons.chevron_right),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Color(0xFFB51F50),
+                ),
+                title: const Text(
+                  'Visite guidée MBOLO',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text(
+                  'Découvrir la vision et les avantages',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onShowcase,
               ),
             ],
           ),
