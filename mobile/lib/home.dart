@@ -586,6 +586,50 @@ class _DiscoverPage extends StatelessWidget {
                 icon: Icons.auto_awesome_rounded,
                 label: '${profile.compatibilityScore}% de compatibilité',
               ),
+            const SizedBox(height: 14),
+            Card(
+              color: Theme.of(context).colorScheme.primaryContainer
+                  .withValues(alpha: 0.38),
+              child: ExpansionTile(
+                leading: const Icon(Icons.verified_user_outlined),
+                title: const Text(
+                  'Signaux de confiance',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  profile.verified
+                      ? 'Profil vérifié'
+                      : 'Protection MBOLO active',
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                children: [
+                  _TrustSignal(
+                    icon: profile.verified
+                        ? Icons.verified_rounded
+                        : Icons.hourglass_top_rounded,
+                    title: profile.verified
+                        ? 'Identité vérifiée'
+                        : 'Vérification en attente',
+                    description: profile.verified
+                        ? 'Contrôle approuvé par MBOLO'
+                        : 'Les données privées restent masquées',
+                  ),
+                  const _TrustSignal(
+                    icon: Icons.location_off_outlined,
+                    title: 'Localisation protégée',
+                    description: 'Aucune position GPS exacte n’est exposée',
+                  ),
+                  _TrustSignal(
+                    icon: Icons.favorite_outline_rounded,
+                    title: profile.commonInterestLabels.isEmpty
+                        ? 'Découverte respectueuse'
+                        : '${profile.commonInterestLabels.length} intérêt${profile.commonInterestLabels.length > 1 ? 's' : ''} en commun',
+                    description:
+                        'La conversation commence après intérêt mutuel',
+                  ),
+                ],
+              ),
+            ),
             if (profile.biography.isNotEmpty) ...[
               const SizedBox(height: 18),
               Text(
@@ -973,6 +1017,42 @@ class _ProfileDetailMetric extends StatelessWidget {
             child: Text(
               label,
               style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrustSignal extends StatelessWidget {
+  const _TrustSignal({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 21, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(description, style: Theme.of(context).textTheme.bodySmall),
+              ],
             ),
           ),
         ],

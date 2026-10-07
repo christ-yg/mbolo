@@ -384,6 +384,60 @@ export function ProfileCard({
           ) : null}
         </div>
 
+        <details className="discovery-profile-card__trust">
+          <summary>
+            <span aria-hidden="true">✦</span>
+            Signaux de confiance
+            <small>
+              {profile.is_verified
+                ? "Profil vérifié"
+                : "Protection MBOLO active"}
+            </small>
+          </summary>
+
+          <div className="discovery-profile-card__trust-grid">
+            <div>
+              <span aria-hidden="true">
+                {profile.is_verified ? "✓" : "⌛"}
+              </span>
+              <p>
+                <strong>
+                  {profile.is_verified
+                    ? "Identité vérifiée"
+                    : "Vérification en attente"}
+                </strong>
+                <small>
+                  {profile.is_verified
+                    ? "Contrôle approuvé par MBOLO"
+                    : "Les données privées restent masquées"}
+                </small>
+              </p>
+            </div>
+
+            <div>
+              <span aria-hidden="true">◎</span>
+              <p>
+                <strong>Localisation protégée</strong>
+                <small>Aucune position GPS exacte n’est exposée</small>
+              </p>
+            </div>
+
+            <div>
+              <span aria-hidden="true">♥</span>
+              <p>
+                <strong>
+                  {profile.common_interest_labels.length > 0
+                    ? `${profile.common_interest_labels.length} intérêt${
+                        profile.common_interest_labels.length > 1 ? "s" : ""
+                      } en commun`
+                    : "Découverte respectueuse"}
+                </strong>
+                <small>La conversation commence après intérêt mutuel</small>
+              </p>
+            </div>
+          </div>
+        </details>
+
         {profile.common_interest_labels.length > 0 ? (
           <section className="discovery-profile-card__compatibility">
             <div>
