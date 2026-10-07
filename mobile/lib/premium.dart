@@ -233,7 +233,7 @@ class _PremiumPageState extends State<PremiumPage> {
                 SizedBox(width: double.infinity, child: FilledButton(onPressed: _paying ? null : () => _choosePayment(plan), child: Text(_storeBillingRequired ? 'Disponible bientôt sur la boutique' : plan.paymentAvailable ? 'Choisir ${plan.name}' : 'Bientôt disponible'))),
               ])),
             ),
-          )));
+          ));
           }),
           Card(color: const Color(0xFFFFF4E8), child: Padding(padding: const EdgeInsets.all(16), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.lock_outline, color: Color(0xFF8B5520)), const SizedBox(width: 10), Expanded(child: Text(_overview!.paymentNotice))]))),
           if (_storeBillingRequired)
