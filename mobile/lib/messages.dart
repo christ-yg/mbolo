@@ -228,74 +228,79 @@ class _MessagesPageState extends State<MessagesPage> {
               ),
             )
           else
-            ..._conversations.map((conversation) {
+            ..._conversations.asMap().entries.map((entry) {
+              final index = entry.key;
+              final conversation = entry.value;
               final last = conversation.lastMessage;
               final photo = conversation.otherProfile.photos.isEmpty
                   ? null
                   : conversation.otherProfile.photos.first;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Card(
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    onTap: () => _open(conversation),
-                    leading: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 26,
-                          backgroundColor: const Color(0xFFFFD8E3),
-                          backgroundImage:
-                              photo != null && photo.imageUrl.isNotEmpty
-                                  ? NetworkImage(photo.imageUrl)
-                                  : null,
-                          child: photo == null || photo.imageUrl.isEmpty
-                              ? const Icon(Icons.person_outline)
-                              : null,
-                        ),
-                        if (conversation.online)
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Theme.of(context).colorScheme.surface,
-                                  width: 2,
+              return _StaggeredConnectionEntry(
+                order: index,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Card(
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      onTap: () => _open(conversation),
+                      leading: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 26,
+                            backgroundColor: const Color(0xFFFFD8E3),
+                            backgroundImage:
+                                photo != null && photo.imageUrl.isNotEmpty
+                                    ? NetworkImage(photo.imageUrl)
+                                    : null,
+                            child: photo == null || photo.imageUrl.isEmpty
+                                ? const Icon(Icons.person_outline)
+                                : null,
+                          ),
+                          if (conversation.online)
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Theme.of(context).colorScheme.surface,
+                                    width: 2,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                    title: Text(
-                      conversation.otherProfile.displayName,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: Text(
-                      last?.body ?? 'Commence la conversation',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (last != null)
-                          Text(
-                            _time(last.createdAt),
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        if (conversation.unreadCount > 0) ...[
-                          const SizedBox(height: 4),
-                          Badge(label: Text('${conversation.unreadCount}')),
                         ],
-                      ],
+                      ),
+                      title: Text(
+                        conversation.otherProfile.displayName,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Text(
+                        last?.body ?? 'Commence la conversation',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (last != null)
+                            Text(
+                              _time(last.createdAt),
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          if (conversation.unreadCount > 0) ...[
+                            const SizedBox(height: 4),
+                            Badge(label: Text('${conversation.unreadCount}')),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -550,6 +555,36 @@ class _ConnectionsEmpty extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _StaggeredConnectionEntry extends StatelessWidget {
+  const _StaggeredConnectionEntry({required this.order, required this.child});
+
+  final int order;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduceMotion) return child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: Duration(milliseconds: 360 + order.clamp(0, 6) * 55),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, animatedChild) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 22 * (1 - value)),
+          child: Transform.scale(
+            scale: .985 + (.015 * value),
+            alignment: Alignment.bottomCenter,
+            child: animatedChild,
+          ),
+        ),
+      ),
+      child: child,
     );
   }
 }

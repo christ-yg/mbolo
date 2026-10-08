@@ -838,6 +838,350 @@ body::before {
   }
 }
 
+/* ============================================================
+   MESSAGERIE — CONVERSATIONS VIVANTES ET PRIVÉES
+   ============================================================ */
+
+.messages-page {
+  --messages-ink: var(--mbolo-text) !important;
+  --messages-copy: var(--mbolo-muted) !important;
+  --messages-muted: var(--mbolo-muted) !important;
+  --messages-line: var(--mbolo-border) !important;
+  --messages-primary: var(--mbolo-primary) !important;
+  --messages-deep: var(--mbolo-primary-dark) !important;
+  --messages-soft: var(--mbolo-primary-soft) !important;
+  color: var(--mbolo-text) !important;
+  background:
+    radial-gradient(circle at 10% 8%, var(--mbolo-aurora), transparent 29rem),
+    radial-gradient(circle at 92% 24%, rgb(184 120 46 / 8%), transparent 26rem),
+    linear-gradient(180deg, var(--mbolo-bg), var(--mbolo-bg-soft)) !important;
+}
+
+.messages-hero {
+  border-color: var(--mbolo-border) !important;
+  background: rgb(255 255 255 / 78%) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+  animation: mbolo-hero-arrival 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.messages-hero__summary {
+  border-color: var(--mbolo-border) !important;
+  background: rgb(255 255 255 / 80%) !important;
+  box-shadow: var(--mbolo-shadow-sm) !important;
+}
+
+.messages-hero__summary > div {
+  transition:
+    transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 220ms ease;
+}
+
+.messages-hero__summary > div:hover {
+  z-index: 1;
+  background: var(--mbolo-primary-soft);
+  transform: translateY(-4px);
+}
+
+.messages-workspace {
+  border-color: var(--mbolo-border) !important;
+  background: rgb(255 255 255 / 82%) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+}
+
+.messages-search {
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-bg-soft) !important;
+}
+
+.conversation-list-item {
+  animation: mbolo-card-arrival 540ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.conversation-list-item:nth-child(2) {
+  animation-delay: 65ms;
+}
+
+.conversation-list-item:nth-child(3) {
+  animation-delay: 130ms;
+}
+
+.conversation-list-item:nth-child(4) {
+  animation-delay: 195ms;
+}
+
+.conversation-list-item:nth-child(5) {
+  animation-delay: 260ms;
+}
+
+.conversation-card {
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-surface-strong) !important;
+  transition:
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 240ms ease,
+    box-shadow 360ms ease !important;
+}
+
+.conversation-card:hover {
+  transform: translateY(-5px) scale(1.004) !important;
+  border-color: var(--mbolo-border-strong) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+}
+
+.conversation-card--unread {
+  background:
+    linear-gradient(90deg, rgb(194 48 105 / 10%), transparent 46%),
+    var(--mbolo-surface-strong) !important;
+}
+
+.conversation-card__avatar {
+  box-shadow: 0 14px 30px rgb(75 22 48 / 18%);
+  transition:
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 420ms ease;
+}
+
+.conversation-card:hover .conversation-card__avatar {
+  transform: scale(1.035) rotate(-0.75deg);
+  box-shadow: 0 18px 38px rgb(75 22 48 / 24%);
+}
+
+.conversation-card__online-dot,
+.conversation-presence--online > span,
+.conversation-contact__presence--online i {
+  animation: mbolo-presence-pulse 2.8s ease-in-out infinite;
+}
+
+.conversation-card__action {
+  color: var(--mbolo-primary) !important;
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-bg-soft) !important;
+  transition:
+    transform 240ms ease,
+    color 220ms ease,
+    background-color 220ms ease;
+}
+
+.conversation-card:hover .conversation-card__action {
+  color: white !important;
+  background: var(--mbolo-primary) !important;
+  transform: translateX(2px);
+}
+
+.conversation-shell {
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-surface-strong) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+  animation: mbolo-dialog-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.conversation-sidebar {
+  border-color: var(--mbolo-border) !important;
+  background: linear-gradient(
+    180deg,
+    var(--mbolo-bg-soft),
+    var(--mbolo-surface)
+  ) !important;
+}
+
+.conversation-sidebar__item {
+  transition:
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms ease,
+    background-color 220ms ease !important;
+}
+
+.conversation-sidebar__item:hover,
+.conversation-sidebar__item--active {
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-surface-strong) !important;
+  transform: translateX(3px) !important;
+}
+
+.conversation-panel,
+.conversation-messages {
+  background:
+    linear-gradient(rgb(255 255 255 / 84%), rgb(255 255 255 / 84%)),
+    radial-gradient(circle at 20% 10%, #f7dce8, transparent 35%) !important;
+}
+
+.conversation-header,
+.message-composer {
+  border-color: var(--mbolo-border) !important;
+  background: rgb(255 255 255 / 90%) !important;
+}
+
+.message-bubble {
+  animation: mbolo-message-arrival 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition:
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 260ms ease;
+}
+
+.message-bubble:hover {
+  transform: translateY(-2px);
+}
+
+.message-bubble--mine {
+  background: linear-gradient(135deg, #c23f76, #8d1f4e) !important;
+  box-shadow: 0 12px 28px rgb(143 31 79 / 20%);
+}
+
+.message-bubble--theirs {
+  color: var(--mbolo-text) !important;
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-surface-strong) !important;
+  box-shadow: var(--mbolo-shadow-sm);
+}
+
+.message-composer textarea {
+  color: var(--mbolo-text) !important;
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-bg-soft) !important;
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    background-color 220ms ease;
+}
+
+.message-composer textarea:focus {
+  border-color: var(--mbolo-primary) !important;
+  background: var(--mbolo-surface-strong) !important;
+  box-shadow: var(--mbolo-shadow-focus) !important;
+}
+
+.message-composer__controls > button {
+  background: linear-gradient(135deg, #c23f76, #8d1f4e) !important;
+  transition:
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 280ms ease;
+}
+
+.message-composer__controls > button:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.015);
+  box-shadow: 0 18px 36px rgb(143 31 79 / 26%);
+}
+
+:root[data-theme="dark"] .messages-page {
+  background:
+    radial-gradient(circle at 10% 8%, rgb(211 51 112 / 19%), transparent 30rem),
+    radial-gradient(
+      circle at 92% 24%,
+      rgb(243 193 124 / 7%),
+      transparent 27rem
+    ),
+    linear-gradient(180deg, #0d080c, #140c12) !important;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .messages-hero,
+    .messages-workspace,
+    .messages-hero__summary,
+    .messages-state-card,
+    .messages-empty-card,
+    .conversation-card,
+    .conversation-shell,
+    .conversation-state-card
+  ) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border) !important;
+  background: linear-gradient(145deg, #24161f, #171016) !important;
+}
+
+:root[data-theme="dark"] .conversation-card--unread {
+  background:
+    linear-gradient(90deg, rgb(255 118 168 / 15%), transparent 48%),
+    linear-gradient(145deg, #2b1924, #171016) !important;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .messages-hero__copy h1,
+    .messages-workspace__topbar h2,
+    .conversation-card__identity h3,
+    .conversation-contact__name-row h1,
+    .conversation-empty-state h2,
+    .conversation-state-card h1
+  ) {
+  color: var(--mbolo-text);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .messages-hero__copy > p,
+    .conversation-card__preview,
+    .conversation-card__metadata,
+    .conversation-contact__details,
+    .conversation-empty-state p,
+    .conversation-state-card p
+  ) {
+  color: var(--mbolo-muted) !important;
+}
+
+:root[data-theme="dark"] .messages-hero__trust span,
+:root[data-theme="dark"] .conversation-presence,
+:root[data-theme="dark"] .conversation-card__action,
+:root[data-theme="dark"] .conversation-sidebar__security,
+:root[data-theme="dark"] .conversation-messages__privacy-note,
+:root[data-theme="dark"] .conversation-typing-indicator {
+  color: var(--mbolo-muted);
+  border-color: var(--mbolo-border);
+  background: #2a1923 !important;
+}
+
+:root[data-theme="dark"] .conversation-sidebar {
+  background: linear-gradient(180deg, #21151d, #150d13) !important;
+}
+
+:root[data-theme="dark"] .conversation-panel,
+:root[data-theme="dark"] .conversation-messages {
+  background:
+    linear-gradient(rgb(18 11 16 / 90%), rgb(18 11 16 / 90%)),
+    radial-gradient(circle at 20% 10%, #5a243d, transparent 36%) !important;
+}
+
+:root[data-theme="dark"] .conversation-header,
+:root[data-theme="dark"] .message-composer {
+  background: rgb(24 15 21 / 94%) !important;
+}
+
+:root[data-theme="dark"] .message-bubble--theirs {
+  background: #2a1923 !important;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .conversation-header__profile-link,
+    .conversation-header__refresh-button,
+    .conversation-header__more-button
+  ) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border);
+  background: #2a1923;
+}
+
+@keyframes mbolo-message-arrival {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes mbolo-presence-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(38 156 104 / 0%);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(38 156 104 / 13%);
+  }
+}
+
 @keyframes mbolo-ambient-drift {
   from {
     transform: translate3d(-1.5%, -1%, 0) rotate(-1deg);
@@ -877,6 +1221,18 @@ body::before {
     .unmatch-dialog,
     .unmatch-dialog-backdrop,
     .matches-hero__summary-icon
+  ) {
+    animation: none !important;
+  }
+
+  :is(
+    .messages-hero,
+    .conversation-list-item,
+    .conversation-shell,
+    .message-bubble,
+    .conversation-card__online-dot,
+    .conversation-presence--online > span,
+    .conversation-contact__presence--online i
   ) {
     animation: none !important;
   }
