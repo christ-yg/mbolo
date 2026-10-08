@@ -659,15 +659,54 @@ class _ConversationPageState extends State<ConversationPage> {
   @override
   Widget build(BuildContext context) {
     final profile = widget.conversation.otherProfile;
+    final photo = profile.photos.isEmpty ? null : profile.photos.first;
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        titleSpacing: 0,
+        title: Row(
           children: [
-            Text(profile.displayName),
-            Text(
-              widget.conversation.online ? 'En ligne' : 'Hors ligne',
-              style: Theme.of(context).textTheme.labelSmall,
+            Hero(
+              tag: 'conversation-avatar-${widget.conversation.id}',
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: scheme.primaryContainer,
+                backgroundImage: photo != null && photo.imageUrl.isNotEmpty
+                    ? NetworkImage(photo.imageUrl)
+                    : null,
+                child: photo == null || photo.imageUrl.isEmpty
+                    ? const Icon(Icons.person_outline)
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 11),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.displayName,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: widget.conversation.online
+                            ? const Color(0xFF38A169)
+                            : scheme.outline,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      widget.conversation.online ? 'En ligne' : 'Hors ligne',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -695,47 +734,11 @@ class _ConversationPageState extends State<ConversationPage> {
                           itemCount: _messages.length,
                           itemBuilder: (context, index) {
                             final message = _messages[index];
-                            return Align(
-                              alignment: message.mine
-                                  ? Alignment.centerRight
-                                  : Alignment.centerLeft,
-                              child: Container(
-                                constraints: const BoxConstraints(maxWidth: 320),
-                                margin: const EdgeInsets.only(bottom: 10),
-                                padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-                                decoration: BoxDecoration(
-                                  color: message.mine
-                                      ? Theme.of(context).colorScheme.primaryContainer
-                                      : Theme.of(context).colorScheme.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(message.body),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          _time(message.createdAt),
-                                          style: Theme.of(context).textTheme.labelSmall,
-                                        ),
-                                        if (message.mine &&
-                                            message.readReceiptsAvailable) ...[
-                                          const SizedBox(width: 4),
-                                          Icon(
-                                            message.read
-                                                ? Icons.done_all
-                                                : Icons.done,
-                                            size: 15,
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            return _AnimatedMessageBubble(
+                              key: ValueKey<String>(message.id),
+                              message: message,
+                              time: _time(message.createdAt),
+                              order: index,
                             );
                           },
                         ),
@@ -748,41 +751,159 @@ class _ConversationPageState extends State<ConversationPage> {
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _composer,
-                      enabled: !_sending,
-                      minLines: 1,
-                      maxLines: 5,
-                      maxLength: 2000,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(
-                        hintText: 'Écris un message…',
-                        counterText: '',
-                      ),
-                      onSubmitted: (_) => _send(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    tooltip: 'Envoyer',
-                    onPressed: _sending ? null : _send,
-                    icon: _sending
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send),
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
+              decoration: BoxDecoration(
+                color: scheme.surface,
+                border: Border(top: BorderSide(color: scheme.outlineVariant)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x12000000),
+                    blurRadius: 20,
+                    offset: Offset(0, -8),
                   ),
                 ],
               ),
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _composer,
+                        enabled: !_sending,
+                        minLines: 1,
+                        maxLines: 5,
+                        maxLength: 2000,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          hintText: 'Écris un message…',
+                          counterText: '',
+                          filled: true,
+                          fillColor: scheme.surfaceContainerHighest,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onSubmitted: (_) => _send(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      tooltip: 'Envoyer',
+                      onPressed: _sending ? null : _send,
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size.square(52),
+                      ),
+                      icon: _sending
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_upward_rounded),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedMessageBubble extends StatelessWidget {
+  const _AnimatedMessageBubble({
+    super.key,
+    required this.message,
+    required this.time,
+    required this.order,
+  });
+
+  final ChatMessage message;
+  final String time;
+  final int order;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final mine = message.mine;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: Duration(milliseconds: 260 + (order.clamp(0, 6) * 35)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset((mine ? 18 : -18) * (1 - value), 5 * (1 - value)),
+          child: child,
+        ),
+      ),
+      child: Align(
+        alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 320),
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.fromLTRB(15, 11, 15, 8),
+          decoration: BoxDecoration(
+            gradient: mine
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFC52C61), Color(0xFF8B1744)],
+                  )
+                : null,
+            color: mine ? null : scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(20),
+              topRight: const Radius.circular(20),
+              bottomLeft: Radius.circular(mine ? 20 : 5),
+              bottomRight: Radius.circular(mine ? 5 : 20),
+            ),
+            boxShadow: mine
+                ? const [
+                    BoxShadow(
+                      color: Color(0x2E8B1744),
+                      blurRadius: 18,
+                      offset: Offset(0, 7),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                message.body,
+                style: TextStyle(color: mine ? Colors.white : scheme.onSurface),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    time,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: mine ? Colors.white70 : scheme.onSurfaceVariant,
+                        ),
+                  ),
+                  if (mine && message.readReceiptsAvailable) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      message.read ? Icons.done_all : Icons.done,
+                      size: 15,
+                      color: message.read
+                          ? const Color(0xFF9FE7FF)
+                          : Colors.white70,
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

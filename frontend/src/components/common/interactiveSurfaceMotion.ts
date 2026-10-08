@@ -3,6 +3,7 @@ const interactiveSelector = [
   ".discovery-information-card",
   ".match-card-with-detail",
   ".conversation-list-item",
+  ".message-bubble",
 ].join(",");
 
 type Surface = HTMLElement & { dataset: DOMStringMap };
