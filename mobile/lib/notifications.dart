@@ -294,34 +294,39 @@ class _AnimatedNotificationTile extends StatelessWidget {
                     ),
                   ],
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
-            enabled: !working,
-            onTap: onTap,
-            leading: CircleAvatar(
-              backgroundColor: item.read
-                  ? scheme.surfaceContainerHighest
-                  : scheme.primary.withValues(alpha: 0.16),
-              child: Icon(icon, color: scheme.primary),
-            ),
-            title: Text(
-              item.title,
-              style: TextStyle(
-                fontWeight: item.read ? FontWeight.w600 : FontWeight.w900,
+          child: Material(
+            type: MaterialType.transparency,
+            borderRadius: BorderRadius.circular(24),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(16),
+              enabled: !working,
+              onTap: onTap,
+              leading: CircleAvatar(
+                backgroundColor: item.read
+                    ? scheme.surfaceContainerHighest
+                    : scheme.primary.withValues(alpha: 0.16),
+                child: Icon(icon, color: scheme.primary),
               ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (item.body.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(item.body),
+              title: Text(
+                item.title,
+                style: TextStyle(
+                  fontWeight: item.read ? FontWeight.w600 : FontWeight.w900,
+                ),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (item.body.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(item.body),
+                  ],
+                  const SizedBox(height: 7),
+                  Text(date, style: Theme.of(context).textTheme.labelSmall),
                 ],
-                const SizedBox(height: 7),
-                Text(date, style: Theme.of(context).textTheme.labelSmall),
-              ],
+              ),
+              trailing: item.read ? null : const Badge(smallSize: 9),
             ),
-            trailing: item.read ? null : const Badge(smallSize: 9),
           ),
         ),
       ),
