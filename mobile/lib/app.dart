@@ -810,6 +810,7 @@ class _AuthHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).height < 720;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.96, end: 1),
       duration: const Duration(milliseconds: 620),
@@ -819,7 +820,7 @@ class _AuthHero extends StatelessWidget {
         child: child,
       ),
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(compact ? 16 : 24),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
@@ -835,55 +836,97 @@ class _AuthHero extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.14),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.24),
+        child: compact
+            ? Row(
+                children: [
+                  _AuthHeroIcon(icon: icon, size: 46),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFFFFEAF0),
+                            height: 1.3,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Icon(icon, color: Colors.white, size: 28),
-                ),
-                const Spacer(),
-                const Text(
-                  'MBOLO',
-                  style: TextStyle(
-                    color: Color(0xFFFFD9E4),
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2.4,
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _AuthHeroIcon(icon: icon, size: 52),
+                      const Spacer(),
+                      const Text(
+                        'MBOLO',
+                        style: TextStyle(
+                          color: Color(0xFFFFD9E4),
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.4,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.8,
+                  const SizedBox(height: 24),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.8,
+                        ),
                   ),
-            ),
-            const SizedBox(height: 9),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                color: Color(0xFFFFEAF0),
-                height: 1.45,
-                fontSize: 15,
+                  const SizedBox(height: 9),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Color(0xFFFFEAF0),
+                      height: 1.45,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
+    );
+  }
+}
+
+class _AuthHeroIcon extends StatelessWidget {
+  const _AuthHeroIcon({required this.icon, required this.size});
+
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+      ),
+      child: Icon(icon, color: Colors.white, size: size * 0.54),
     );
   }
 }
