@@ -2406,22 +2406,34 @@ class _PreferencesPageState extends State<_PreferencesPage> {
                         'Tes préférences restent privées et peuvent être modifiées à tout moment.',
                   ),
                   const SizedBox(height: 24),
-                  Text(
-                    'Tranche d’âge : ${_ages.start.round()} à ${_ages.end.round()} ans',
-                    style: Theme.of(context).textTheme.titleMedium,
+                  _PreferenceSummary(
+                    minimumAge: _ages.start.round(),
+                    maximumAge: _ages.end.round(),
+                    selectedGenderCount: _preferredGenders.length,
                   ),
-                  RangeSlider(
-                    values: _ages,
-                    min: 18,
-                    max: 99,
-                    divisions: 81,
-                    labels: RangeLabels(
-                      '${_ages.start.round()} ans',
-                      '${_ages.end.round()} ans',
+                  const SizedBox(height: 24),
+                  Text(
+                    'Tranche d’âge',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  Semantics(
+                    label:
+                        'Âges recherchés, de ${_ages.start.round()} à ${_ages.end.round()} ans',
+                    child: RangeSlider(
+                      values: _ages,
+                      min: 18,
+                      max: 99,
+                      divisions: 81,
+                      labels: RangeLabels(
+                        '${_ages.start.round()} ans',
+                        '${_ages.end.round()} ans',
+                      ),
+                      onChanged: _saving
+                          ? null
+                          : (values) => setState(() => _ages = values),
                     ),
-                    onChanged: _saving
-                        ? null
-                        : (values) => setState(() => _ages = values),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -2437,6 +2449,12 @@ class _PreferencesPageState extends State<_PreferencesPage> {
                           (entry) => FilterChip(
                             label: Text(entry.value),
                             selected: _preferredGenders.contains(entry.key),
+                            avatar: Icon(
+                              _preferredGenders.contains(entry.key)
+                                  ? Icons.check_rounded
+                                  : Icons.add_rounded,
+                              size: 18,
+                            ),
                             onSelected: _saving
                                 ? null
                                 : (_) => _toggleGender(entry.key),
@@ -2486,6 +2504,88 @@ class _PreferencesPageState extends State<_PreferencesPage> {
   }
 }
 
+class _PreferenceSummary extends StatelessWidget {
+  const _PreferenceSummary({
+    required this.minimumAge,
+    required this.maximumAge,
+    required this.selectedGenderCount,
+  });
+
+  final int minimumAge;
+  final int maximumAge;
+  final int selectedGenderCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      label:
+          'Résumé des préférences. De $minimumAge à $maximumAge ans. $selectedGenderCount catégorie sélectionnée.',
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _PreferenceMetric(
+                icon: Icons.cake_outlined,
+                value: '$minimumAge–$maximumAge',
+                label: 'ans recherchés',
+              ),
+            ),
+            Container(width: 1, height: 48, color: scheme.outlineVariant),
+            Expanded(
+              child: _PreferenceMetric(
+                icon: Icons.favorite_outline_rounded,
+                value: '$selectedGenderCount',
+                label: 'choix sélectionné${selectedGenderCount > 1 ? 's' : ''}',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PreferenceMetric extends StatelessWidget {
+  const _PreferenceMetric({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Icon(icon, color: scheme.primary),
+        const SizedBox(height: 7),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+      ],
+    );
+  }
+}
+
 class _EditorHero extends StatelessWidget {
   const _EditorHero({
     required this.icon,
@@ -2504,9 +2604,12 @@ class _EditorHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).height < 720;
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 640),
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 640),
       curve: Curves.easeOutCubic,
       builder: (context, value, child) => Opacity(
         opacity: value,

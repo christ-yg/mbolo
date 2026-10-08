@@ -385,6 +385,7 @@ class _SecurityPageState extends State<SecurityPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -392,7 +393,9 @@ class _SecurityPageState extends State<SecurityPage> {
         children: [
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 650),
+            duration: reduceMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 650),
             curve: Curves.easeOutBack,
             builder: (context, value, child) => Transform.translate(
               offset: Offset(0, 18 * (1 - value)),
@@ -542,7 +545,11 @@ class _SecurityPageState extends State<SecurityPage> {
                 final session = entry.$2;
                 return TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: 1),
-                  duration: Duration(milliseconds: 300 + index.clamp(0, 5) * 55),
+                  duration: reduceMotion
+                      ? Duration.zero
+                      : Duration(
+                          milliseconds: 300 + index.clamp(0, 5) * 55,
+                        ),
                   curve: Curves.easeOutCubic,
                   builder: (context, value, child) => Opacity(
                     opacity: value,
