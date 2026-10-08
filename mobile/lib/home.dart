@@ -217,54 +217,31 @@ class _MboloHomeState extends State<MboloHome> {
       return const _DiscoverySkeleton();
     }
     if (_discoveryError != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.cloud_off_outlined, size: 52),
-              const SizedBox(height: 12),
-              Text(_discoveryError!, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _loadDiscovery,
-                child: const Text('Réessayer'),
-              ),
-            ],
-          ),
-        ),
+      return _DiscoveryStateCard(
+        icon: Icons.cloud_off_rounded,
+        eyebrow: 'CONNEXION INTERROMPUE',
+        title: 'Impossible de charger les profils',
+        message: _discoveryError!,
+        primaryLabel: 'Réessayer',
+        primaryIcon: Icons.refresh_rounded,
+        onPrimary: _loadDiscovery,
       );
     }
     if (_profiles.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.favorite_border, size: 56),
-              const SizedBox(height: 12),
-              const Text(
-                'Tu as vu tous les profils disponibles pour le moment.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton(
-                onPressed: _loadDiscovery,
-                child: const Text('Actualiser'),
-              ),
-              if (_rewindState?.available == true) ...[
-                const SizedBox(height: 10),
-                FilledButton.icon(
-                  onPressed: _deciding ? null : _rewind,
-                  icon: const Icon(Icons.replay_rounded),
-                  label: const Text('Revenir au dernier profil'),
-                ),
-              ],
-            ],
-          ),
-        ),
+      return _DiscoveryStateCard(
+        icon: Icons.favorite_rounded,
+        eyebrow: 'TU ES À JOUR',
+        title: 'Toutes les belles découvertes ont été vues',
+        message:
+            'De nouveaux profils arrivent régulièrement. Reviens bientôt ou actualise maintenant.',
+        primaryLabel: 'Actualiser',
+        primaryIcon: Icons.auto_awesome_rounded,
+        onPrimary: _loadDiscovery,
+        secondaryLabel: _rewindState?.available == true
+            ? 'Revenir au dernier profil'
+            : null,
+        onSecondary:
+            _rewindState?.available == true && !_deciding ? _rewind : null,
       );
     }
     return _DiscoverPage(
@@ -318,7 +295,10 @@ class _MboloHomeState extends State<MboloHome> {
           ),
           IconButton(
             tooltip: 'Notifications',
-            onPressed: _openNotifications,
+            onPressed: () async {
+              await HapticFeedback.selectionClick();
+              await _openNotifications();
+            },
             icon: Badge(
               isLabelVisible: _notificationUnread > 0,
               label: Text(
@@ -329,7 +309,10 @@ class _MboloHomeState extends State<MboloHome> {
           ),
           IconButton(
             tooltip: 'Sécurité',
-            onPressed: () => setState(() => _tab = 2),
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              setState(() => _tab = 2);
+            },
             icon: const Icon(Icons.shield_outlined),
           ),
         ],
@@ -392,6 +375,139 @@ class _MboloHomeState extends State<MboloHome> {
             label: 'Profil',
           ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiscoveryStateCard extends StatelessWidget {
+  const _DiscoveryStateCard({
+    required this.icon,
+    required this.eyebrow,
+    required this.title,
+    required this.message,
+    required this.primaryLabel,
+    required this.primaryIcon,
+    required this.onPrimary,
+    this.secondaryLabel,
+    this.onSecondary,
+  });
+
+  final IconData icon;
+  final String eyebrow;
+  final String title;
+  final String message;
+  final String primaryLabel;
+  final IconData primaryIcon;
+  final VoidCallback onPrimary;
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(22),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 620),
+          curve: Curves.easeOutBack,
+          builder: (context, value, child) => Opacity(
+            opacity: value.clamp(0, 1),
+            child: Transform.scale(scale: 0.94 + (value * 0.06), child: child),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 460),
+            padding: const EdgeInsets.all(26),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  scheme.surface,
+                  scheme.primaryContainer.withValues(alpha: 0.62),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: scheme.primary.withValues(alpha: 0.18),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.primary.withValues(alpha: 0.12),
+                  blurRadius: 36,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 74,
+                  height: 74,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE05D7D), Color(0xFF8B1744)],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x358B1744),
+                        blurRadius: 22,
+                        offset: Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 36),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  eyebrow,
+                  style: TextStyle(
+                    color: scheme.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.7,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                      ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: scheme.onSurfaceVariant, height: 1.45),
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: onPrimary,
+                    icon: Icon(primaryIcon),
+                    label: Text(primaryLabel),
+                  ),
+                ),
+                if (secondaryLabel != null) ...[
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: onSecondary,
+                    icon: const Icon(Icons.replay_rounded),
+                    label: Text(secondaryLabel!),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
