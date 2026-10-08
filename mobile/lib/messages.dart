@@ -149,50 +149,10 @@ class _MessagesPageState extends State<MessagesPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 96),
         children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFFFE3EA), Color(0xFFFFF1E9)],
-              ),
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tes connexions',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${_matches.length} match${_matches.length > 1 ? 's' : ''} · ${_likes.length} intérêt${_likes.length > 1 ? 's' : ''}',
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  width: 54,
-                  height: 54,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.forum_rounded,
-                    color: Color(0xFFB51F50),
-                    size: 28,
-                  ),
-                ),
-              ],
-            ),
+          _MessagesHero(
+            matchCount: _matches.length,
+            likeCount: _likes.length,
+          ),
           ),
           const SizedBox(height: 22),
           SegmentedButton<int>(
@@ -215,9 +175,30 @@ class _MessagesPageState extends State<MessagesPage> {
             showSelectedIcon: false,
           ),
           const SizedBox(height: 22),
-          if (_section == 0) ..._messageSection(context),
-          if (_section == 1) ..._matchSection(context),
-          if (_section == 2) ..._likeSection(context),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 340),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0.045, 0),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            ),
+            child: Column(
+              key: ValueKey<int>(_section),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: switch (_section) {
+                1 => _matchSection(context),
+                2 => _likeSection(context),
+                _ => _messageSection(context),
+              },
+            ),
+          ),
         ],
       ),
     );
@@ -478,6 +459,77 @@ class _MessagesPageState extends State<MessagesPage> {
             );
           }),
       ];
+}
+
+class _MessagesHero extends StatelessWidget {
+  const _MessagesHero({required this.matchCount, required this.likeCount});
+
+  final int matchCount;
+  final int likeCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 680),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) => Transform.translate(
+        offset: Offset(0, 18 * (1 - value)),
+        child: Opacity(opacity: value.clamp(0, 1), child: child),
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF6E1235), Color(0xFFB51F50), Color(0xFFE56B6F)],
+          ),
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x3DB51F50),
+              blurRadius: 28,
+              offset: Offset(0, 14),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tes connexions',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '$matchCount match${matchCount > 1 ? 's' : ''} · $likeCount intérêt${likeCount > 1 ? 's' : ''}',
+                    style: const TextStyle(color: Color(0xFFFFE9F0)),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+              ),
+              child: const Icon(Icons.forum_rounded, color: Colors.white, size: 29),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ConnectionsEmpty extends StatelessWidget {

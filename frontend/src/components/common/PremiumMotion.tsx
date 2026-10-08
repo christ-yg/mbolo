@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { bindInteractiveSurfaceMotion } from "./interactiveSurfaceMotion";
 
 const revealSelector = [
   ".route-stage main > section",
@@ -17,11 +18,14 @@ export function PremiumMotion() {
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
-    const elements = [...document.querySelectorAll<HTMLElement>(revealSelector)];
+    const elements = [
+      ...document.querySelectorAll<HTMLElement>(revealSelector),
+    ];
+    const releaseInteractiveMotion = bindInteractiveSurfaceMotion();
 
     if (reducedMotion || !("IntersectionObserver" in window)) {
       elements.forEach((element) => element.classList.add("is-motion-visible"));
-      return;
+      return releaseInteractiveMotion;
     }
 
     elements.forEach((element, index) => {
@@ -41,7 +45,10 @@ export function PremiumMotion() {
     );
 
     elements.forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      releaseInteractiveMotion();
+    };
   }, [location.pathname]);
 
   return null;

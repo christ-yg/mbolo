@@ -947,9 +947,34 @@ class _SwipeableProfileCardState extends State<_SwipeableProfileCard> {
         transform: Matrix4.identity()
           ..translateByDouble(_drag, _drag.abs() * 0.025, 0, 1)
           ..rotateZ(_drag / width * 0.075),
-        child: Stack(
-          children: [
-            widget.child,
+        child: Transform.scale(
+          scale: 1 - (progress * 0.025),
+          child: Stack(
+            children: [
+              widget.child,
+              if (_drag.abs() > 8)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: progress * 0.24,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(28),
+                          gradient: LinearGradient(
+                            begin: liked ? Alignment.centerLeft : Alignment.centerRight,
+                            end: liked ? Alignment.centerRight : Alignment.centerLeft,
+                            colors: [
+                              liked
+                                  ? const Color(0xFFB51F50)
+                                  : const Color(0xFF20242A),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             if (_drag.abs() > 8)
               Positioned(
                 top: 28,
@@ -982,7 +1007,8 @@ class _SwipeableProfileCardState extends State<_SwipeableProfileCard> {
                   ),
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
