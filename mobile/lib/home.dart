@@ -648,6 +648,62 @@ class _DiscoverPage extends StatelessWidget {
                     .toList(growable: false),
               ),
             ],
+            const SizedBox(height: 26),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primaryContainer,
+                    Theme.of(context)
+                        .colorScheme
+                        .secondaryContainer
+                        .withValues(alpha: 0.72),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Quelle est ton impression ?',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: working
+                              ? null
+                              : () {
+                                  Navigator.of(context).pop();
+                                  onNext(liked: false);
+                                },
+                          icon: const Icon(Icons.close_rounded),
+                          label: const Text('Passer'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: working
+                              ? null
+                              : () {
+                                  Navigator.of(context).pop();
+                                  onNext(liked: true);
+                                },
+                          icon: const Icon(Icons.favorite_rounded),
+                          label: const Text('J’aime'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

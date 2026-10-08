@@ -457,6 +457,22 @@ class _SessionScreenState extends State<SessionScreen> {
     }
   }
 
+  String get _subtitle {
+    if (_challenge != null) {
+      return 'Une dernière vérification protège ton compte et tes rencontres.';
+    }
+    return switch (_mode) {
+      _AuthMode.register =>
+        'Crée un profil authentique et découvre des rencontres sincères.',
+      _AuthMode.reset =>
+        'Récupère ton accès grâce à un lien sécurisé et temporaire.',
+      _AuthMode.resetConfirm =>
+        'Choisis un mot de passe fort pour protéger ton expérience.',
+      _AuthMode.login =>
+        'Des connexions vraies, une expérience sûre, pensée pour toi.',
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_restoring) {
@@ -498,17 +514,33 @@ class _SessionScreenState extends State<SessionScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(
-                      Icons.favorite_outline,
-                      size: 56,
-                      color: Color(0xFF9D3451),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 420),
+                      switchInCurve: Curves.easeOutCubic,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0.04, 0),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      ),
+                      child: _AuthHero(
+                        key: ValueKey<String>('${_mode.name}-${_challenge != null}'),
+                        title: _title,
+                        subtitle: _subtitle,
+                        icon: _challenge != null
+                            ? Icons.verified_user_rounded
+                            : _mode == _AuthMode.register
+                                ? Icons.favorite_rounded
+                                : _mode == _AuthMode.login
+                                    ? Icons.auto_awesome_rounded
+                                    : Icons.lock_reset_rounded,
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    Text(
-                      _title,
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 12),
                     if (_challenge != null) ...[
                       Text(
                         'Entre le code envoyé à ${_challenge!.maskedEmail}.',
@@ -527,14 +559,6 @@ class _SessionScreenState extends State<SessionScreen> {
                             : null,
                       ),
                     ] else ...[
-                      Text(_mode == _AuthMode.login
-                          ? 'Retrouve ton compte MBOLO, comme sur le site.'
-                          : _mode == _AuthMode.register
-                              ? 'Rejoins une communauté pensée pour des rencontres sincères.'
-                              : _mode == _AuthMode.reset
-                                  ? 'Nous t’enverrons un lien sécurisé si le compte existe.'
-                                  : 'Colle le lien sécurisé reçu par e-mail. Il ne fonctionne qu’une fois.'),
-                      const SizedBox(height: 24),
                       if (_mode == _AuthMode.resetConfirm) ...[
                         TextFormField(
                           controller: _resetLink,
@@ -766,6 +790,98 @@ class _SessionScreenState extends State<SessionScreen> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthHero extends StatelessWidget {
+  const _AuthHero({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.96, end: 1),
+      duration: const Duration(milliseconds: 620),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) => Transform.scale(
+        scale: value,
+        child: child,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF351020), Color(0xFF851843), Color(0xFFD95675)],
+          ),
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x428B1744),
+              blurRadius: 36,
+              offset: Offset(0, 16),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.24),
+                    ),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 28),
+                ),
+                const Spacer(),
+                const Text(
+                  'MBOLO',
+                  style: TextStyle(
+                    color: Color(0xFFFFD9E4),
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.4,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.8,
+                  ),
+            ),
+            const SizedBox(height: 9),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: Color(0xFFFFEAF0),
+                height: 1.45,
+                fontSize: 15,
+              ),
+            ),
+          ],
         ),
       ),
     );
