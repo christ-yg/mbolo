@@ -2309,6 +2309,7 @@ class _EditorHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).height < 720;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
       duration: const Duration(milliseconds: 640),
@@ -2321,7 +2322,7 @@ class _EditorHero extends StatelessWidget {
         ),
       ),
       child: Container(
-        padding: const EdgeInsets.all(22),
+        padding: EdgeInsets.all(compact ? 16 : 22),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
@@ -2337,7 +2338,77 @@ class _EditorHero extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
+        child: compact
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.14),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(icon, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              subtitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFFFFEAF0),
+                                height: 1.25,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (progressLabel != null) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          progressLabel!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (progress != null) ...[
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: progress!.clamp(0, 1),
+                        minHeight: 6,
+                        backgroundColor: Colors.white24,
+                        color: const Color(0xFFFFD6A3),
+                      ),
+                    ),
+                  ],
+                ],
+              )
+            : Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
