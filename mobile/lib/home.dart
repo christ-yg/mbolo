@@ -2207,7 +2207,7 @@ class _PreferencesPageState extends State<_PreferencesPage> {
                 children: [
                   const _EditorHero(
                     icon: Icons.tune_rounded,
-                    title: 'Affinons tes découvertes',
+                    title: 'Choisis qui tu souhaites découvrir',
                     subtitle:
                         'Tes préférences restent privées et peuvent être modifiées à tout moment.',
                   ),
