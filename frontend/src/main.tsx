@@ -18,17 +18,15 @@ import "./styles/premium-foundation.css";
 import "./styles/compact-typography.css";
 import "./styles/discovery-premium.css";
 import "./styles/matches-premium.css";
-
+import "./styles/brand-elevation.css";
 
 const rootElement = document.getElementById("root");
-
 
 if (rootElement === null) {
   throw new Error(
     "Impossible de démarrer Mbolo : l'élément HTML #root est absent.",
   );
 }
-
 
 createRoot(rootElement).render(
   <StrictMode>

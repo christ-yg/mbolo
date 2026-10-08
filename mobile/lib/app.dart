@@ -3,6 +3,67 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'auth_contract.dart';
 import 'home.dart';
 
+TextTheme _mboloTextTheme(Brightness brightness) {
+  final typography = Typography.material2021();
+  final base = brightness == Brightness.dark
+      ? typography.white
+      : typography.black;
+  return base.copyWith(
+    displayLarge: base.displayLarge?.copyWith(
+      fontWeight: FontWeight.w800,
+      height: 1.02,
+      letterSpacing: -1.8,
+    ),
+    displayMedium: base.displayMedium?.copyWith(
+      fontWeight: FontWeight.w800,
+      height: 1.04,
+      letterSpacing: -1.45,
+    ),
+    displaySmall: base.displaySmall?.copyWith(
+      fontWeight: FontWeight.w800,
+      height: 1.06,
+      letterSpacing: -1.15,
+    ),
+    headlineLarge: base.headlineLarge?.copyWith(
+      fontWeight: FontWeight.w800,
+      height: 1.08,
+      letterSpacing: -1.05,
+    ),
+    headlineMedium: base.headlineMedium?.copyWith(
+      fontWeight: FontWeight.w800,
+      height: 1.1,
+      letterSpacing: -.85,
+    ),
+    headlineSmall: base.headlineSmall?.copyWith(
+      fontWeight: FontWeight.w800,
+      height: 1.13,
+      letterSpacing: -.55,
+    ),
+    titleLarge: base.titleLarge?.copyWith(
+      fontWeight: FontWeight.w800,
+      height: 1.18,
+      letterSpacing: -.35,
+    ),
+    titleMedium: base.titleMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+      letterSpacing: -.18,
+    ),
+    titleSmall: base.titleSmall?.copyWith(
+      fontWeight: FontWeight.w700,
+      letterSpacing: -.08,
+    ),
+    bodyLarge: base.bodyLarge?.copyWith(height: 1.5, letterSpacing: -.12),
+    bodyMedium: base.bodyMedium?.copyWith(height: 1.48, letterSpacing: -.08),
+    bodySmall: base.bodySmall?.copyWith(height: 1.42),
+    labelLarge: base.labelLarge?.copyWith(
+      fontWeight: FontWeight.w800,
+      letterSpacing: -.08,
+    ),
+    labelMedium: base.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+    labelSmall: base.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+  );
+}
+
 class MboloApp extends StatefulWidget {
   const MboloApp({super.key, this.api, this.demo = false});
   final bool demo;
@@ -52,13 +113,14 @@ class _MboloAppState extends State<MboloApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
+        textTheme: _mboloTextTheme(Brightness.light),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFB51F50),
-          primary: const Color(0xFFB51F50),
-          secondary: const Color(0xFFFF6B6B),
-          surface: const Color(0xFFFFFBFC),
+          seedColor: const Color(0xFF9C2455),
+          primary: const Color(0xFF9C2455),
+          secondary: const Color(0xFFC88A3D),
+          surface: const Color(0xFFFFFCFD),
         ),
-        scaffoldBackgroundColor: const Color(0xFFFFF7F9),
+        scaffoldBackgroundColor: const Color(0xFFFFF8FA),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
             TargetPlatform.android: _MboloPageTransitionsBuilder(),
@@ -90,6 +152,10 @@ class _MboloAppState extends State<MboloApp> {
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
             minimumSize: const Size(0, 54),
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.15,
+            ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
             ),
@@ -116,14 +182,15 @@ class _MboloAppState extends State<MboloApp> {
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
+        textTheme: _mboloTextTheme(Brightness.dark),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFE95C8D),
+          seedColor: const Color(0xFFFF76A8),
           brightness: Brightness.dark,
-          primary: const Color(0xFFFF8FB5),
-          secondary: const Color(0xFFFFB36B),
-          surface: const Color(0xFF21151D),
+          primary: const Color(0xFFFF76A8),
+          secondary: const Color(0xFFF3C17C),
+          surface: const Color(0xFF1C1219),
         ),
-        scaffoldBackgroundColor: const Color(0xFF120C11),
+        scaffoldBackgroundColor: const Color(0xFF0D080C),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
             TargetPlatform.android: _MboloPageTransitionsBuilder(),
@@ -131,28 +198,45 @@ class _MboloAppState extends State<MboloApp> {
           },
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF120C11),
+          backgroundColor: Color(0xFF0D080C),
           surfaceTintColor: Colors.transparent,
           elevation: 0,
         ),
         cardTheme: const CardThemeData(
-          color: Color(0xFF21151D),
+          color: Color(0xFF1C1219),
           elevation: 0,
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(28)),
-            side: BorderSide(color: Color(0x33FF8FB5)),
+            side: BorderSide(color: Color(0x2EFFA4C4)),
           ),
         ),
         navigationBarTheme: const NavigationBarThemeData(
-          backgroundColor: Color(0xFF1B1118),
-          indicatorColor: Color(0xFF603047),
+          backgroundColor: Color(0xFF171016),
+          indicatorColor: Color(0xFF51263B),
           height: 76,
           elevation: 0,
         ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 54),
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.15,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+        ),
+        chipTheme: const ChipThemeData(
+          backgroundColor: Color(0xFF34202C),
+          side: BorderSide(color: Color(0x22FFA4C4)),
+          shape: StadiumBorder(),
+        ),
         inputDecorationTheme: const InputDecorationTheme(
           filled: true,
-          fillColor: Color(0xFF281A23),
+          fillColor: Color(0xFF21151D),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(18)),
             borderSide: BorderSide.none,
