@@ -40,6 +40,10 @@ class _MboloHomeState extends State<MboloHome> {
   int _notificationUnread = 0;
   SuperLikeState? _superLikeState;
   RewindState? _rewindState;
+  MemberProfile? _onboardingProfile;
+  List<ProfilePhoto> _onboardingPhotos = <ProfilePhoto>[];
+  DiscoveryPreferences? _onboardingPreferences;
+  bool _onboardingLoading = true;
   String? _discoveryError;
 
   @override
@@ -48,6 +52,44 @@ class _MboloHomeState extends State<MboloHome> {
     _loadDiscovery();
     _loadNotificationCount();
     _loadPremiumActions();
+    _loadOnboardingProgress();
+  }
+
+  Future<void> _loadOnboardingProgress() async {
+    try {
+      final profile = await widget.api.getProfile();
+      final photos = await widget.api.getPhotos();
+      final preferences = await widget.api.getPreferences();
+      if (!mounted) return;
+      setState(() {
+        _onboardingProfile = profile;
+        _onboardingPhotos = photos;
+        _onboardingPreferences = preferences;
+      });
+    } catch (_) {
+      // Le guide reste non bloquant si une ressource est indisponible.
+    } finally {
+      if (mounted) setState(() => _onboardingLoading = false);
+    }
+  }
+
+  bool get _profileComplete {
+    final profile = _onboardingProfile;
+    return profile != null &&
+        profile.displayName.trim().isNotEmpty &&
+        profile.birthDate.isNotEmpty &&
+        profile.gender.isNotEmpty &&
+        profile.city.isNotEmpty &&
+        profile.biography.trim().isNotEmpty &&
+        profile.datingIntent.isNotEmpty;
+  }
+
+  int get _onboardingCompleted {
+    var completed = widget.account.verified ? 1 : 0;
+    if (_profileComplete) completed++;
+    if (_onboardingPhotos.isNotEmpty) completed++;
+    if (_onboardingPreferences?.preferredGenders.isNotEmpty == true) completed++;
+    return completed;
   }
 
   Future<void> _loadPremiumActions() async {
@@ -176,6 +218,7 @@ class _MboloHomeState extends State<MboloHome> {
         builder: (context) => _ProfileEditorPage(api: widget.api),
       ),
     );
+    await _loadOnboardingProgress();
   }
 
   Future<void> _openPreferences() async {
@@ -184,6 +227,7 @@ class _MboloHomeState extends State<MboloHome> {
         builder: (context) => _PreferencesPage(api: widget.api),
       ),
     );
+    await _loadOnboardingProgress();
     await _loadDiscovery();
   }
 
@@ -193,6 +237,7 @@ class _MboloHomeState extends State<MboloHome> {
         builder: (context) => _PhotosPage(api: widget.api),
       ),
     );
+    await _loadOnboardingProgress();
   }
 
   Future<void> _openPremium() async {
@@ -270,6 +315,12 @@ class _MboloHomeState extends State<MboloHome> {
       ),
       _ProfilePage(
         account: widget.account,
+        onboardingCompleted: _onboardingCompleted,
+        onboardingLoading: _onboardingLoading,
+        profileComplete: _profileComplete,
+        hasPhoto: _onboardingPhotos.isNotEmpty,
+        hasPreferences:
+            _onboardingPreferences?.preferredGenders.isNotEmpty == true,
         onLogout: widget.onLogout,
         onEditProfile: _openProfileEditor,
         onEditPhotos: _openPhotos,
@@ -1425,6 +1476,11 @@ class _ProfilePhotoFallback extends StatelessWidget {
 class _ProfilePage extends StatelessWidget {
   const _ProfilePage({
     required this.account,
+    required this.onboardingCompleted,
+    required this.onboardingLoading,
+    required this.profileComplete,
+    required this.hasPhoto,
+    required this.hasPreferences,
     required this.onLogout,
     required this.onEditProfile,
     required this.onEditPhotos,
@@ -1433,6 +1489,11 @@ class _ProfilePage extends StatelessWidget {
     required this.onShowcase,
   });
   final Account account;
+  final int onboardingCompleted;
+  final bool onboardingLoading;
+  final bool profileComplete;
+  final bool hasPhoto;
+  final bool hasPreferences;
   final Future<void> Function() onLogout;
   final VoidCallback onEditProfile;
   final VoidCallback onEditPhotos;
@@ -1443,12 +1504,15 @@ class _ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).height < 720;
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
       children: [
         TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0, end: 1),
-          duration: const Duration(milliseconds: 650),
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 650),
           curve: Curves.easeOutBack,
           builder: (context, value, child) => Transform.scale(
             scale: 0.96 + (0.04 * value),
@@ -1536,6 +1600,18 @@ class _ProfilePage extends StatelessWidget {
             ],
           ),
         ],
+        const SizedBox(height: 18),
+        _OnboardingProgressCard(
+          completed: onboardingCompleted,
+          loading: onboardingLoading,
+          emailVerified: account.verified,
+          profileComplete: profileComplete,
+          hasPhoto: hasPhoto,
+          hasPreferences: hasPreferences,
+          onEditProfile: onEditProfile,
+          onEditPhotos: onEditPhotos,
+          onEditPreferences: onEditPreferences,
+        ),
         const SizedBox(height: 26),
         Text(
           'Mon espace',
@@ -1608,6 +1684,148 @@ class _ProfilePage extends StatelessWidget {
           label: const Text('Se déconnecter'),
         ),
       ],
+    );
+  }
+}
+
+class _OnboardingProgressCard extends StatelessWidget {
+  const _OnboardingProgressCard({
+    required this.completed,
+    required this.loading,
+    required this.emailVerified,
+    required this.profileComplete,
+    required this.hasPhoto,
+    required this.hasPreferences,
+    required this.onEditProfile,
+    required this.onEditPhotos,
+    required this.onEditPreferences,
+  });
+
+  final int completed;
+  final bool loading;
+  final bool emailVerified;
+  final bool profileComplete;
+  final bool hasPhoto;
+  final bool hasPreferences;
+  final VoidCallback onEditProfile;
+  final VoidCallback onEditPhotos;
+  final VoidCallback onEditPreferences;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final progress = completed / 4;
+    final finished = completed == 4;
+    return Semantics(
+      label: loading
+          ? 'Calcul de la complétion du profil'
+          : 'Profil complété à ${(progress * 100).round()} pour cent',
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: finished
+                          ? const Color(0xFF247A58).withValues(alpha: 0.14)
+                          : scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Icon(
+                      finished ? Icons.verified_rounded : Icons.route_rounded,
+                      color: finished ? const Color(0xFF247A58) : scheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          finished ? 'Ton profil est prêt' : 'Prépare tes rencontres',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                        Text(
+                          loading ? 'Vérification en cours…' : '$completed étape${completed > 1 ? 's' : ''} sur 4',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    loading ? '…' : '${(progress * 100).round()}%',
+                    style: TextStyle(
+                      color: scheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 15),
+              LinearProgressIndicator(
+                value: loading ? null : progress,
+                minHeight: 7,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _OnboardingStep(label: 'E-mail', done: emailVerified),
+                  _OnboardingStep(
+                    label: 'Profil',
+                    done: profileComplete,
+                    onTap: profileComplete ? null : onEditProfile,
+                  ),
+                  _OnboardingStep(
+                    label: 'Photo',
+                    done: hasPhoto,
+                    onTap: hasPhoto ? null : onEditPhotos,
+                  ),
+                  _OnboardingStep(
+                    label: 'Préférences',
+                    done: hasPreferences,
+                    onTap: hasPreferences ? null : onEditPreferences,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingStep extends StatelessWidget {
+  const _OnboardingStep({required this.label, required this.done, this.onTap});
+
+  final String label;
+  final bool done;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: Icon(
+        done ? Icons.check_circle_rounded : Icons.arrow_forward_rounded,
+        size: 18,
+      ),
+      label: Text(label),
+      onPressed: onTap,
+      backgroundColor: done
+          ? const Color(0xFF247A58).withValues(alpha: 0.12)
+          : null,
     );
   }
 }
