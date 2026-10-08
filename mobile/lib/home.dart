@@ -1326,6 +1326,7 @@ class _ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).height < 720;
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
       children: [
@@ -1395,28 +1396,30 @@ class _ProfilePage extends StatelessWidget {
           ),
           ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _ProfileTrustMetric(
-                icon: account.verified
-                    ? Icons.verified_rounded
-                    : Icons.mark_email_unread_outlined,
-                label: account.verified ? 'Profil vérifié' : 'À vérifier',
-                accent: account.verified,
+        if (!compact) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _ProfileTrustMetric(
+                  icon: account.verified
+                      ? Icons.verified_rounded
+                      : Icons.mark_email_unread_outlined,
+                  label: account.verified ? 'Profil vérifié' : 'À vérifier',
+                  accent: account.verified,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: _ProfileTrustMetric(
-                icon: Icons.lock_rounded,
-                label: 'Données protégées',
-                accent: true,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: _ProfileTrustMetric(
+                  icon: Icons.lock_rounded,
+                  label: 'Données protégées',
+                  accent: true,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
         const SizedBox(height: 26),
         Text(
           'Mon espace',
