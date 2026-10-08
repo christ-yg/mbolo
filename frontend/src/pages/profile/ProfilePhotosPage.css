@@ -12,6 +12,68 @@
   color: var(--photos-ink);
 }
 
+/* Galerie nocturne : les images restent prioritaires, les contrôles restent nets. */
+:root[data-theme="dark"] .profile-photos-page,
+:root[data-theme="dark"] .profile-photos-state {
+  color: var(--mbolo-text, #fff8fb);
+  background:
+    radial-gradient(circle at 88% 5%, rgb(191 49 108 / 20%), transparent 30rem),
+    linear-gradient(180deg, #0d080c, #140c12);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .profile-photos-hero,
+    .profile-photo-upload,
+    .profile-photos-gallery-section,
+    .profile-photos-security-note,
+    .profile-photo-dialog,
+    .profile-photo-upload__preview-card,
+    .profile-photos-empty
+  ) {
+  color: var(--mbolo-text, #fff8fb);
+  border-color: var(--mbolo-border, rgb(255 190 214 / 14%));
+  background: linear-gradient(145deg, #24161f, #171016);
+  box-shadow: 0 30px 82px rgb(0 0 0 / 38%);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .profile-photos-hero__summary,
+    .profile-photo-upload__picker,
+    .profile-photo-upload__rules
+  ) {
+  color: #f9dce8;
+  border-color: var(--mbolo-border, rgb(255 190 214 / 14%));
+  background: rgb(255 255 255 / 5%);
+}
+
+:root[data-theme="dark"] .profile-photo-card {
+  color: var(--mbolo-text, #fff8fb);
+  border-color: var(--mbolo-border, rgb(255 190 214 / 14%));
+  background: #21151d;
+  box-shadow: 0 18px 46px rgb(0 0 0 / 30%);
+}
+
+:root[data-theme="dark"] .profile-photo-card--primary {
+  border-color: rgb(255 150 190 / 38%);
+  box-shadow: 0 24px 58px rgb(137 24 72 / 28%);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .profile-photo-upload__copy p,
+    .profile-photo-upload__preview-copy p,
+    .profile-photo-card__body p
+  ) {
+  color: var(--mbolo-muted, #d6c2cc);
+}
+
+:root[data-theme="dark"] .profile-photo-dialog-backdrop {
+  background: rgb(5 2 4 / 78%);
+  backdrop-filter: blur(12px);
+}
+
 .profile-photos-page * {
   box-sizing: border-box;
 }
@@ -37,8 +99,17 @@
   border: 1px solid var(--photos-line);
   border-radius: 40px;
   background:
-    radial-gradient(circle at 86% 84%, rgba(198, 63, 120, 0.15) 0 9%, transparent 9.5%),
-    radial-gradient(circle at 86% 84%, transparent 0 18%, rgba(198, 63, 120, 0.08) 18.5% 19.5%, transparent 20%),
+    radial-gradient(
+      circle at 86% 84%,
+      rgba(198, 63, 120, 0.15) 0 9%,
+      transparent 9.5%
+    ),
+    radial-gradient(
+      circle at 86% 84%,
+      transparent 0 18%,
+      rgba(198, 63, 120, 0.08) 18.5% 19.5%,
+      transparent 20%
+    ),
     linear-gradient(125deg, #fffefd 0%, #fff9fb 64%, #fbeaf2 100%);
   box-shadow: 0 30px 75px rgba(75, 22, 47, 0.1);
 }
@@ -48,7 +119,11 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.62), transparent 55%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.62),
+    transparent 55%
+  );
 }
 
 .profile-photos-hero__copy,
@@ -234,7 +309,10 @@
   background: linear-gradient(145deg, #fffafd, #fff4f9);
   cursor: pointer;
   text-align: center;
-  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .profile-photo-upload__picker:hover {
@@ -339,7 +417,10 @@
   font-weight: 850;
   text-decoration: none;
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
 }
 
 .profile-photo-button:hover:not(:disabled) {
@@ -434,7 +515,9 @@
   border: 1px solid var(--photos-line);
   border-radius: 26px;
   background: white;
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .profile-photo-card:hover {
@@ -523,8 +606,6 @@
   color: white;
   font-weight: 850;
 }
-
-
 
 .profile-photo-card__body {
   padding: 22px;
@@ -828,7 +909,6 @@
   }
 }
 
-
 /* ============================================================
    CORRECTIONS VISUELLES — GALERIE ET CONFIDENTIALITÉ
    ============================================================
@@ -841,7 +921,6 @@
    Ces règles ne modifient aucune logique métier, aucun statut
    de modération et aucun appel au backend.
    ============================================================ */
-
 
 /* ------------------------------------------------------------
    PHOTO : dégradé discret au lieu du grand ovale opaque
@@ -883,7 +962,6 @@
   z-index: 1;
 }
 
-
 /*
  * Les badges et informations placés sur la photo doivent rester
  * au-dessus du dégradé.
@@ -893,11 +971,9 @@
 .profile-photo-card__position,
 .profile-photo-card__status,
 .profile-photo-card__primary-badge {
-    position: relative;
-    z-index: 2;
+  position: relative;
+  z-index: 2;
 }
-
-
 
 /* ------------------------------------------------------------
    CONFIDENTIALITÉ : contraste du bandeau sombre
@@ -926,7 +1002,6 @@
   color: #ffffff;
   text-decoration-color: #ffffff;
 }
-
 
 /* Badge redondant masqué pour éviter le chevauchement avec le numéro */
 .profile-photo-card__primary-badge {

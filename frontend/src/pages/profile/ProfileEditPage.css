@@ -24,8 +24,17 @@
   border: 1px solid #efd5e0;
   border-radius: 2.5rem;
   background:
-    radial-gradient(circle at 87% 82%, rgb(180 31 91 / 8%) 0 15%, transparent 15.2%),
-    radial-gradient(circle at 87% 82%, transparent 0 22%, rgb(180 31 91 / 7%) 22.2% 22.8%, transparent 23%),
+    radial-gradient(
+      circle at 87% 82%,
+      rgb(180 31 91 / 8%) 0 15%,
+      transparent 15.2%
+    ),
+    radial-gradient(
+      circle at 87% 82%,
+      transparent 0 22%,
+      rgb(180 31 91 / 7%) 22.2% 22.8%,
+      transparent 23%
+    ),
     linear-gradient(135deg, #fff 0%, #fff9fc 58%, #fceaf2 100%);
   box-shadow: 0 1.8rem 4rem rgb(86 25 51 / 8%);
 }
@@ -174,7 +183,10 @@
   background: #fffafb;
   color: #2d1722;
   font: inherit;
-  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
 }
 
 .profile-edit-field input,
@@ -557,7 +569,9 @@
 }
 
 @keyframes profile-edit-avatar-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 1080px) {
@@ -665,4 +679,60 @@
   .profile-edit-interests label span {
     transition: none;
   }
+}
+
+/* Identité premium sombre — garde le formulaire lisible sans aplatir l’aperçu. */
+:root[data-theme="dark"] .profile-edit-page,
+:root[data-theme="dark"] .profile-edit-state {
+  color: var(--mbolo-text, #fff8fb);
+  background:
+    radial-gradient(circle at 8% 4%, rgb(208 48 111 / 20%), transparent 28rem),
+    linear-gradient(180deg, #0d080c, #140c12);
+}
+
+:root[data-theme="dark"] :is(.profile-edit-form, .profile-edit-preview) {
+  color: var(--mbolo-text, #fff8fb);
+  border-color: var(--mbolo-border, rgb(255 190 214 / 14%));
+  background: linear-gradient(145deg, #24161f, #171016);
+  box-shadow: 0 30px 82px rgb(0 0 0 / 38%);
+}
+
+:root[data-theme="dark"] .profile-edit-page__status,
+:root[data-theme="dark"] .profile-edit-preview__facts span,
+:root[data-theme="dark"] .profile-edit-preview__interests span,
+:root[data-theme="dark"] .profile-edit-preview__privacy {
+  color: #ffd0e2;
+  border-color: var(--mbolo-border, rgb(255 190 214 / 14%));
+  background: rgb(255 255 255 / 5%);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .profile-edit-field input,
+    .profile-edit-field textarea,
+    .profile-edit-field select
+  ) {
+  color: var(--mbolo-text, #fff8fb);
+  border-color: var(--mbolo-border, rgb(255 190 214 / 14%));
+  background: #21151d;
+  caret-color: #ff7aaa;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .profile-edit-field input,
+    .profile-edit-field textarea,
+    .profile-edit-field select
+  ):focus {
+  border-color: #ff7aaa;
+  box-shadow: 0 0 0 4px rgb(255 122 170 / 13%);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .profile-edit-section-heading p,
+    .profile-edit-preview__location,
+    .profile-edit-preview__biography
+  ) {
+  color: var(--mbolo-muted, #d6c2cc);
 }
