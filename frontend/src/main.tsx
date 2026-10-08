@@ -12,6 +12,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import "@fontsource-variable/manrope/wght.css";
+import "@fontsource-variable/playfair-display/wght.css";
+
 import App from "./App";
 import "./styles/global.css";
 import "./styles/premium-foundation.css";
@@ -19,6 +22,7 @@ import "./styles/compact-typography.css";
 import "./styles/discovery-premium.css";
 import "./styles/matches-premium.css";
 import "./styles/brand-elevation.css";
+import "./styles/mbolo-design-system.css";
 
 const rootElement = document.getElementById("root");
 

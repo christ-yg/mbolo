@@ -1,0 +1,469 @@
+/* MBOLO — Midnight Romance & Soft Elegance
+ * Final token layer. It deliberately loads after legacy styles so every
+ * screen shares the same contrast, rhythm and interaction language.
+ */
+
+:root {
+  --font-sans:
+    "Manrope Variable", Manrope, ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Playfair Display Variable", Georgia, serif;
+
+  --ink-950: #21131c;
+  --ink-700: #56434d;
+  --plum-950: #160c13;
+  --plum-900: #21121c;
+  --plum-800: #2d1926;
+  --rose-700: #9d315e;
+  --rose-500: #d65385;
+  --rose-300: #efa7c1;
+  --rose-100: #fbe8ef;
+  --champagne-500: #c89550;
+  --champagne-300: #eccb96;
+  --ivory-50: #fffafd;
+
+  --surface-canvas: #fff8fb;
+  --surface-raised: rgb(255 255 255 / 94%);
+  --surface-muted: #fcf0f5;
+  --text-primary: var(--ink-950);
+  --text-secondary: #6d5864;
+  --stroke-subtle: rgb(82 43 65 / 13%);
+  --stroke-focus: rgb(157 49 94 / 38%);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  --radius-control: 0.95rem;
+  --radius-card: 1.75rem;
+  --radius-hero: 2.5rem;
+  --shadow-raised: 0 16px 45px rgb(65 25 49 / 9%);
+  --shadow-floating: 0 32px 90px rgb(65 25 49 / 16%);
+  --ease-spring: linear(
+    0,
+    0.009,
+    0.035 2.1%,
+    0.141,
+    0.281 9.7%,
+    0.723 20.8%,
+    0.938 29.1%,
+    1.017 35.2%,
+    1.046,
+    1.052 42.9%,
+    1.039 47.5%,
+    1.011 56.5%,
+    0.997 65%,
+    1
+  );
+  --motion-fast: 160ms;
+  --motion-standard: 240ms;
+  --motion-emphasis: 340ms;
+
+  --mbolo-font-sans: var(--font-sans);
+  --mbolo-font-display: var(--font-display);
+  --mbolo-bg: var(--surface-canvas);
+  --mbolo-surface: var(--surface-raised);
+  --mbolo-surface-strong: #fff;
+  --mbolo-text: var(--text-primary);
+  --mbolo-muted: var(--text-secondary);
+  --mbolo-primary: var(--rose-700);
+  --mbolo-primary-dark: #782044;
+  --mbolo-primary-soft: var(--rose-100);
+  --mbolo-border: var(--stroke-subtle);
+  --mbolo-border-strong: var(--stroke-focus);
+}
+
+:root[data-theme="dark"] {
+  --surface-canvas: #0d080c;
+  --surface-raised: rgb(30 18 27 / 94%);
+  --surface-muted: #281722;
+  --text-primary: #fff8fb;
+  --text-secondary: #d5bec9;
+  --stroke-subtle: rgb(244 191 211 / 16%);
+  --stroke-focus: rgb(239 167 193 / 46%);
+  --shadow-raised: 0 18px 54px rgb(0 0 0 / 32%);
+  --shadow-floating: 0 36px 100px rgb(0 0 0 / 52%);
+  --mbolo-bg: var(--surface-canvas);
+  --mbolo-bg-soft: #140c12;
+  --mbolo-surface: var(--surface-raised);
+  --mbolo-surface-strong: #251620;
+  --mbolo-text: var(--text-primary);
+  --mbolo-muted: var(--text-secondary);
+  --mbolo-primary: #f086ad;
+  --mbolo-primary-dark: #ffc0d5;
+  --mbolo-primary-soft: #432438;
+  --mbolo-gold: var(--champagne-300);
+  --mbolo-border: var(--stroke-subtle);
+  --mbolo-border-strong: var(--stroke-focus);
+}
+
+html {
+  background: var(--surface-canvas);
+}
+
+body,
+button,
+input,
+textarea,
+select {
+  font-family: var(--font-sans) !important;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  color: var(--text-primary);
+  background: var(--surface-canvas);
+  font-size: clamp(0.98rem, 0.13vw + 0.95rem, 1.05rem);
+  font-weight: 470;
+  letter-spacing: -0.012em;
+  line-height: 1.6;
+}
+
+:is(h1, h2, .home-premium-section-heading) {
+  font-family: var(--font-display) !important;
+  font-optical-sizing: auto;
+  font-weight: 650 !important;
+  letter-spacing: -0.035em !important;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(2.4rem, 5vw, 5rem);
+  line-height: 0.98;
+}
+
+h2 {
+  font-size: clamp(1.75rem, 3vw, 3rem);
+  line-height: 1.08;
+}
+
+:is(h3, h4, h5, h6, button, label, .section-heading__eyebrow) {
+  font-family: var(--font-sans) !important;
+}
+
+:focus-visible {
+  outline: 3px solid var(--mbolo-primary);
+  outline-offset: 3px;
+}
+
+button,
+[role="button"],
+input,
+select,
+textarea {
+  min-height: 44px;
+}
+
+button,
+[role="button"] {
+  touch-action: manipulation;
+  transition:
+    transform var(--motion-fast) var(--ease-spring),
+    color var(--motion-fast) ease,
+    background-color var(--motion-standard) ease,
+    border-color var(--motion-standard) ease,
+    box-shadow var(--motion-standard) ease !important;
+}
+
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.965);
+}
+
+:is(input, select, textarea) {
+  border: 1px solid var(--stroke-subtle) !important;
+  border-radius: var(--radius-control) !important;
+  color: var(--text-primary) !important;
+  background: var(--surface-raised) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+
+:is(input, select, textarea):focus {
+  border-color: var(--mbolo-primary) !important;
+  box-shadow: 0 0 0 4px
+    color-mix(in srgb, var(--mbolo-primary) 16%, transparent);
+}
+
+.public-header,
+.premium-header {
+  border-bottom: 1px solid var(--stroke-subtle);
+  background: color-mix(
+    in srgb,
+    var(--surface-canvas) 82%,
+    transparent
+  ) !important;
+  box-shadow: 0 10px 35px rgb(42 18 32 / 6%);
+  backdrop-filter: blur(22px) saturate(145%);
+}
+
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 15% -8%, rgb(130 35 77 / 30%), transparent 34rem),
+    radial-gradient(circle at 92% 4%, rgb(94 54 92 / 18%), transparent 30rem),
+    linear-gradient(155deg, #090609, #120a10 55%, #0d080c) !important;
+}
+
+:root[data-theme="dark"] :is(.public-header, .premium-header) {
+  background: rgb(13 8 12 / 84%) !important;
+}
+
+:root[data-theme="dark"] :is(.public-footer, .premium-mobile-nav) {
+  border-color: var(--stroke-subtle);
+  background: rgb(13 8 12 / 90%);
+  backdrop-filter: blur(22px) saturate(135%);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .auth-card,
+    .conversation-card,
+    .conversation-panel,
+    .conversation-sidebar,
+    .discovery-information-card,
+    .discovery-profile-card,
+    .match-card,
+    .notifications-content,
+    .premium-plan-card,
+    .profile-detail-card
+  ) {
+  border-color: var(--stroke-subtle) !important;
+  color: var(--text-primary);
+  background: linear-gradient(
+    145deg,
+    rgb(41 24 36 / 94%),
+    rgb(24 15 22 / 98%)
+  ) !important;
+  box-shadow: var(--shadow-raised) !important;
+}
+
+/* Discovery: one cinematic focal card, with compact and unmistakable actions. */
+.discovery-page__workspace {
+  grid-template-columns: minmax(14rem, 0.52fr) minmax(24rem, 1fr);
+  gap: clamp(1rem, 2.5vw, 2rem);
+}
+
+.discovery-profile-card {
+  overflow: clip;
+  border: 1px solid var(--stroke-subtle) !important;
+  border-radius: var(--radius-hero) !important;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-floating) !important;
+  animation: mbolo-card-arrival var(--motion-emphasis) var(--ease-spring) both;
+}
+
+.discovery-profile-card__visual {
+  min-height: clamp(27rem, 62vh, 43rem);
+  background: var(--plum-900);
+}
+
+.discovery-profile-card__photo {
+  transition:
+    transform 6s ease-out,
+    filter var(--motion-standard) ease;
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .discovery-profile-card:hover .discovery-profile-card__photo {
+    transform: scale(1.035);
+  }
+}
+
+.discovery-profile-card__visual::after {
+  background: linear-gradient(
+    180deg,
+    transparent 42%,
+    rgb(12 7 10 / 82%) 100%
+  ) !important;
+}
+
+.discovery-profile-card__visual-copy h2 {
+  color: #fff;
+  font-size: clamp(2rem, 4vw, 3.5rem) !important;
+  text-shadow: 0 3px 28px rgb(0 0 0 / 48%);
+}
+
+.discovery-profile-card__content {
+  padding: clamp(1.15rem, 3vw, 1.75rem) !important;
+}
+
+.discovery-profile-card__actions {
+  position: sticky;
+  z-index: 4;
+  bottom: max(0.5rem, env(safe-area-inset-bottom));
+  padding: 0.6rem;
+  border: 1px solid var(--stroke-subtle);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-raised) 86%, transparent);
+  box-shadow: 0 16px 50px rgb(45 18 34 / 18%);
+  backdrop-filter: blur(18px) saturate(145%);
+}
+
+.discovery-action-button {
+  min-height: 52px;
+  border-radius: 999px !important;
+}
+
+.discovery-action-button--like {
+  box-shadow: 0 10px 30px rgb(157 49 94 / 28%);
+}
+
+/* Messaging: calm surfaces, readable measures, and polished incoming motion. */
+.conversation-shell--premium {
+  overflow: hidden;
+  border: 1px solid var(--stroke-subtle);
+  border-radius: var(--radius-hero);
+  box-shadow: var(--shadow-floating);
+}
+
+.conversation-messages {
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+.message-bubble {
+  max-width: min(76%, 42rem);
+  border-radius: 1.35rem !important;
+  animation: mbolo-message-arrival var(--motion-standard) var(--ease-spring)
+    both;
+}
+
+.message-composer {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--stroke-subtle);
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  backdrop-filter: blur(20px);
+}
+
+.conversation-typing-indicator span {
+  animation-duration: 900ms;
+}
+
+.route-stage {
+  animation-duration: var(--motion-emphasis) !important;
+  animation-timing-function: var(--ease-spring) !important;
+}
+
+.mbolo-motion-reveal {
+  transform: translate3d(0, 16px, 0) scale(0.99) !important;
+  filter: blur(2px) !important;
+  transition-duration: var(--motion-emphasis) !important;
+  transition-timing-function: var(--ease-spring) !important;
+}
+
+.mbolo-motion-reveal.is-motion-visible {
+  transform: none !important;
+  filter: none !important;
+}
+
+@keyframes mbolo-card-arrival {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mbolo-message-arrival {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .discovery-page {
+    width: min(100% - 1.25rem, 46rem);
+    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+  }
+
+  .discovery-page__workspace {
+    display: block;
+  }
+
+  .discovery-information-card {
+    position: static;
+    margin-bottom: 1rem;
+  }
+
+  .discovery-profile-card__visual {
+    min-height: clamp(27rem, 68svh, 39rem);
+  }
+
+  .conversation-shell--premium {
+    min-height: calc(100dvh - 7.5rem);
+    border-radius: 1.5rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .discovery-page__heading {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .discovery-page__heading h1 {
+    font-size: clamp(2.15rem, 12vw, 3.15rem);
+  }
+
+  .discovery-page__heading-actions {
+    min-width: 0;
+    justify-content: stretch;
+  }
+
+  .discovery-page__heading-actions > * {
+    flex: 1;
+  }
+
+  .discovery-information-card {
+    display: none;
+  }
+
+  .discovery-profile-card {
+    border-radius: 1.75rem !important;
+  }
+
+  .discovery-profile-card__visual {
+    min-height: min(68svh, 34rem);
+  }
+
+  .discovery-profile-card__actions {
+    display: grid;
+    grid-template-columns: 0.9fr 0.9fr 1.2fr;
+    gap: 0.35rem;
+  }
+
+  .discovery-action-button {
+    min-width: 0;
+    padding-inline: 0.45rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  .message-bubble {
+    max-width: 88%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

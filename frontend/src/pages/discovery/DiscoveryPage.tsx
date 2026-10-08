@@ -261,6 +261,39 @@ export function DiscoveryPage() {
     void submitInteraction("like", true);
   }
 
+  useEffect(() => {
+    function handleDiscoveryShortcut(event: KeyboardEvent): void {
+      const target = event.target;
+      if (
+        (target instanceof Element &&
+          target.closest("input, textarea, select, button, a, summary")) ||
+        matchCelebration !== null ||
+        status !== "success" ||
+        isActionPending
+      ) {
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        handlePass();
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        handleLike();
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        handleSuperLike();
+      }
+    }
+
+    window.addEventListener("keydown", handleDiscoveryShortcut);
+    return () => window.removeEventListener("keydown", handleDiscoveryShortcut);
+  });
+
   async function handleRewind(): Promise<void> {
     if (!rewindState.entitled) {
       navigate("/premium");
