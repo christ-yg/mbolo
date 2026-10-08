@@ -153,7 +153,6 @@ class _MessagesPageState extends State<MessagesPage> {
             matchCount: _matches.length,
             likeCount: _likes.length,
           ),
-          ),
           const SizedBox(height: 22),
           SegmentedButton<int>(
             segments: [
