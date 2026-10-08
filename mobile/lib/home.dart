@@ -1627,13 +1627,34 @@ class _PhotosPageState extends State<_PhotosPage> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
                   children: [
-                    Text(
-                      'Ta galerie MBOLO',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                    _EditorHero(
+                      icon: Icons.photo_library_rounded,
+                      title: 'Ta galerie MBOLO',
+                      subtitle:
+                          'Des photos authentiques augmentent la confiance et la qualité des rencontres.',
+                      progressLabel: '${_photos.length}/6',
+                      progress: _photos.length / 6,
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Ajoute jusqu’à 6 photos. Les fichiers sont nettoyés et modérés avant leur affichage public.',
+                    const SizedBox(height: 20),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.verified_user_outlined,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Jusqu’à 6 photos. Les fichiers sont nettoyés et modérés avant leur affichage public.',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 20),
                     if (_photos.isEmpty)
@@ -1944,13 +1965,11 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
                 child: ListView(
                   padding: const EdgeInsets.all(24),
                   children: [
-                    Text(
-                      'Présente-toi avec authenticité',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Ces informations permettent à MBOLO de proposer des rencontres pertinentes.',
+                    const _EditorHero(
+                      icon: Icons.person_rounded,
+                      title: 'Présente-toi avec authenticité',
+                      subtitle:
+                          'Chaque détail aide MBOLO à proposer des connexions plus pertinentes.',
                     ),
                     const SizedBox(height: 24),
                     TextFormField(
@@ -2186,13 +2205,11 @@ class _PreferencesPageState extends State<_PreferencesPage> {
             : ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
-                  Text(
-                    'Choisis qui tu souhaites découvrir',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Tes choix restent privés. Une sélection vide affiche tous les genres.',
+                  const _EditorHero(
+                    icon: Icons.tune_rounded,
+                    title: 'Affinons tes découvertes',
+                    subtitle:
+                        'Tes préférences restent privées et peuvent être modifiées à tout moment.',
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -2270,6 +2287,125 @@ class _PreferencesPageState extends State<_PreferencesPage> {
                     ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+class _EditorHero extends StatelessWidget {
+  const _EditorHero({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.progressLabel,
+    this.progress,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String? progressLabel;
+  final double? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 640),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 18 * (1 - value)),
+          child: child,
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF32101F), Color(0xFF861843), Color(0xFFD95975)],
+          ),
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x368B1744),
+              blurRadius: 32,
+              offset: Offset(0, 14),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.24),
+                    ),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 27),
+                ),
+                const Spacer(),
+                if (progressLabel != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      progressLabel!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.6,
+                  ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: Color(0xFFFFEAF0),
+                height: 1.4,
+              ),
+            ),
+            if (progress != null) ...[
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: progress!.clamp(0, 1),
+                  minHeight: 7,
+                  backgroundColor: Colors.white24,
+                  color: const Color(0xFFFFD6A3),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
