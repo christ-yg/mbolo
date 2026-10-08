@@ -295,9 +295,9 @@ class _MboloHomeState extends State<MboloHome> {
           ),
           IconButton(
             tooltip: 'Notifications',
-            onPressed: () async {
-              await HapticFeedback.selectionClick();
-              await _openNotifications();
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              _openNotifications();
             },
             icon: Badge(
               isLabelVisible: _notificationUnread > 0,
