@@ -114,20 +114,55 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
                   children: [
-                    Container(
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 620),
+                      curve: Curves.easeOutBack,
+                      builder: (context, value, child) => Transform.translate(
+                        offset: Offset(0, 16 * (1 - value)),
+                        child: Opacity(
+                          opacity: value.clamp(0, 1),
+                          child: child,
+                        ),
+                      ),
+                      child: Container(
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFFFFE3EA), Color(0xFFFFF1E9)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF351020),
+                            Color(0xFF8B1744),
+                            Color(0xFFE0667C),
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(28),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x388B1744),
+                            blurRadius: 30,
+                            offset: Offset(0, 14),
+                          ),
+                        ],
                       ),
                       child: Row(
                         children: [
-                          const Icon(
-                            Icons.notifications_active_rounded,
-                            color: Color(0xFFB51F50),
-                            size: 34,
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.14),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.24),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.notifications_active_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -139,13 +174,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                   style: Theme.of(context)
                                       .textTheme
                                       .titleLarge
-                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                      ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                      ),
                                 ),
-                                const Text('Toute l’activité importante de ton compte.'),
+                                const Text(
+                                  'Toute l’activité importante de ton compte.',
+                                  style: TextStyle(color: Color(0xFFFFEAF0)),
+                                ),
                               ],
                             ),
                           ),
                         ],
+                      ),
                       ),
                     ),
                     if (_error != null) ...[
@@ -162,8 +204,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         ),
                       )
                     else
-                      ..._items.map(
-                        (item) => Dismissible(
+                      ..._items.indexed.map(
+                        (entry) {
+                          final index = entry.$1;
+                          final item = entry.$2;
+                          return Dismissible(
                           key: ValueKey(item.id),
                           direction: DismissDirection.endToStart,
                           background: Container(
@@ -177,47 +222,108 @@ class _NotificationsPageState extends State<NotificationsPage> {
                             child: const Icon(Icons.delete_outline, color: Colors.white),
                           ),
                           onDismissed: (_) => _delete(item),
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Card(
-                              color: item.read ? Colors.white : const Color(0xFFFFF0F4),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.all(16),
-                                onTap: () => _read(item),
-                                leading: CircleAvatar(
-                                  backgroundColor: item.read
-                                      ? const Color(0xFFF2EAED)
-                                      : const Color(0xFFFFD3DF),
-                                  child: Icon(_icon(item.kind), color: const Color(0xFFB51F50)),
-                                ),
-                                title: Text(
-                                  item.title,
-                                  style: TextStyle(
-                                    fontWeight: item.read ? FontWeight.w600 : FontWeight.w800,
-                                  ),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (item.body.isNotEmpty) ...[
-                                      const SizedBox(height: 5),
-                                      Text(item.body),
-                                    ],
-                                    const SizedBox(height: 7),
-                                    Text(_date(item.createdAt)),
-                                  ],
-                                ),
-                                trailing: item.read
-                                    ? null
-                                    : const Badge(smallSize: 9),
-                              ),
-                            ),
+                          child: _AnimatedNotificationTile(
+                            item: item,
+                            index: index,
+                            icon: _icon(item.kind),
+                            date: _date(item.createdAt),
+                            working: _working,
+                            onTap: () => _read(item),
                           ),
-                        ),
+                        );
+                        },
                       ),
                   ],
                 ),
               ),
+      ),
+    );
+  }
+}
+
+class _AnimatedNotificationTile extends StatelessWidget {
+  const _AnimatedNotificationTile({
+    required this.item,
+    required this.index,
+    required this.icon,
+    required this.date,
+    required this.working,
+    required this.onTap,
+  });
+
+  final AppNotification item;
+  final int index;
+  final IconData icon;
+  final String date;
+  final bool working;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: Duration(milliseconds: 320 + (index.clamp(0, 6) * 45)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(18 * (1 - value), 0),
+          child: child,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 260),
+          decoration: BoxDecoration(
+            color: item.read ? scheme.surface : scheme.primaryContainer,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: item.read
+                  ? scheme.outlineVariant
+                  : scheme.primary.withValues(alpha: 0.24),
+            ),
+            boxShadow: item.read
+                ? null
+                : [
+                    BoxShadow(
+                      color: scheme.primary.withValues(alpha: 0.11),
+                      blurRadius: 22,
+                      offset: const Offset(0, 9),
+                    ),
+                  ],
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(16),
+            enabled: !working,
+            onTap: onTap,
+            leading: CircleAvatar(
+              backgroundColor: item.read
+                  ? scheme.surfaceContainerHighest
+                  : scheme.primary.withValues(alpha: 0.16),
+              child: Icon(icon, color: scheme.primary),
+            ),
+            title: Text(
+              item.title,
+              style: TextStyle(
+                fontWeight: item.read ? FontWeight.w600 : FontWeight.w900,
+              ),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (item.body.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(item.body),
+                ],
+                const SizedBox(height: 7),
+                Text(date, style: Theme.of(context).textTheme.labelSmall),
+              ],
+            ),
+            trailing: item.read ? null : const Badge(smallSize: 9),
+          ),
+        ),
       ),
     );
   }
