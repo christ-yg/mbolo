@@ -315,6 +315,11 @@ void main() {
     expect(find.textContaining('Tranche d’âge'), findsOneWidget);
     expect(find.text('Femmes'), findsOneWidget);
     expect(find.text('Filtres avancés'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Enregistrer mes préférences'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Enregistrer mes préférences'), findsOneWidget);
   });
 
