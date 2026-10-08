@@ -301,6 +301,18 @@ class _MboloPageTransitionsBuilder extends PageTransitionsBuilder {
 
 enum _AuthMode { login, register, reset, resetConfirm }
 
+int _passwordStrength(String password) {
+  var score = 0;
+  if (password.length >= 12) score++;
+  if (RegExp(r'[a-z]').hasMatch(password) &&
+      RegExp(r'[A-Z]').hasMatch(password)) {
+    score++;
+  }
+  if (RegExp(r'\d').hasMatch(password)) score++;
+  if (RegExp(r'[^a-zA-Z0-9]').hasMatch(password)) score++;
+  return score;
+}
+
 class SessionScreen extends StatefulWidget {
   const SessionScreen({
     super.key,
@@ -673,10 +685,13 @@ class _SessionScreenState extends State<SessionScreen> {
                           decoration: const InputDecoration(
                             labelText: 'Nouveau mot de passe',
                           ),
+                          onChanged: (_) => setState(() {}),
                           validator: (value) => (value ?? '').length >= 12
                               ? null
                               : 'Utilise au moins 12 caractères.',
                         ),
+                        const SizedBox(height: 10),
+                        _PasswordStrengthMeter(password: _password.text),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _passwordConfirmation,
@@ -731,6 +746,9 @@ class _SessionScreenState extends State<SessionScreen> {
                               ),
                             ),
                           ),
+                          onChanged: _mode == _AuthMode.register
+                              ? (_) => setState(() {})
+                              : null,
                           validator: (value) {
                             if ((value ?? '').isEmpty) {
                               return 'Entre ton mot de passe.';
@@ -744,6 +762,8 @@ class _SessionScreenState extends State<SessionScreen> {
                         ),
                       ],
                       if (_mode == _AuthMode.register) ...[
+                        const SizedBox(height: 10),
+                        _PasswordStrengthMeter(password: _password.text),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _passwordConfirmation,
@@ -895,9 +915,12 @@ class _AuthHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).height < 720;
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.96, end: 1),
-      duration: const Duration(milliseconds: 620),
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 620),
       curve: Curves.easeOutBack,
       builder: (context, value, child) => Transform.scale(
         scale: value,
@@ -989,6 +1012,68 @@ class _AuthHero extends StatelessWidget {
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+class _PasswordStrengthMeter extends StatelessWidget {
+  const _PasswordStrengthMeter({required this.password});
+
+  final String password;
+
+  @override
+  Widget build(BuildContext context) {
+    final score = _passwordStrength(password);
+    final scheme = Theme.of(context).colorScheme;
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final label = switch (score) {
+      4 => 'Très robuste',
+      3 => 'Robuste',
+      2 => 'À renforcer',
+      1 => 'Faible',
+      _ => 'Commence par 12 caractères',
+    };
+    final color = switch (score) {
+      4 => const Color(0xFF247A58),
+      3 => const Color(0xFF3B8060),
+      2 => const Color(0xFFB27316),
+      _ => scheme.error,
+    };
+
+    return Semantics(
+      liveRegion: true,
+      label: 'Robustesse du mot de passe : $label, $score critères sur 4.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: List<Widget>.generate(
+              4,
+              (index) => Expanded(
+                child: AnimatedContainer(
+                  duration: reduceMotion
+                      ? Duration.zero
+                      : const Duration(milliseconds: 220),
+                  height: 5,
+                  margin: EdgeInsets.only(right: index == 3 ? 0 : 6),
+                  decoration: BoxDecoration(
+                    color: index < score ? color : scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            '$label · majuscule, minuscule, chiffre et symbole',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: score == 0 ? scheme.onSurfaceVariant : color,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
       ),
     );
   }
