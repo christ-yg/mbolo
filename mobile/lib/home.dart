@@ -1329,7 +1329,15 @@ class _ProfilePage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
       children: [
-        Container(
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 650),
+          curve: Curves.easeOutBack,
+          builder: (context, value, child) => Transform.scale(
+            scale: 0.96 + (0.04 * value),
+            child: Opacity(opacity: value.clamp(0, 1), child: child),
+          ),
+          child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
@@ -1385,6 +1393,29 @@ class _ProfilePage extends StatelessWidget {
               ),
             ],
           ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _ProfileTrustMetric(
+                icon: account.verified
+                    ? Icons.verified_rounded
+                    : Icons.mark_email_unread_outlined,
+                label: account.verified ? 'Profil vérifié' : 'À vérifier',
+                accent: account.verified,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: _ProfileTrustMetric(
+                icon: Icons.lock_rounded,
+                label: 'Données protégées',
+                accent: true,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 26),
         Text(
@@ -1458,6 +1489,50 @@ class _ProfilePage extends StatelessWidget {
           label: const Text('Se déconnecter'),
         ),
       ],
+    );
+  }
+}
+
+class _ProfileTrustMetric extends StatelessWidget {
+  const _ProfileTrustMetric({
+    required this.icon,
+    required this.label,
+    required this.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 14),
+      decoration: BoxDecoration(
+        color: accent ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: accent
+              ? scheme.primary.withValues(alpha: 0.2)
+              : scheme.outlineVariant,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: accent ? scheme.primary : scheme.outline),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

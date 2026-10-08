@@ -390,20 +390,77 @@ class _SecurityPageState extends State<SecurityPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 96),
         children: [
-          Container(
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 650),
+            curve: Curves.easeOutBack,
+            builder: (context, value, child) => Transform.translate(
+              offset: Offset(0, 18 * (1 - value)),
+              child: Opacity(opacity: value.clamp(0, 1), child: child),
+            ),
+            child: Container(
             padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF30131D), Color(0xFF8F2145)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF201018), Color(0xFF711B3B), Color(0xFFB92E5C)],
               ),
               borderRadius: BorderRadius.circular(28),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x36201018),
+                  blurRadius: 30,
+                  offset: Offset(0, 14),
+                ),
+              ],
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.shield_rounded, color: Colors.white, size: 38),
-                SizedBox(height: 12),
-                Text(
+                Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.24),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.shield_rounded,
+                        color: Colors.white,
+                        size: 31,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _twoFactorEnabled
+                            ? const Color(0xFF2F8F66)
+                            : Colors.white.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        _twoFactorEnabled ? 'PROTECTION FORTE' : 'À RENFORCER',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
                   'Centre de sécurité',
                   style: TextStyle(
                     color: Colors.white,
@@ -411,12 +468,13 @@ class _SecurityPageState extends State<SecurityPage> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 6),
+                const Text(
                   'Protège ton compte, tes échanges et ton identité.',
                   style: TextStyle(color: Colors.white70),
                 ),
               ],
+            ),
             ),
           ),
           if (_error != null) ...[
@@ -478,9 +536,23 @@ class _SecurityPageState extends State<SecurityPage> {
               ),
             )
           else
-            ..._sessions.map(
-              (session) => Card(
-                child: ListTile(
+            ..._sessions.indexed.map(
+              (entry) {
+                final index = entry.$1;
+                final session = entry.$2;
+                return TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: 1),
+                  duration: Duration(milliseconds: 300 + index.clamp(0, 5) * 55),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) => Opacity(
+                    opacity: value,
+                    child: Transform.translate(
+                      offset: Offset(16 * (1 - value), 0),
+                      child: child,
+                    ),
+                  ),
+                  child: Card(
+                    child: ListTile(
                   contentPadding: const EdgeInsets.all(14),
                   leading: Icon(
                     session.current ? Icons.phone_android : Icons.devices,
@@ -501,8 +573,10 @@ class _SecurityPageState extends State<SecurityPage> {
                           onPressed: _working ? null : () => _revoke(session),
                           icon: const Icon(Icons.logout),
                         ),
-                ),
-              ),
+                    ),
+                  ),
+                );
+              },
             ),
           const SizedBox(height: 24),
           Text(
