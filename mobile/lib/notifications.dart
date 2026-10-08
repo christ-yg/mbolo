@@ -260,7 +260,16 @@ class _AnimatedNotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduceMotion) {
+      return _NotificationTile(
+        item: item,
+        icon: icon,
+        date: date,
+        working: working,
+        onTap: onTap,
+      );
+    }
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
       duration: Duration(milliseconds: 320 + (index.clamp(0, 6) * 45)),
@@ -272,6 +281,40 @@ class _AnimatedNotificationTile extends StatelessWidget {
           child: child,
         ),
       ),
+      child: _NotificationTile(
+        item: item,
+        icon: icon,
+        date: date,
+        working: working,
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _NotificationTile extends StatelessWidget {
+  const _NotificationTile({
+    required this.item,
+    required this.icon,
+    required this.date,
+    required this.working,
+    required this.onTap,
+  });
+
+  final AppNotification item;
+  final IconData icon;
+  final String date;
+  final bool working;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: item.read
+          ? '${item.title}. Notification lue.'
+          : '${item.title}. Nouvelle notification.',
       child: Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: AnimatedContainer(
