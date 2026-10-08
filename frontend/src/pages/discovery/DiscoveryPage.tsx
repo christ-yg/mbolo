@@ -12,12 +12,7 @@
  * - détection et célébration d'un match réciproque.
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { normalizeApiError } from "../../api/apiError";
@@ -49,26 +44,20 @@ import type {
   SuperLikeState,
 } from "../../types/interactions";
 
-type DiscoveryStatus =
-  | "loading"
-  | "success"
-  | "empty"
-  | "error";
+type DiscoveryStatus = "loading" | "success" | "empty" | "error";
 
 export function DiscoveryPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [status, setStatus] =
-    useState<DiscoveryStatus>("loading");
+  const [status, setStatus] = useState<DiscoveryStatus>("loading");
 
   const [discoveryData, setDiscoveryData] =
     useState<DiscoveryPaginatedResponse | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  const [currentProfileIndex, setCurrentProfileIndex] =
-    useState(0);
+  const [currentProfileIndex, setCurrentProfileIndex] = useState(0);
 
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -78,14 +67,12 @@ export function DiscoveryPage() {
    * Contrairement à une erreur de chargement global, cette erreur
    * ne supprime pas la carte actuellement affichée.
    */
-  const [actionError, setActionError] =
-    useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   /**
    * Empêche les doubles clics et les requêtes concurrentes.
    */
-  const [isActionPending, setIsActionPending] =
-    useState(false);
+  const [isActionPending, setIsActionPending] = useState(false);
 
   /**
    * Informations du match actuellement célébré.
@@ -93,8 +80,7 @@ export function DiscoveryPage() {
   const [matchCelebration, setMatchCelebration] =
     useState<MatchCelebrationData | null>(null);
 
-  const [isOpeningConversation, setIsOpeningConversation] =
-    useState(false);
+  const [isOpeningConversation, setIsOpeningConversation] = useState(false);
 
   const [rewindState, setRewindState] = useState<RewindState>({
     entitled: false,
@@ -114,45 +100,40 @@ export function DiscoveryPage() {
     [discoveryData],
   );
 
-  const currentProfile =
-    profiles[currentProfileIndex] ?? null;
+  const currentProfile = profiles[currentProfileIndex] ?? null;
 
   /**
    * Charge une page depuis l'API de découverte.
    */
-  const loadDiscoveryPage = useCallback(
-    async (page: number): Promise<void> => {
-      setStatus("loading");
-      setErrorMessage("");
-      setActionError(null);
-      setCurrentProfileIndex(0);
+  const loadDiscoveryPage = useCallback(async (page: number): Promise<void> => {
+    setStatus("loading");
+    setErrorMessage("");
+    setActionError(null);
+    setCurrentProfileIndex(0);
 
-      try {
-        const result = await getDiscoveryProfiles({
-          page,
-          pageSize: DEFAULT_DISCOVERY_PAGE_SIZE,
-        });
+    try {
+      const result = await getDiscoveryProfiles({
+        page,
+        pageSize: DEFAULT_DISCOVERY_PAGE_SIZE,
+      });
 
-        setDiscoveryData(result);
-        setCurrentPage(page);
+      setDiscoveryData(result);
+      setCurrentPage(page);
 
-        if (result.results.length === 0) {
-          setStatus("empty");
-          return;
-        }
-
-        setStatus("success");
-      } catch (error: unknown) {
-        const normalizedError =
-          normalizeApiError(error);
-
-        setDiscoveryData(null);
-        setStatus("error");
-        setErrorMessage(normalizedError.message);
+      if (result.results.length === 0) {
+        setStatus("empty");
+        return;
       }
-    },
-    [],
-  );
+
+      setStatus("success");
+    } catch (error: unknown) {
+      const normalizedError = normalizeApiError(error);
+
+      setDiscoveryData(null);
+      setStatus("error");
+      setErrorMessage(normalizedError.message);
+    }
+  }, []);
 
   useEffect(() => {
     void loadDiscoveryPage(1);
@@ -201,10 +182,7 @@ export function DiscoveryPage() {
     decision: InteractionDecision,
     isSuperLike = false,
   ): Promise<void> {
-    if (
-      isActionPending ||
-      !currentProfile
-    ) {
+    if (isActionPending || !currentProfile) {
       return;
     }
 
@@ -242,10 +220,7 @@ export function DiscoveryPage() {
        * Nous conservons la carte affichée derrière la fenêtre,
        * puis nous avançons après sa fermeture.
        */
-      if (
-        decision === "like" &&
-        response.matched
-      ) {
+      if (decision === "like" && response.matched) {
         setMatchCelebration({
           matchId: response.match_id,
           profileId: currentProfile.id,
@@ -257,8 +232,7 @@ export function DiscoveryPage() {
 
       await moveToNextProfile();
     } catch (error: unknown) {
-      const normalizedError =
-        normalizeApiError(error);
+      const normalizedError = normalizeApiError(error);
 
       /**
        * La carte reste visible.
@@ -345,10 +319,7 @@ export function DiscoveryPage() {
   async function handleMatchConversation(): Promise<void> {
     const matchId = matchCelebration?.matchId;
 
-    if (
-      !matchId ||
-      isOpeningConversation
-    ) {
+    if (!matchId || isOpeningConversation) {
       return;
     }
 
@@ -373,15 +344,13 @@ export function DiscoveryPage() {
       <main className="discovery-page">
         <section className="discovery-page__heading">
           <div>
-            <p className="section-heading__eyebrow">
-              Sélection personnalisée
-            </p>
+            <p className="section-heading__eyebrow">Sélection personnalisée</p>
 
             <h1>Nous préparons tes profils.</h1>
 
             <p>
-              Mbolo applique tes préférences et les règles de
-              sécurité avant d’afficher les résultats.
+              Mbolo applique tes préférences et les règles de sécurité avant
+              d’afficher les résultats.
             </p>
           </div>
         </section>
@@ -391,16 +360,11 @@ export function DiscoveryPage() {
           role="status"
           aria-live="polite"
         >
-          <div
-            className="auth-loading-card__spinner"
-            aria-hidden="true"
-          />
+          <div className="auth-loading-card__spinner" aria-hidden="true" />
 
           <h2>Recherche en cours</h2>
 
-          <p>
-            Quelques secondes suffisent généralement.
-          </p>
+          <p>Quelques secondes suffisent généralement.</p>
         </section>
       </main>
     );
@@ -411,15 +375,13 @@ export function DiscoveryPage() {
       <main className="discovery-page">
         <section className="discovery-page__heading">
           <div>
-            <p className="section-heading__eyebrow">
-              Découverte sécurisée
-            </p>
+            <p className="section-heading__eyebrow">Découverte sécurisée</p>
 
             <h1>Impossible de charger les profils.</h1>
 
             <p>
-              La session reste protégée. Tu peux relancer la
-              recherche sans actualiser toute l’application.
+              La session reste protégée. Tu peux relancer la recherche sans
+              actualiser toute l’application.
             </p>
           </div>
         </section>
@@ -428,10 +390,7 @@ export function DiscoveryPage() {
           className="discovery-state-card discovery-state-card--error"
           role="alert"
         >
-          <div
-            className="discovery-state-card__symbol"
-            aria-hidden="true"
-          >
+          <div className="discovery-state-card__symbol" aria-hidden="true">
             !
           </div>
 
@@ -465,28 +424,36 @@ export function DiscoveryPage() {
             <h1>Tu as vu tous les profils disponibles pour le moment.</h1>
 
             <p>
-              Ta sélection est calculée selon tes préférences et les règles
-              de compatibilité de Mbolo. Dès qu’un nouveau profil correspond,
-              il apparaîtra ici automatiquement.
+              Ta sélection est calculée selon tes préférences et les règles de
+              compatibilité de Mbolo. Dès qu’un nouveau profil correspond, il
+              apparaîtra ici automatiquement.
             </p>
 
-            <div className="discovery-empty-hero__facts" aria-label="Informations de confidentialité">
+            <div
+              className="discovery-empty-hero__facts"
+              aria-label="Informations de confidentialité"
+            >
               <span>✓ Critères privés</span>
               <span>✓ Profils déjà vus exclus</span>
               <span>✓ Calcul effectué côté serveur</span>
             </div>
           </div>
 
-          <aside className="discovery-empty-panel" aria-label="Actions de découverte">
+          <aside
+            className="discovery-empty-panel"
+            aria-label="Actions de découverte"
+          >
             <div className="discovery-empty-panel__icon" aria-hidden="true">
               <span>◇</span>
             </div>
 
-            <p className="discovery-empty-panel__eyebrow">Aucun profil en attente</p>
+            <p className="discovery-empty-panel__eyebrow">
+              Aucun profil en attente
+            </p>
             <h2>Ta sélection est complète.</h2>
             <p>
-              Actualise maintenant ou ajuste tes préférences pour élargir
-              les profils compatibles proposés.
+              Actualise maintenant ou ajuste tes préférences pour élargir les
+              profils compatibles proposés.
             </p>
 
             {actionError ? (
@@ -535,15 +502,13 @@ export function DiscoveryPage() {
     <main className="discovery-page">
       <section className="discovery-page__heading">
         <div>
-          <p className="section-heading__eyebrow">
-            Découverte personnalisée
-          </p>
+          <p className="section-heading__eyebrow">Découverte personnalisée</p>
 
           <h1>Des profils choisis avec attention.</h1>
 
           <p>
-            Un profil à la fois, dans un espace conçu pour
-            réduire la surcharge et préserver la confidentialité.
+            Un profil à la fois, dans un espace conçu pour réduire la surcharge
+            et préserver la confidentialité.
           </p>
         </div>
 
@@ -551,9 +516,7 @@ export function DiscoveryPage() {
           <div className="discovery-page__summary">
             <span>{discoveryData?.count ?? 0}</span>
 
-            <p>
-              profils compatibles dans la sélection actuelle
-            </p>
+            <p>profils compatibles dans la sélection actuelle</p>
           </div>
 
           <button
@@ -568,10 +531,7 @@ export function DiscoveryPage() {
       </section>
 
       {actionError ? (
-        <div
-          className="discovery-action-alert"
-          role="alert"
-        >
+        <div className="discovery-action-alert" role="alert">
           <span aria-hidden="true">!</span>
 
           <p>{actionError}</p>
@@ -590,28 +550,18 @@ export function DiscoveryPage() {
 
       <section className="discovery-page__workspace">
         <aside className="discovery-information-card">
-          <p className="section-heading__eyebrow">
-            Sécurité intégrée
-          </p>
+          <p className="section-heading__eyebrow">Sécurité intégrée</p>
 
           <h2>La confiance avant la quantité.</h2>
 
           <ul>
-            <li>
-              Les adresses e-mail ne sont jamais affichées.
-            </li>
+            <li>Les adresses e-mail ne sont jamais affichées.</li>
 
-            <li>
-              Les interactions sont enregistrées côté serveur.
-            </li>
+            <li>Les interactions sont enregistrées côté serveur.</li>
 
-            <li>
-              Les comptes bloqués sont exclus automatiquement.
-            </li>
+            <li>Les comptes bloqués sont exclus automatiquement.</li>
 
-            <li>
-              Un match apparaît uniquement après deux likes.
-            </li>
+            <li>Un match apparaît uniquement après deux likes.</li>
           </ul>
 
           {user ? (
@@ -627,6 +577,7 @@ export function DiscoveryPage() {
         </aside>
 
         <ProfileCard
+          key={currentProfile.id}
           profile={currentProfile}
           currentPosition={currentProfileIndex + 1}
           totalInCurrentPage={profiles.length}
@@ -640,8 +591,7 @@ export function DiscoveryPage() {
               : "Super Like · Premium"
           }
           isSuperLikeDisabled={
-            superLikeState.entitled &&
-            superLikeState.remaining_today <= 0
+            superLikeState.entitled && superLikeState.remaining_today <= 0
           }
         />
 
@@ -659,8 +609,7 @@ export function DiscoveryPage() {
           type="button"
           className="discovery-rewind-button"
           disabled={
-            rewindState.entitled &&
-            (!rewindState.available || isRewindPending)
+            rewindState.entitled && (!rewindState.available || isRewindPending)
           }
           onClick={() => {
             void handleRewind();

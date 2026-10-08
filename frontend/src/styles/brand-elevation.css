@@ -262,6 +262,186 @@ body::before {
   }
 }
 
+/* ============================================================
+   DÉCOUVRIR — CARTE SIGNATURE ET INTERACTIONS
+   ============================================================ */
+
+.discovery-profile-card {
+  animation: mbolo-profile-arrival 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: 50% 82%;
+}
+
+.discovery-profile-card__photo {
+  transition:
+    transform 900ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 500ms ease !important;
+}
+
+.discovery-profile-card__visual:hover .discovery-profile-card__photo {
+  transform: scale(1.035) !important;
+  filter: saturate(1.04) contrast(1.02);
+}
+
+.discovery-profile-card__visual::after {
+  background:
+    linear-gradient(180deg, rgb(18 7 13 / 4%) 28%, rgb(18 7 13 / 88%) 100%),
+    linear-gradient(120deg, rgb(163 47 97 / 6%), transparent 52%) !important;
+}
+
+.discovery-profile-card__visual-copy h2 {
+  font-size: clamp(2.7rem, 4.5vw, 4.7rem) !important;
+  font-weight: 780 !important;
+  letter-spacing: -0.052em !important;
+}
+
+.discovery-profile-card__metadata span,
+.discovery-profile-card__compatibility > div:last-child span {
+  transition:
+    color 220ms ease,
+    background-color 220ms ease,
+    border-color 220ms ease,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.discovery-profile-card__metadata span:hover,
+.discovery-profile-card__compatibility > div:last-child span:hover {
+  transform: translateY(-2px);
+}
+
+.discovery-action-button {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 280ms ease,
+    background-color 220ms ease !important;
+}
+
+.discovery-action-button::after {
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -45%;
+  width: 34%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(255 255 255 / 28%),
+    transparent
+  );
+  content: "";
+  pointer-events: none;
+  transform: rotate(18deg) translateX(-180%);
+  transition: transform 620ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.discovery-action-button:hover:not(:disabled)::after {
+  transform: rotate(18deg) translateX(560%);
+}
+
+.discovery-action-button:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.012) !important;
+}
+
+.discovery-action-button--like {
+  background: linear-gradient(135deg, #8d1f4e, #c23f76 58%, #9e2759) !important;
+  box-shadow: 0 14px 30px rgb(143 31 79 / 22%);
+}
+
+.discovery-action-button--super-like {
+  color: #744912 !important;
+  background: linear-gradient(135deg, #fff8e9, #f8e3bd) !important;
+  border-color: rgb(184 120 46 / 28%) !important;
+}
+
+:root[data-theme="dark"] .discovery-page {
+  --discovery-ink: var(--mbolo-text);
+  --discovery-muted: var(--mbolo-muted);
+  --discovery-line: var(--mbolo-border);
+  --discovery-accent: var(--mbolo-primary);
+  --discovery-accent-dark: var(--mbolo-primary-dark);
+  color: var(--mbolo-text);
+  background: transparent;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .discovery-page__summary,
+    .discovery-information-card,
+    .discovery-profile-card,
+    .discovery-state-card
+  ) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border);
+  background: linear-gradient(145deg, rgb(34 21 30 / 97%), rgb(21 13 19 / 98%));
+  box-shadow: var(--mbolo-shadow-md);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .discovery-profile-card__metadata span,
+    .discovery-profile-card__compatibility > div:last-child span
+  ) {
+  color: #ffd4e4;
+  border-color: var(--mbolo-border);
+  background: #2c1b25;
+}
+
+:root[data-theme="dark"] .discovery-profile-card__trust {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border);
+  background: linear-gradient(135deg, #2a1923, #1b171a);
+}
+
+:root[data-theme="dark"] .discovery-profile-card__trust summary {
+  color: var(--mbolo-text);
+}
+
+:root[data-theme="dark"] .discovery-profile-card__trust[open] summary {
+  border-bottom-color: var(--mbolo-border);
+}
+
+:root[data-theme="dark"] .discovery-profile-card__compatibility {
+  background: linear-gradient(135deg, #34202c, #21151d);
+}
+
+:root[data-theme="dark"] .discovery-profile-card__security-note,
+:root[data-theme="dark"] .discovery-information-card__session {
+  color: #a8ead0;
+  background: rgb(54 138 104 / 15%);
+}
+
+:root[data-theme="dark"] .profile-detail-link-button {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border-strong);
+  background: #24161f;
+}
+
+:root[data-theme="dark"] .discovery-action-button--pass {
+  color: #e4cbd7;
+  border-color: var(--mbolo-border);
+  background: #281821;
+}
+
+:root[data-theme="dark"] .discovery-action-button--super-like {
+  color: #f3c17c !important;
+  border-color: rgb(243 193 124 / 24%) !important;
+  background: linear-gradient(135deg, #342719, #261d17) !important;
+}
+
+@keyframes mbolo-profile-arrival {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0) scale(0.975) rotateX(1.5deg);
+    filter: blur(5px) saturate(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotateX(0);
+    filter: blur(0) saturate(1);
+  }
+}
+
 @keyframes mbolo-ambient-drift {
   from {
     transform: translate3d(-1.5%, -1%, 0) rotate(-1deg);
@@ -284,6 +464,10 @@ body::before {
 
 @media (prefers-reduced-motion: reduce) {
   body::before {
+    animation: none;
+  }
+
+  .discovery-profile-card {
     animation: none;
   }
 }
