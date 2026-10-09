@@ -626,10 +626,15 @@ class DemoApi implements AuthApi {
   }
 
   @override
-  Future<ChatMessage> sendMessage(String conversationId, String body) async {
+  Future<ChatMessage> sendMessage(
+    String conversationId,
+    String body, {
+    Uint8List? imageBytes,
+    String? imageFilename,
+  }) async {
     final trimmed = body.trim();
     if (conversationId != 'demo-conversation-1' ||
-        trimmed.isEmpty ||
+        (trimmed.isEmpty && imageBytes == null) ||
         trimmed.length > 2000) {
       throw const FormatException('Message de démonstration incorrect.');
     }
@@ -640,6 +645,7 @@ class DemoApi implements AuthApi {
       mine: true,
       read: false,
       readReceiptsAvailable: false,
+      imageBytes: imageBytes,
     );
     _messages.add(message);
     return message;
@@ -660,6 +666,8 @@ class DemoApi implements AuthApi {
           mine: false,
           read: true,
           readReceiptsAvailable: message.readReceiptsAvailable,
+          imageUrl: message.imageUrl,
+          imageBytes: message.imageBytes,
         );
       }
     }

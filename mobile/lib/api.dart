@@ -612,17 +612,44 @@ class MboloApi implements AuthApi {
   }
 
   @override
-  Future<ChatMessage> sendMessage(String conversationId, String body) async {
+  Future<ChatMessage> sendMessage(
+    String conversationId,
+    String body, {
+    Uint8List? imageBytes,
+    String? imageFilename,
+  }) async {
     final trimmed = body.trim();
-    if (trimmed.isEmpty || trimmed.length > 2000) {
-      throw const FormatException('Le message doit contenir entre 1 et 2000 caractères.');
+    if ((trimmed.isEmpty && imageBytes == null) || trimmed.length > 2000) {
+      throw const FormatException('Ajoutez un texte ou une image.');
     }
-    return ChatMessage.fromJson(
-      await _postObject(
-        'conversations/$conversationId/messages/',
-        {'body': trimmed},
-      ),
+    if (imageBytes == null) {
+      return ChatMessage.fromJson(
+        await _postObject(
+          'conversations/$conversationId/messages/',
+          {'body': trimmed},
+        ),
+      );
+    }
+    if (imageBytes.isEmpty || imageBytes.length > 8 * 1024 * 1024) {
+      throw const FormatException('La photo doit peser moins de 8 Mo.');
+    }
+    final csrf = await client.get<dynamic>('csrf/');
+    final token = objectData(csrf.data)['csrfToken'];
+    if (token is! String || token.isEmpty) {
+      throw const FormatException('Protection CSRF indisponible.');
+    }
+    final response = await client.post<dynamic>(
+      'conversations/$conversationId/messages/',
+      data: FormData.fromMap({
+        'body': trimmed,
+        'image': MultipartFile.fromBytes(
+          imageBytes,
+          filename: imageFilename ?? 'message.jpg',
+        ),
+      }),
+      options: Options(headers: {'X-CSRFToken': token}),
     );
+    return ChatMessage.fromJson(objectData(response.data));
   }
 
   @override

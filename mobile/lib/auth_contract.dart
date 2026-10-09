@@ -578,6 +578,8 @@ class ChatMessage {
     required this.mine,
     required this.read,
     required this.readReceiptsAvailable,
+    this.imageUrl,
+    this.imageBytes,
   });
 
   final String id;
@@ -586,12 +588,19 @@ class ChatMessage {
   final bool mine;
   final bool read;
   final bool readReceiptsAvailable;
+  final String? imageUrl;
+  final Uint8List? imageBytes;
 
   factory ChatMessage.fromJson(Map<String, dynamic> data) {
     final id = data['id'];
     final body = data['body'];
     final createdAt = DateTime.tryParse(data['created_at']?.toString() ?? '');
-    if (id is! String || id.isEmpty || body is! String || createdAt == null) {
+    final imageUrl = data['image_url'];
+    if (id is! String ||
+        id.isEmpty ||
+        body is! String ||
+        (body.trim().isEmpty && (imageUrl is! String || imageUrl.isEmpty)) ||
+        createdAt == null) {
       throw const FormatException('Message incomplet.');
     }
     return ChatMessage(
@@ -601,6 +610,7 @@ class ChatMessage {
       mine: data['is_mine'] == true,
       read: data['is_read'] == true,
       readReceiptsAvailable: data['read_receipts_available'] == true,
+      imageUrl: imageUrl is String && imageUrl.isNotEmpty ? imageUrl : null,
     );
   }
 }
@@ -859,7 +869,12 @@ abstract class AuthApi {
   Future<List<ConversationSummary>> getConversations();
   Future<int> getMessageUnreadCount();
   Future<List<ChatMessage>> getMessages(String conversationId);
-  Future<ChatMessage> sendMessage(String conversationId, String body);
+  Future<ChatMessage> sendMessage(
+    String conversationId,
+    String body, {
+    Uint8List? imageBytes,
+    String? imageFilename,
+  });
   Future<void> markConversationRead(String conversationId);
   Future<bool> getTypingStatus(String conversationId);
   Future<void> setTypingStatus(String conversationId, bool isTyping);

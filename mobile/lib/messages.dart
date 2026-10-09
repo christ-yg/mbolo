@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'auth_contract.dart';
 import 'safety_actions.dart';
@@ -1201,6 +1203,7 @@ class _ConversationPageState extends State<ConversationPage>
     with WidgetsBindingObserver {
   final TextEditingController _composer = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  final ImagePicker _imagePicker = ImagePicker();
   List<ChatMessage> _messages = <ChatMessage>[];
   bool _loading = true;
   bool _sending = false;
@@ -1214,6 +1217,9 @@ class _ConversationPageState extends State<ConversationPage>
   Timer? _messagePoll;
   String? _error;
   String? _failedBody;
+  Uint8List? _pendingImage;
+  String? _pendingImageName;
+  bool _pickingImage = false;
 
   @override
   void initState() {
@@ -1388,7 +1394,9 @@ class _ConversationPageState extends State<ConversationPage>
 
   Future<void> _send() async {
     final body = _composer.text.trim();
-    if (_sending || body.isEmpty) return;
+    if (_sending || (body.isEmpty && _pendingImage == null)) return;
+    final image = _pendingImage;
+    final imageName = _pendingImageName;
     setState(() {
       _sending = true;
       _error = null;
@@ -1398,11 +1406,15 @@ class _ConversationPageState extends State<ConversationPage>
       final message = await widget.api.sendMessage(
         widget.conversation.id,
         body,
+        imageBytes: image,
+        imageFilename: imageName,
       );
       if (!mounted) return;
       _composer.clear();
       setState(() {
         _failedBody = null;
+        _pendingImage = null;
+        _pendingImageName = null;
         if (!_messages.any((item) => item.id == message.id)) {
           _messages = <ChatMessage>[..._messages, message];
         }
@@ -1417,6 +1429,35 @@ class _ConversationPageState extends State<ConversationPage>
       }
     } finally {
       if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _pickMessageImage() async {
+    if (_sending || _pickingImage) return;
+    setState(() => _pickingImage = true);
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        requestFullMetadata: false,
+      );
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      if (bytes.isEmpty || bytes.length > 8 * 1024 * 1024) {
+        throw const FormatException('La photo doit peser moins de 8 Mo.');
+      }
+      if (!mounted) return;
+      setState(() {
+        _pendingImage = bytes;
+        _pendingImageName = picked.name;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _pickingImage = false);
     }
   }
 
@@ -1627,11 +1668,60 @@ class _ConversationPageState extends State<ConversationPage>
               ),
               child: SafeArea(
                 top: false,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: TextField(
+                    if (_pendingImage != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: Image.memory(
+                                _pendingImage!,
+                                width: 104,
+                                height: 104,
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                              ),
+                            ),
+                            Positioned(
+                              right: 4,
+                              top: 4,
+                              child: IconButton.filledTonal(
+                                tooltip: 'Retirer la photo',
+                                visualDensity: VisualDensity.compact,
+                                onPressed: _sending
+                                    ? null
+                                    : () => setState(() {
+                                          _pendingImage = null;
+                                          _pendingImageName = null;
+                                        }),
+                                icon: const Icon(Icons.close_rounded, size: 18),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (_pendingImage != null) const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          tooltip: 'Ajouter une photo',
+                          onPressed: _sending || _pickingImage
+                              ? null
+                              : _pickMessageImage,
+                          icon: _pickingImage
+                              ? const SizedBox.square(
+                                  dimension: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.add_photo_alternate_rounded),
+                        ),
+                        Expanded(
+                          child: TextField(
                         controller: _composer,
                         enabled: !_sending,
                         minLines: 1,
@@ -1650,10 +1740,10 @@ class _ConversationPageState extends State<ConversationPage>
                             borderSide: BorderSide.none,
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filled(
                       tooltip: 'Envoyer',
                       onPressed: _sending ? null : _send,
                       style: IconButton.styleFrom(
@@ -1665,6 +1755,8 @@ class _ConversationPageState extends State<ConversationPage>
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.arrow_upward_rounded),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1941,6 +2033,33 @@ class _AnimatedMessageBubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                if (message.imageBytes != null || message.imageUrl != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: message.imageBytes != null
+                        ? Image.memory(
+                            message.imageBytes!,
+                            width: 250,
+                            height: 230,
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                          )
+                        : Image.network(
+                            message.imageUrl!,
+                            width: 250,
+                            height: 230,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const SizedBox(
+                              width: 250,
+                              height: 120,
+                              child: Center(
+                                child: Icon(Icons.broken_image_outlined),
+                              ),
+                            ),
+                          ),
+                  ),
+                  if (message.body.isNotEmpty) const SizedBox(height: 9),
+                ],
                 Text(
                   message.body,
                   style: TextStyle(

@@ -17,6 +17,12 @@ from django.db import models
 from apps.interactions.models import Match
 
 
+def message_image_upload_path(instance: "Message", original_filename: str) -> str:
+    """Ignore le nom client et isole l'image dans sa conversation."""
+    del original_filename
+    return f"messages/{instance.conversation_id}/{uuid.uuid4().hex}.webp"
+
+
 class Conversation(models.Model):
     """
     Conversation privée associée à un match.
@@ -179,6 +185,15 @@ class Message(models.Model):
 
     body = models.TextField(
         max_length=MAX_BODY_LENGTH,
+        blank=True,
+        default="",
+    )
+
+    image = models.ImageField(
+        upload_to=message_image_upload_path,
+        max_length=500,
+        null=True,
+        blank=True,
     )
 
     created_at = models.DateTimeField(
@@ -248,11 +263,11 @@ class Message(models.Model):
 
         normalized_body = (self.body or "").strip()
 
-        if not normalized_body:
+        if not normalized_body and not self.image:
             raise ValidationError(
                 {
                     "body": (
-                        "Le message ne peut pas être vide."
+                        "Ajoutez un texte ou une image."
                     )
                 }
             )

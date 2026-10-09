@@ -13,6 +13,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.interactions.models import Match
+from apps.photos.image_processing import process_profile_photo
 
 from .models import Conversation, Message
 
@@ -161,6 +162,7 @@ def send_message(
     actor,
     conversation_id: UUID,
     body: str,
+    image=None,
 ) -> Message:
     """
     Envoie un message dans une conversation active.
@@ -175,11 +177,11 @@ def send_message(
 
     normalized_body = (body or "").strip()
 
-    if not normalized_body:
+    if not normalized_body and image is None:
         raise ValidationError(
             {
                 "body": [
-                    "Le message ne peut pas être vide."
+                    "Ajoutez un texte ou une image."
                 ]
             }
         )
@@ -194,11 +196,15 @@ def send_message(
             }
         )
 
-    message = Message.objects.create(
+    processed = process_profile_photo(image) if image is not None else None
+    message = Message(
         conversation=conversation,
         sender=actor,
         body=normalized_body,
     )
+    if processed is not None:
+        message.image.save(processed.filename, processed.content, save=False)
+    message.save()
 
     Conversation.objects.filter(
         id=conversation.id,

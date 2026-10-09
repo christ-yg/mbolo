@@ -35,11 +35,18 @@ class MessageCreateSerializer(
     """
 
     body = serializers.CharField(
-        required=True,
-        allow_blank=False,
+        required=False,
+        allow_blank=True,
         trim_whitespace=True,
         max_length=Message.MAX_BODY_LENGTH,
+        default="",
     )
+    image = serializers.ImageField(required=False, allow_null=True, write_only=True)
+
+    def validate(self, attrs):
+        if not attrs.get("body", "").strip() and not attrs.get("image"):
+            raise serializers.ValidationError("Ajoutez un texte ou une image.")
+        return attrs
 
 
 class MessageSerializer(
@@ -54,6 +61,7 @@ class MessageSerializer(
         read_only=True,
     )
     read_receipts_available = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -61,6 +69,7 @@ class MessageSerializer(
         fields = (
             "id",
             "body",
+            "image_url",
             "created_at",
             "read_at",
             "is_read",
@@ -69,6 +78,13 @@ class MessageSerializer(
         )
 
         read_only_fields = fields
+
+    def get_image_url(self, message: Message) -> str | None:
+        if not message.image:
+            return None
+        request = self.context.get("request")
+        url = message.image.url
+        return request.build_absolute_uri(url) if request else url
 
     def get_is_mine(
         self,

@@ -3,12 +3,15 @@ Tests de sécurité de la messagerie privée Mbolo.
 """
 
 from datetime import date
+from io import BytesIO
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from PIL import Image
 
 from apps.interactions.models import Match
 from apps.profiles.models import Profile
@@ -33,6 +36,18 @@ from .typing import (
 
 
 User = get_user_model()
+
+
+def message_image_file() -> SimpleUploadedFile:
+    buffer = BytesIO()
+    image = Image.new("RGB", (640, 640), (125, 45, 92))
+    image.save(buffer, format="JPEG")
+    image.close()
+    return SimpleUploadedFile(
+        "client-name.jpg",
+        buffer.getvalue(),
+        content_type="image/jpeg",
+    )
 
 
 class MessagingServiceTests(TestCase):
@@ -177,6 +192,21 @@ class MessagingServiceTests(TestCase):
         )
         self.assertIsNone(message.read_at)
         self.assertFalse(message.is_read)
+
+    @override_settings(MEDIA_ROOT="/tmp/mbolo-test-media")
+    def test_participant_can_send_sanitized_image_message(self):
+        conversation = Conversation.objects.create(match=self.match)
+
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="",
+            image=message_image_file(),
+        )
+
+        self.assertEqual(message.body, "")
+        self.assertTrue(message.image.name.endswith(".webp"))
+        self.assertNotIn("client-name", message.image.name)
 
     def test_free_sender_cannot_receive_read_receipt(self):
         conversation = Conversation.objects.create(match=self.match)

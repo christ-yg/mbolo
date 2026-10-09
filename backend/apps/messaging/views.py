@@ -272,10 +272,9 @@ class ConversationMessageListCreateView(
                 actor=request.user,
                 conversation_id=conversation_id,
                 body=(
-                    input_serializer.validated_data[
-                        "body"
-                    ]
+                    input_serializer.validated_data.get("body", "")
                 ),
+                image=input_serializer.validated_data.get("image"),
             )
         except DjangoValidationError as exc:
             return validation_error_response(exc)
@@ -323,7 +322,7 @@ class ConversationMessageListCreateView(
                 ),
                 conversation_id=message.conversation_id,
                 message_id=message.id,
-                body_preview=message.body[:160],
+                body_preview=message.body[:160] if message.body else "Photo",
             )
         )
 
