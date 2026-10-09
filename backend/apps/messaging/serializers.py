@@ -9,6 +9,7 @@ from apps.profiles.serializers import (
     DiscoveryProfileSerializer,
 )
 from apps.subscriptions.services import get_subscription_state
+from apps.safety.models import ReportReason
 
 from .models import Conversation, Message, MessageReaction
 
@@ -66,6 +67,26 @@ class MessageEditSerializer(serializers.Serializer):
         trim_whitespace=True,
         max_length=Message.MAX_BODY_LENGTH,
     )
+
+
+class MessageReportSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=ReportReason.choices)
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        trim_whitespace=True,
+        max_length=1200,
+    )
+
+    def validate(self, attrs):
+        if attrs.get("reason") == ReportReason.OTHER and not attrs.get(
+            "description", ""
+        ).strip():
+            raise serializers.ValidationError(
+                {"description": "Précisez le motif du signalement."}
+            )
+        return attrs
 
 
 class MessageSerializer(

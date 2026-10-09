@@ -715,6 +715,21 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<SafetyActionResult> reportMessage({
+    required String conversationId,
+    required String messageId,
+    required String reason,
+    required String description,
+  }) async {
+    return SafetyActionResult.fromJson(
+      await _postObject(
+        'conversations/$conversationId/messages/$messageId/report/',
+        {'reason': reason, 'description': description.trim()},
+      ),
+    );
+  }
+
+  @override
   Future<void> markConversationRead(String conversationId) async {
     await _post('conversations/$conversationId/read/', {});
   }

@@ -15,6 +15,14 @@ void main() {
     expect(initial, hasLength(1));
     expect(initial.single.mine, isFalse);
 
+    final report = await api.reportMessage(
+      conversationId: conversations.single.id,
+      messageId: initial.single.id,
+      reason: 'harassment',
+      description: 'Message déplacé',
+    );
+    expect(report.created, isTrue);
+
     await api.markConversationRead(conversations.single.id);
     final readConversations = await api.getConversations();
     expect(readConversations.single.unreadCount, 0);

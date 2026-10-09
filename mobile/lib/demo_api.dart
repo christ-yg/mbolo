@@ -776,6 +776,33 @@ class DemoApi implements AuthApi {
   }
 
   @override
+  Future<SafetyActionResult> reportMessage({
+    required String conversationId,
+    required String messageId,
+    required String reason,
+    required String description,
+  }) async {
+    ChatMessage? message;
+    for (final item in _messages) {
+      if (item.id == messageId) {
+        message = item;
+        break;
+      }
+    }
+    if (conversationId != 'demo-conversation-1' ||
+        message == null ||
+        message.mine ||
+        reason.isEmpty ||
+        (reason == 'other' && description.trim().isEmpty)) {
+      throw const FormatException('Signalement incorrect.');
+    }
+    return const SafetyActionResult(
+      created: true,
+      message: 'Le message a été transmis à la modération.',
+    );
+  }
+
+  @override
   Future<void> markConversationRead(String conversationId) async {
     if (conversationId != 'demo-conversation-1') {
       throw const FormatException('Conversation absente.');

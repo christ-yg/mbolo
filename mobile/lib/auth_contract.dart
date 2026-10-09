@@ -960,6 +960,12 @@ abstract class AuthApi {
     String messageId,
     String body,
   );
+  Future<SafetyActionResult> reportMessage({
+    required String conversationId,
+    required String messageId,
+    required String reason,
+    required String description,
+  });
   Future<void> markConversationRead(String conversationId);
   Future<bool> getTypingStatus(String conversationId);
   Future<void> setTypingStatus(String conversationId, bool isTyping);

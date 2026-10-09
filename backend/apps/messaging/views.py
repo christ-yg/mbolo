@@ -23,6 +23,7 @@ from apps.notifications.services import (
     broadcast_notification_created,
     get_unread_notification_count,
 )
+from apps.safety.report_throttles import ReportCreateThrottle
 
 from .models import Conversation, Message
 from .realtime import broadcast_conversation_event
@@ -36,6 +37,7 @@ from .serializers import (
     MarkConversationReadSerializer,
     MessageCreateSerializer,
     MessageEditSerializer,
+    MessageReportSerializer,
     MessageSerializer,
     MessageReactionInputSerializer,
     UnreadCountSerializer,
@@ -52,6 +54,7 @@ from .services import (
     set_message_reaction,
     delete_message_for_everyone,
     edit_message,
+    report_message,
 )
 from .typing import (
     get_other_typing_status,
@@ -375,8 +378,6 @@ class ConversationMessageListCreateView(
             output_serializer.data,
             status=status.HTTP_201_CREATED,
         )
-
-
 class ConversationMarkReadView(APIView):
     """
     POST /api/v1/conversations/<uuid>/read/
@@ -617,3 +618,39 @@ class MessageDetailView(APIView):
             email=request.user.email,
         )
         return Response(output.data, status=status.HTTP_200_OK)
+
+
+class MessageReportView(APIView):
+    permission_classes = (IsAuthenticated,)
+    throttle_classes = (ReportCreateThrottle,)
+
+    def post(self, request: Request, conversation_id, message_id) -> Response:
+        input_serializer = MessageReportSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        try:
+            report = report_message(
+                actor=request.user,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                reason=input_serializer.validated_data["reason"],
+                description=input_serializer.validated_data.get("description", ""),
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+        log_security_event(
+            request=request,
+            event="message.report",
+            outcome="success",
+            reason="report_created",
+            user=request.user,
+            email=request.user.email,
+        )
+        return Response(
+            {
+                "created": True,
+                "message": "Le message a été transmis à la modération.",
+                "report_id": str(report.id),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+# End of messaging API views.

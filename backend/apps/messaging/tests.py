@@ -31,6 +31,7 @@ from .services import (
     set_message_reaction,
     delete_message_for_everyone,
     edit_message,
+    report_message,
 )
 from .typing import (
     get_other_typing_status,
@@ -397,6 +398,42 @@ class MessagingServiceTests(TestCase):
                 conversation_id=conversation.id,
                 message_id=message.id,
                 body="Tentative interdite.",
+            )
+
+    def test_recipient_can_report_message_with_server_evidence(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Contenu abusif à conserver.",
+        )
+
+        report = report_message(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            reason="harassment",
+            description="Ce message me met mal à l'aise.",
+        )
+
+        self.assertEqual(report.reported_user_id, self.user_one.id)
+        self.assertIn(str(message.id), report.description)
+        self.assertIn("Contenu abusif à conserver.", report.description)
+
+    def test_sender_cannot_report_own_message(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Mon message.",
+        )
+
+        with self.assertRaises(ValidationError):
+            report_message(
+                actor=self.user_one,
+                conversation_id=conversation.id,
+                message_id=message.id,
+                reason="spam",
             )
 
     def test_reply_from_another_conversation_is_rejected(self):

@@ -1636,6 +1636,93 @@ class _ConversationPageState extends State<ConversationPage>
     }
   }
 
+  Future<void> _reportMessage(ChatMessage message) async {
+    if (message.mine) return;
+    var reason = reportReasons.keys.first;
+    final details = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          icon: const Icon(Icons.shield_outlined),
+          title: const Text('Signaler ce message'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: reason,
+                  decoration: const InputDecoration(labelText: 'Motif'),
+                  items: reportReasons.entries
+                      .map(
+                        (entry) => DropdownMenuItem(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) => setDialogState(() {
+                    if (value != null) reason = value;
+                  }),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: details,
+                  minLines: 2,
+                  maxLines: 4,
+                  maxLength: 1200,
+                  onChanged: (_) => setDialogState(() {}),
+                  decoration: InputDecoration(
+                    labelText: reason == 'other'
+                        ? 'Précisions obligatoires'
+                        : 'Précisions facultatives',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const Text(
+                  'Une copie sécurisée du message sera transmise à la modération.',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: reason == 'other' && details.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Envoyer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (submitted != true || !mounted) {
+      details.dispose();
+      return;
+    }
+    try {
+      final result = await widget.api.reportMessage(
+        conversationId: widget.conversation.id,
+        messageId: message.id,
+        reason: reason,
+        description: details.text,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.message)),
+        );
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      details.dispose();
+    }
+  }
+
   String _time(DateTime value) {
     final local = value.toLocal();
     return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
@@ -1762,6 +1849,7 @@ class _ConversationPageState extends State<ConversationPage>
                                         }),
                                         onDelete: () => _deleteMessage(message),
                                         onEdit: () => _editMessage(message),
+                                        onReport: () => _reportMessage(message),
                                       ),
                                     ],
                                   );
@@ -2167,6 +2255,7 @@ class _AnimatedMessageBubble extends StatelessWidget {
     required this.onReply,
     required this.onDelete,
     required this.onEdit,
+    required this.onReport,
   });
 
   final ChatMessage message;
@@ -2176,6 +2265,7 @@ class _AnimatedMessageBubble extends StatelessWidget {
   final VoidCallback onReply;
   final Future<void> Function() onDelete;
   final Future<void> Function() onEdit;
+  final Future<void> Function() onReport;
 
   Future<void> _showActions(BuildContext context) async {
     HapticFeedback.selectionClick();
@@ -2260,6 +2350,23 @@ class _AnimatedMessageBubble extends StatelessWidget {
                   ),
                   onTap: () => Navigator.of(sheetContext).pop('delete'),
                 ),
+              if (!message.mine)
+                ListTile(
+                  leading: Icon(
+                    Icons.flag_outlined,
+                    color: Theme.of(sheetContext).colorScheme.error,
+                  ),
+                  title: Text(
+                    'Signaler ce message',
+                    style: TextStyle(
+                      color: Theme.of(sheetContext).colorScheme.error,
+                    ),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  onTap: () => Navigator.of(sheetContext).pop('report'),
+                ),
               TextButton(
                 onPressed: () => Navigator.of(sheetContext).pop(),
                 child: const Text('Fermer'),
@@ -2280,6 +2387,10 @@ class _AnimatedMessageBubble extends StatelessWidget {
     }
     if (action == 'edit') {
       await onEdit();
+      return;
+    }
+    if (action == 'report') {
+      await onReport();
       return;
     }
     if (action != 'copy') {

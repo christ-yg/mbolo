@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from apps.interactions.models import Match
 from apps.photos.image_processing import process_profile_photo
+from apps.safety.report_services import create_report
 
 from .models import Conversation, Message, MessageReaction
 
@@ -324,6 +325,50 @@ def edit_message(*, actor, conversation_id: UUID, message_id: UUID, body: str):
     message.edited_at = timezone.now()
     message.save(update_fields=("body", "edited_at"))
     return message
+
+
+@transaction.atomic
+def report_message(
+    *, actor, conversation_id: UUID, message_id: UUID, reason: str,
+    description: str = "",
+):
+    """Crée un signalement avec une preuve figée contrôlée par le serveur."""
+    conversation = get_conversation_for_actor(
+        actor=actor,
+        conversation_id=conversation_id,
+    )
+    try:
+        message = Message.objects.select_related("sender").get(
+            id=message_id,
+            conversation=conversation,
+        )
+    except Message.DoesNotExist as exc:
+        raise ValidationError("Ce message est introuvable.") from exc
+
+    if message.sender_id == actor.id:
+        raise ValidationError("Vous ne pouvez pas signaler votre propre message.")
+
+    if message.deleted_at is not None:
+        content = "[Message supprimé]"
+    elif message.body:
+        content = message.body[:500]
+    elif message.image:
+        content = "[Photo jointe]"
+    else:
+        content = "[Contenu indisponible]"
+    evidence = (
+        f"Preuve message {message.id} — envoyé le "
+        f"{message.created_at.isoformat()}\n{content}"
+    )
+    details = description.strip()
+    combined = evidence if not details else f"{evidence}\n\nPrécisions : {details}"
+    result = create_report(
+        reporter=actor,
+        reported_user_id=message.sender_id,
+        reason=reason,
+        description=combined[:2000],
+    )
+    return result.report
 
 
 @transaction.atomic
