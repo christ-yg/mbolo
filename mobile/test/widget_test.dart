@@ -367,21 +367,15 @@ void main() {
   testWidgets('A reciprocal like opens the premium match celebration', (
     tester,
   ) async {
-    await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
+    await tester.pumpWidget(
+      MboloApp(api: _AlwaysMatchDemoApi(), demo: true),
+    );
     await tester.enterText(find.byType(TextFormField).at(0), 'demo@mbolo.test');
     await tester.enterText(find.byType(TextFormField).at(1), 'MboloDemo!');
     await tester.tap(find.text('Se connecter'));
     await tester.pump();
     await tester.enterText(find.byType(TextFormField), '123456');
     await tester.tap(find.text('Confirmer'));
-    await tester.pumpAndSettle();
-
-    await tester.scrollUntilVisible(
-      find.text('Passer'),
-      280,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Passer'));
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
@@ -393,8 +387,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('C’EST UN MATCH'), findsOneWidget);
-    expect(find.textContaining('Grâce'), findsOneWidget);
+    expect(find.textContaining('Arielle'), findsOneWidget);
     expect(find.text('Envoyer un message'), findsOneWidget);
   });
 
+}
+
+class _AlwaysMatchDemoApi extends DemoApi {
+  @override
+  Future<InteractionResult> decideProfile({
+    required String profileId,
+    required String decision,
+    bool superLike = false,
+  }) async {
+    return InteractionResult(
+      decision: decision,
+      matched: decision == 'like',
+      matchCreated: decision == 'like',
+      matchId: decision == 'like' ? 'deterministic-match' : null,
+    );
+  }
 }
