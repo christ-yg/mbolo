@@ -200,7 +200,8 @@ class _MboloHomeState extends State<MboloHome> with WidgetsBindingObserver {
           }
         }
         if (!mounted) return;
-        if (conversation == null) {
+        final selectedConversation = conversation;
+        if (selectedConversation == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Conversation indisponible.')),
           );
@@ -210,7 +211,7 @@ class _MboloHomeState extends State<MboloHome> with WidgetsBindingObserver {
           MaterialPageRoute<void>(
             builder: (context) => ConversationPage(
               api: widget.api,
-              conversation: conversation,
+              conversation: selectedConversation,
             ),
           ),
         );
