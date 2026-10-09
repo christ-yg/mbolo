@@ -20,19 +20,63 @@ class MessagesPage extends StatefulWidget {
   State<MessagesPage> createState() => _MessagesPageState();
 }
 
-class _MessagesPageState extends State<MessagesPage> {
+class _MessagesPageState extends State<MessagesPage>
+    with WidgetsBindingObserver {
+  final TextEditingController _searchController = TextEditingController();
   List<ConversationSummary> _conversations = <ConversationSummary>[];
   List<MatchSummary> _matches = <MatchSummary>[];
   List<ReceivedLike> _likes = <ReceivedLike>[];
   late int _section = widget.initialSection.clamp(0, 2).toInt();
   bool _loading = true;
+  bool _refreshing = false;
+  Timer? _refreshTimer;
+  String _query = '';
   String? _workingLike;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _searchController.addListener(_onSearchChanged);
     _load();
+    _startRefreshing();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startRefreshing();
+      unawaited(_load(silent: true));
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+    }
+  }
+
+  void _startRefreshing() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => unawaited(_load(silent: true)),
+    );
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query != _query && mounted) setState(() => _query = query);
   }
 
   @override
@@ -43,15 +87,35 @@ class _MessagesPageState extends State<MessagesPage> {
     }
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (_refreshing || _workingLike != null) return;
+    _refreshing = true;
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
-      final conversations = await widget.api.getConversations();
-      final matches = await widget.api.getMatches();
-      final likes = await widget.api.getReceivedLikes();
+      final results = await Future.wait<Object>([
+        widget.api.getConversations(),
+        widget.api.getMatches(),
+        widget.api.getReceivedLikes(),
+      ]);
+      final conversations = List<ConversationSummary>.of(
+        results[0] as List<ConversationSummary>,
+      )
+        ..sort((a, b) {
+          final unread = b.unreadCount.compareTo(a.unreadCount);
+          return unread != 0 ? unread : b.updatedAt.compareTo(a.updatedAt);
+        });
+      final matches = List<MatchSummary>.of(results[1] as List<MatchSummary>)
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final likes = List<ReceivedLike>.of(results[2] as List<ReceivedLike>)
+        ..sort((a, b) {
+          if (a.superLike != b.superLike) return a.superLike ? -1 : 1;
+          return b.receivedAt.compareTo(a.receivedAt);
+        });
       if (mounted) {
         setState(() {
           _conversations = conversations;
@@ -60,8 +124,9 @@ class _MessagesPageState extends State<MessagesPage> {
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _error = friendlyError(error));
+      if (!silent && mounted) setState(() => _error = friendlyError(error));
     } finally {
+      _refreshing = false;
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -124,15 +189,20 @@ class _MessagesPageState extends State<MessagesPage> {
   }
 
   Future<void> _open(ConversationSummary conversation) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => ConversationPage(
-          api: widget.api,
-          conversation: conversation,
+    _refreshTimer?.cancel();
+    try {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => ConversationPage(
+            api: widget.api,
+            conversation: conversation,
+          ),
         ),
-      ),
-    );
-    await _load();
+      );
+      await _load(silent: true);
+    } finally {
+      _startRefreshing();
+    }
   }
 
   String _time(DateTime value) {
@@ -168,6 +238,31 @@ class _MessagesPageState extends State<MessagesPage> {
           _MessagesHero(
             matchCount: _matches.length,
             likeCount: _likes.length,
+          ),
+          const SizedBox(height: 18),
+          TextField(
+            controller: _searchController,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: switch (_section) {
+                1 => 'Rechercher un match',
+                2 => 'Rechercher dans les likes',
+                _ => 'Rechercher une conversation',
+              },
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Effacer la recherche',
+                      onPressed: _searchController.clear,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+              filled: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(22),
+                borderSide: BorderSide.none,
+              ),
+            ),
           ),
           const SizedBox(height: 22),
           SegmentedButton<int>(
@@ -219,6 +314,32 @@ class _MessagesPageState extends State<MessagesPage> {
     );
   }
 
+  List<ConversationSummary> get _visibleConversations => _query.isEmpty
+      ? _conversations
+      : _conversations.where((conversation) {
+          final profile = conversation.otherProfile;
+          final haystack = '${profile.displayName} ${profile.city} '
+              '${conversation.lastMessage?.body ?? ''}'.toLowerCase();
+          return haystack.contains(_query);
+        }).toList(growable: false);
+
+  List<MatchSummary> get _visibleMatches => _query.isEmpty
+      ? _matches
+      : _matches.where((match) {
+          final profile = match.otherProfile;
+          return '${profile.displayName} ${profile.city} ${profile.datingIntent}'
+              .toLowerCase()
+              .contains(_query);
+        }).toList(growable: false);
+
+  List<ReceivedLike> get _visibleLikes => _query.isEmpty
+      ? _likes
+      : _likes.where((like) {
+          return '${like.displayName ?? ''} ${like.city} ${like.ageRange} ${like.datingIntent}'
+              .toLowerCase()
+              .contains(_query);
+        }).toList(growable: false);
+
   List<Widget> _messageSection(BuildContext context) => <Widget>[
           Text(
             'Messages',
@@ -227,16 +348,18 @@ class _MessagesPageState extends State<MessagesPage> {
                 ),
           ),
           const SizedBox(height: 12),
-          if (_conversations.isEmpty)
-            const Card(
+          if (_visibleConversations.isEmpty)
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    Icon(Icons.forum_outlined, size: 48),
-                    SizedBox(height: 12),
+                    const Icon(Icons.forum_outlined, size: 48),
+                    const SizedBox(height: 12),
                     Text(
-                      'Tes conversations apparaîtront ici après un match.',
+                      _query.isEmpty
+                          ? 'Tes conversations apparaîtront ici après un match.'
+                          : 'Aucune conversation ne correspond à ta recherche.',
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -244,7 +367,7 @@ class _MessagesPageState extends State<MessagesPage> {
               ),
             )
           else
-            ..._conversations.asMap().entries.map((entry) {
+            ..._visibleConversations.asMap().entries.map((entry) {
               final index = entry.key;
               final conversation = entry.value;
               final last = conversation.lastMessage;
@@ -332,13 +455,15 @@ class _MessagesPageState extends State<MessagesPage> {
               ),
         ),
         const SizedBox(height: 12),
-        if (_matches.isEmpty)
-          const _ConnectionsEmpty(
+        if (_visibleMatches.isEmpty)
+          _ConnectionsEmpty(
             icon: Icons.favorite_border,
-            message: 'Tes prochains matchs apparaîtront ici.',
+            message: _query.isEmpty
+                ? 'Tes prochains matchs apparaîtront ici.'
+                : 'Aucun match ne correspond à ta recherche.',
           )
         else
-          ..._matches.map((match) {
+          ..._visibleMatches.map((match) {
             final profile = match.otherProfile;
             final photo = profile.photos.isEmpty ? null : profile.photos.first;
             return Padding(
@@ -382,13 +507,15 @@ class _MessagesPageState extends State<MessagesPage> {
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 12),
-        if (_likes.isEmpty)
-          const _ConnectionsEmpty(
+        if (_visibleLikes.isEmpty)
+          _ConnectionsEmpty(
             icon: Icons.visibility_off_outlined,
-            message: 'Aucun nouvel intérêt pour le moment.',
+            message: _query.isEmpty
+                ? 'Aucun nouvel intérêt pour le moment.'
+                : 'Aucun like ne correspond à ta recherche.',
           )
         else
-          ..._likes.map((like) {
+          ..._visibleLikes.map((like) {
             final busy = _workingLike == like.interactionId;
             final title = like.identityRevealed && like.displayName != null
                 ? like.displayName!
