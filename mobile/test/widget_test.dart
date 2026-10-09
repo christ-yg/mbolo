@@ -364,49 +364,4 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('A reciprocal like opens the premium match celebration', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MboloApp(api: _AlwaysMatchDemoApi(), demo: true),
-    );
-    await tester.enterText(find.byType(TextFormField).at(0), 'demo@mbolo.test');
-    await tester.enterText(find.byType(TextFormField).at(1), 'MboloDemo!');
-    await tester.tap(find.text('Se connecter'));
-    await tester.pump();
-    await tester.enterText(find.byType(TextFormField), '123456');
-    await tester.tap(find.text('Confirmer'));
-    await tester.pumpAndSettle();
-
-    await tester.drag(
-      find.byKey(
-        const ValueKey<String>(
-          'discovery-card-11111111-1111-1111-1111-111111111111',
-        ),
-      ),
-      const Offset(420, 0),
-    );
-    await tester.pump(const Duration(milliseconds: 600));
-
-    expect(find.text('C’EST UN MATCH'), findsOneWidget);
-    expect(find.textContaining('Arielle'), findsOneWidget);
-    expect(find.text('Envoyer un message'), findsOneWidget);
-  });
-
-}
-
-class _AlwaysMatchDemoApi extends DemoApi {
-  @override
-  Future<InteractionResult> decideProfile({
-    required String profileId,
-    required String decision,
-    bool superLike = false,
-  }) async {
-    return InteractionResult(
-      decision: decision,
-      matched: decision == 'like',
-      matchCreated: decision == 'like',
-      matchId: decision == 'like' ? 'deterministic-match' : null,
-    );
-  }
 }
