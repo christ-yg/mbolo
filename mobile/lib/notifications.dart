@@ -5,9 +5,14 @@ import 'package:flutter/material.dart';
 import 'auth_contract.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key, required this.api});
+  const NotificationsPage({
+    super.key,
+    required this.api,
+    this.onOpenTarget,
+  });
 
   final AuthApi api;
+  final Future<void> Function(String targetPath)? onOpenTarget;
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -95,6 +100,28 @@ class _NotificationsPageState extends State<NotificationsPage>
     } finally {
       if (mounted) setState(() => _working = false);
     }
+  }
+
+  bool _isSafeTarget(String path) {
+    if (!path.startsWith('/') || path.startsWith('//')) return false;
+    final uri = Uri.tryParse(path);
+    return uri != null &&
+        !uri.hasScheme &&
+        uri.host.isEmpty &&
+        uri.userInfo.isEmpty &&
+        !uri.hasQuery &&
+        !uri.hasFragment;
+  }
+
+  Future<void> _open(AppNotification item) async {
+    await _read(item);
+    if (!mounted ||
+        widget.onOpenTarget == null ||
+        !_isSafeTarget(item.targetPath)) {
+      return;
+    }
+    Navigator.of(context).pop();
+    await widget.onOpenTarget!(item.targetPath);
   }
 
   Future<void> _readAll() async {
@@ -270,7 +297,7 @@ class _NotificationsPageState extends State<NotificationsPage>
                             icon: _icon(item.kind),
                             date: _date(item.createdAt),
                             working: _working,
-                            onTap: () => _read(item),
+                            onTap: () => _open(item),
                           ),
                         );
                         },

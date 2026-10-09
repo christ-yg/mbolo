@@ -7,9 +7,14 @@ import 'auth_contract.dart';
 import 'safety_actions.dart';
 
 class MessagesPage extends StatefulWidget {
-  const MessagesPage({super.key, required this.api});
+  const MessagesPage({
+    super.key,
+    required this.api,
+    this.initialSection = 0,
+  });
 
   final AuthApi api;
+  final int initialSection;
 
   @override
   State<MessagesPage> createState() => _MessagesPageState();
@@ -19,7 +24,7 @@ class _MessagesPageState extends State<MessagesPage> {
   List<ConversationSummary> _conversations = <ConversationSummary>[];
   List<MatchSummary> _matches = <MatchSummary>[];
   List<ReceivedLike> _likes = <ReceivedLike>[];
-  int _section = 0;
+  late int _section = widget.initialSection.clamp(0, 2).toInt();
   bool _loading = true;
   String? _workingLike;
   String? _error;
@@ -28,6 +33,14 @@ class _MessagesPageState extends State<MessagesPage> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant MessagesPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSection != widget.initialSection) {
+      setState(() => _section = widget.initialSection.clamp(0, 2).toInt());
+    }
   }
 
   Future<void> _load() async {

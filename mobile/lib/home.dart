@@ -38,6 +38,7 @@ class MboloHome extends StatefulWidget {
 
 class _MboloHomeState extends State<MboloHome> with WidgetsBindingObserver {
   int _tab = 0;
+  int _messagesInitialSection = 0;
   List<DiscoveryProfile> _profiles = <DiscoveryProfile>[];
   bool _discoveryLoading = true;
   bool _deciding = false;
@@ -168,9 +169,70 @@ class _MboloHomeState extends State<MboloHome> with WidgetsBindingObserver {
   Future<void> _openNotifications() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (context) => NotificationsPage(api: widget.api),
+        builder: (context) => NotificationsPage(
+          api: widget.api,
+          onOpenTarget: _openNotificationTarget,
+        ),
       ),
     );
+    await _loadActivityCounts();
+  }
+
+  Future<void> _openNotificationTarget(String targetPath) async {
+    if (!mounted) return;
+    if (targetPath.startsWith('/messages/')) {
+      final conversationId = targetPath
+          .substring('/messages/'.length)
+          .split('/')
+          .first;
+      if (conversationId.isEmpty) return;
+      setState(() {
+        _tab = 1;
+        _messagesInitialSection = 0;
+      });
+      try {
+        final conversations = await widget.api.getConversations();
+        ConversationSummary? conversation;
+        for (final item in conversations) {
+          if (item.id == conversationId) {
+            conversation = item;
+            break;
+          }
+        }
+        if (!mounted) return;
+        if (conversation == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Conversation indisponible.')),
+          );
+          return;
+        }
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (context) => ConversationPage(
+              api: widget.api,
+              conversation: conversation,
+            ),
+          ),
+        );
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(friendlyError(error))),
+          );
+        }
+      }
+    } else if (targetPath == '/messages' || targetPath == '/matches') {
+      setState(() {
+        _tab = 1;
+        _messagesInitialSection = targetPath == '/matches' ? 1 : 0;
+      });
+    } else if (targetPath == '/discovery') {
+      setState(() => _tab = 0);
+    } else if (targetPath == '/security' || targetPath == '/reports') {
+      setState(() => _tab = 2);
+    } else if (targetPath.startsWith('/profile')) {
+      setState(() => _tab = 3);
+    }
     await _loadActivityCounts();
   }
 
@@ -398,7 +460,10 @@ class _MboloHomeState extends State<MboloHome> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final pages = <Widget>[
       _discoveryPage(),
-      MessagesPage(api: widget.api),
+      MessagesPage(
+        api: widget.api,
+        initialSection: _messagesInitialSection,
+      ),
       SecurityPage(
         api: widget.api,
         initialAccount: widget.account,
@@ -423,7 +488,10 @@ class _MboloHomeState extends State<MboloHome> with WidgetsBindingObserver {
     void selectTab(int value) {
       if (value == _tab) return;
       HapticFeedback.selectionClick();
-      setState(() => _tab = value);
+      setState(() {
+        _tab = value;
+        if (value == 1) _messagesInitialSection = 0;
+      });
       if (value == 1) unawaited(_loadActivityCounts());
     }
 
