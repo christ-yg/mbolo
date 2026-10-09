@@ -378,13 +378,15 @@ void main() {
     await tester.tap(find.text('Confirmer'));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.byTooltip('Ça me plaît'),
-      280,
-      scrollable: find.byType(Scrollable).first,
+    await tester.drag(
+      find.byKey(
+        const ValueKey<String>(
+          'discovery-card-11111111-1111-1111-1111-111111111111',
+        ),
+      ),
+      const Offset(420, 0),
     );
-    await tester.tap(find.byTooltip('Ça me plaît'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 600));
 
     expect(find.text('C’EST UN MATCH'), findsOneWidget);
     expect(find.textContaining('Arielle'), findsOneWidget);
