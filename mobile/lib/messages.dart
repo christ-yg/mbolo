@@ -1831,7 +1831,6 @@ class _TypingIndicatorState extends State<_TypingIndicator>
 
 class _AnimatedMessageBubble extends StatelessWidget {
   const _AnimatedMessageBubble({
-    super.key,
     required this.message,
     required this.time,
     required this.order,
