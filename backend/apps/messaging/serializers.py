@@ -51,6 +51,7 @@ class MessageCreateSerializer(
         default="",
     )
     image = serializers.ImageField(required=False, allow_null=True, write_only=True)
+    reply_to_id = serializers.UUIDField(required=False, allow_null=True)
 
     def validate(self, attrs):
         if not attrs.get("body", "").strip() and not attrs.get("image"):
@@ -73,6 +74,7 @@ class MessageSerializer(
     image_url = serializers.SerializerMethodField()
     reactions = serializers.SerializerMethodField()
     my_reaction = serializers.SerializerMethodField()
+    reply_preview = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -83,6 +85,7 @@ class MessageSerializer(
             "image_url",
             "reactions",
             "my_reaction",
+            "reply_preview",
             "created_at",
             "read_at",
             "is_read",
@@ -112,6 +115,22 @@ class MessageSerializer(
             .values_list("emoji", flat=True)
             .first()
         )
+
+    def get_reply_preview(self, message: Message) -> dict[str, object] | None:
+        reply = message.reply_to
+        if reply is None:
+            return None
+        request = self.context["request"]
+        if reply.sender_id == request.user.id:
+            sender_name = "Vous"
+        else:
+            sender_name = reply.sender.profile.display_name
+        return {
+            "id": str(reply.id),
+            "body": reply.body[:160],
+            "has_image": bool(reply.image),
+            "sender_name": sender_name,
+        }
 
     def get_is_mine(
         self,

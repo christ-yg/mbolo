@@ -228,6 +228,9 @@ class ConversationMessageListCreateView(
             )
             .select_related(
                 "sender",
+                "reply_to",
+                "reply_to__sender",
+                "reply_to__sender__profile",
             )
             .prefetch_related("reactions")
             .order_by("created_at")
@@ -280,6 +283,7 @@ class ConversationMessageListCreateView(
                     input_serializer.validated_data.get("body", "")
                 ),
                 image=input_serializer.validated_data.get("image"),
+                reply_to_id=input_serializer.validated_data.get("reply_to_id"),
             )
         except DjangoValidationError as exc:
             return validation_error_response(exc)

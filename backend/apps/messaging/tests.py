@@ -308,6 +308,47 @@ class MessagingServiceTests(TestCase):
         )
         self.assertFalse(message.reactions.exists())
 
+    def test_participant_can_reply_inside_same_conversation(self):
+        conversation = Conversation.objects.create(match=self.match)
+        original = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Premier message.",
+        )
+        reply = send_message(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            body="Réponse ciblée.",
+            reply_to_id=original.id,
+        )
+
+        self.assertEqual(reply.reply_to_id, original.id)
+
+    def test_reply_from_another_conversation_is_rejected(self):
+        third_user, third_profile = self.create_user_with_profile(
+            email="third@example.com",
+            display_name="Troisième membre",
+        )
+        other_match = self.create_active_match(
+            profile_one=self.profile_one,
+            profile_two=third_profile,
+        )
+        other_conversation = Conversation.objects.create(match=other_match)
+        foreign_message = send_message(
+            actor=third_user,
+            conversation_id=other_conversation.id,
+            body="Message étranger.",
+        )
+        conversation = Conversation.objects.create(match=self.match)
+
+        with self.assertRaises(ValidationError):
+            send_message(
+                actor=self.user_one,
+                conversation_id=conversation.id,
+                body="Réponse interdite.",
+                reply_to_id=foreign_message.id,
+            )
+
     def test_message_sender_must_belong_to_conversation(self):
         conversation = Conversation.objects.create(
             match=self.match,

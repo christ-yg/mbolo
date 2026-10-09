@@ -1219,6 +1219,7 @@ class _ConversationPageState extends State<ConversationPage>
   Uint8List? _pendingImage;
   String? _pendingImageName;
   bool _pickingImage = false;
+  ChatMessage? _replyingTo;
 
   @override
   void initState() {
@@ -1396,6 +1397,7 @@ class _ConversationPageState extends State<ConversationPage>
     if (_sending || (body.isEmpty && _pendingImage == null)) return;
     final image = _pendingImage;
     final imageName = _pendingImageName;
+    final reply = _replyingTo;
     setState(() {
       _sending = true;
       _error = null;
@@ -1407,6 +1409,7 @@ class _ConversationPageState extends State<ConversationPage>
         body,
         imageBytes: image,
         imageFilename: imageName,
+        replyToId: reply?.id,
       );
       if (!mounted) return;
       _composer.clear();
@@ -1414,6 +1417,7 @@ class _ConversationPageState extends State<ConversationPage>
         _failedBody = null;
         _pendingImage = null;
         _pendingImageName = null;
+        _replyingTo = null;
         if (!_messages.any((item) => item.id == message.id)) {
           _messages = <ChatMessage>[..._messages, message];
         }
@@ -1482,6 +1486,7 @@ class _ConversationPageState extends State<ConversationPage>
           .map((entry) => MessageReactionSummary(entry.key, entry.value))
           .toList(growable: false),
       myReaction: emoji.isEmpty ? null : emoji,
+      replyPreview: message.replyPreview,
     );
     setState(() {
       _messages = _messages
@@ -1646,6 +1651,9 @@ class _ConversationPageState extends State<ConversationPage>
                                         order: index,
                                         onReact: (emoji) =>
                                             _react(message, emoji),
+                                        onReply: () => setState(() {
+                                          _replyingTo = message;
+                                        }),
                                       ),
                                     ],
                                   );
@@ -1761,6 +1769,15 @@ class _ConversationPageState extends State<ConversationPage>
                         ),
                       ),
                     if (_pendingImage != null) const SizedBox(height: 10),
+                    if (_replyingTo != null) ...[
+                      _ComposerReplyPreview(
+                        message: _replyingTo!,
+                        onClose: _sending
+                            ? null
+                            : () => setState(() => _replyingTo = null),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -1820,6 +1837,62 @@ class _ConversationPageState extends State<ConversationPage>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ComposerReplyPreview extends StatelessWidget {
+  const _ComposerReplyPreview({required this.message, required this.onClose});
+
+  final ChatMessage message;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final preview = message.body.isNotEmpty
+        ? message.body
+        : message.imageBytes != null || message.imageUrl != null
+            ? 'Photo'
+            : 'Message';
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: .55),
+        borderRadius: BorderRadius.circular(16),
+        border: Border(left: BorderSide(color: scheme.primary, width: 4)),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      child: Row(
+        children: [
+          Icon(Icons.reply_rounded, color: scheme.primary, size: 20),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Répondre à ${message.mine ? 'vous-même' : 'ce message'}',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                Text(
+                  preview,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Annuler la réponse',
+            onPressed: onClose,
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ],
       ),
     );
   }
@@ -1983,12 +2056,14 @@ class _AnimatedMessageBubble extends StatelessWidget {
     required this.time,
     required this.order,
     required this.onReact,
+    required this.onReply,
   });
 
   final ChatMessage message;
   final String time;
   final int order;
   final Future<void> Function(String emoji) onReact;
+  final VoidCallback onReply;
 
   Future<void> _showActions(BuildContext context) async {
     HapticFeedback.selectionClick();
@@ -2035,6 +2110,14 @@ class _AnimatedMessageBubble extends StatelessWidget {
                   ),
                   onTap: () => Navigator.of(sheetContext).pop('copy'),
                 ),
+              ListTile(
+                leading: const Icon(Icons.reply_rounded),
+                title: const Text('Répondre'),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                onTap: () => Navigator.of(sheetContext).pop('reply'),
+              ),
               TextButton(
                 onPressed: () => Navigator.of(sheetContext).pop(),
                 child: const Text('Fermer'),
@@ -2045,6 +2128,10 @@ class _AnimatedMessageBubble extends StatelessWidget {
       ),
     );
     if (action == null || !context.mounted) return;
+    if (action == 'reply') {
+      onReply();
+      return;
+    }
     if (action != 'copy') {
       await onReact(action == message.myReaction ? '' : action);
       return;
@@ -2111,6 +2198,51 @@ class _AnimatedMessageBubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                if (message.replyPreview != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+                    decoration: BoxDecoration(
+                      color: mine
+                          ? Colors.white.withValues(alpha: .14)
+                          : scheme.surface.withValues(alpha: .82),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border(
+                        left: BorderSide(
+                          color: mine ? Colors.white70 : scheme.primary,
+                          width: 3,
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          message.replyPreview!.senderName,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: mine ? Colors.white : scheme.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        Text(
+                          message.replyPreview!.body.isNotEmpty
+                              ? message.replyPreview!.body
+                              : message.replyPreview!.hasImage
+                                  ? '📷 Photo'
+                                  : 'Message',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: mine
+                                    ? Colors.white70
+                                    : scheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 if (message.imageBytes != null || message.imageUrl != null) ...[
                   _MessageImage(
                     messageId: message.id,

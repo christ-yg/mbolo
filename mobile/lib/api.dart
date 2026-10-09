@@ -617,6 +617,7 @@ class MboloApi implements AuthApi {
     String body, {
     Uint8List? imageBytes,
     String? imageFilename,
+    String? replyToId,
   }) async {
     final trimmed = body.trim();
     if ((trimmed.isEmpty && imageBytes == null) || trimmed.length > 2000) {
@@ -626,7 +627,10 @@ class MboloApi implements AuthApi {
       return ChatMessage.fromJson(
         await _postObject(
           'conversations/$conversationId/messages/',
-          {'body': trimmed},
+          {
+            'body': trimmed,
+            if (replyToId != null) 'reply_to_id': replyToId,
+          },
         ),
       );
     }
@@ -642,6 +646,7 @@ class MboloApi implements AuthApi {
       'conversations/$conversationId/messages/',
       data: FormData.fromMap({
         'body': trimmed,
+        if (replyToId != null) 'reply_to_id': replyToId,
         'image': MultipartFile.fromBytes(
           imageBytes,
           filename: imageFilename ?? 'message.jpg',

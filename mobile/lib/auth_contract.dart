@@ -586,6 +586,32 @@ class MessageReactionSummary {
   }
 }
 
+class ChatReplyPreview {
+  const ChatReplyPreview({
+    required this.id,
+    required this.body,
+    required this.hasImage,
+    required this.senderName,
+  });
+
+  final String id;
+  final String body;
+  final bool hasImage;
+  final String senderName;
+
+  factory ChatReplyPreview.fromJson(Map<String, dynamic> data) {
+    if (data['id'] is! String || data['sender_name'] is! String) {
+      throw const FormatException('Message cité incorrect.');
+    }
+    return ChatReplyPreview(
+      id: data['id'] as String,
+      body: data['body'] is String ? data['body'] as String : '',
+      hasImage: data['has_image'] == true,
+      senderName: data['sender_name'] as String,
+    );
+  }
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -598,6 +624,7 @@ class ChatMessage {
     this.imageBytes,
     this.reactions = const <MessageReactionSummary>[],
     this.myReaction,
+    this.replyPreview,
   });
 
   final String id;
@@ -610,6 +637,7 @@ class ChatMessage {
   final Uint8List? imageBytes;
   final List<MessageReactionSummary> reactions;
   final String? myReaction;
+  final ChatReplyPreview? replyPreview;
 
   factory ChatMessage.fromJson(Map<String, dynamic> data) {
     final id = data['id'];
@@ -617,6 +645,7 @@ class ChatMessage {
     final createdAt = DateTime.tryParse(data['created_at']?.toString() ?? '');
     final imageUrl = data['image_url'];
     final rawReactions = data['reactions'];
+    final rawReply = data['reply_preview'];
     if (id is! String ||
         id.isEmpty ||
         body is! String ||
@@ -640,6 +669,9 @@ class ChatMessage {
           : const <MessageReactionSummary>[],
       myReaction: data['my_reaction'] is String
           ? data['my_reaction'] as String
+          : null,
+      replyPreview: rawReply is Map<String, dynamic>
+          ? ChatReplyPreview.fromJson(rawReply)
           : null,
     );
   }
@@ -904,6 +936,7 @@ abstract class AuthApi {
     String body, {
     Uint8List? imageBytes,
     String? imageFilename,
+    String? replyToId,
   });
   Future<ChatMessage> reactToMessage(
     String conversationId,

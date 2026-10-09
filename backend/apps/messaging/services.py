@@ -163,6 +163,7 @@ def send_message(
     conversation_id: UUID,
     body: str,
     image=None,
+    reply_to_id: UUID | None = None,
 ) -> Message:
     """
     Envoie un message dans une conversation active.
@@ -197,10 +198,22 @@ def send_message(
         )
 
     processed = process_profile_photo(image) if image is not None else None
+    reply_to = None
+    if reply_to_id is not None:
+        try:
+            reply_to = Message.objects.get(
+                id=reply_to_id,
+                conversation=conversation,
+            )
+        except Message.DoesNotExist as exc:
+            raise ValidationError(
+                {"reply_to_id": ["Le message cité est introuvable."]}
+            ) from exc
     message = Message(
         conversation=conversation,
         sender=actor,
         body=normalized_body,
+        reply_to=reply_to,
     )
     if processed is not None:
         message.image.save(processed.filename, processed.content, save=False)

@@ -46,6 +46,14 @@ void main() {
     expect(cleared.myReaction, isNull);
     expect(cleared.reactions, isEmpty);
 
+    final reply = await api.sendMessage(
+      conversations.single.id,
+      'Réponse ciblée',
+      replyToId: initial.single.id,
+    );
+    expect(reply.replyPreview, isNotNull);
+    expect(reply.replyPreview!.body, initial.single.body);
+
     expect(await api.getTypingStatus(conversations.single.id), isFalse);
     await api.setTypingStatus(conversations.single.id, true);
   });

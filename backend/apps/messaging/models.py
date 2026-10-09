@@ -196,6 +196,14 @@ class Message(models.Model):
         blank=True,
     )
 
+    reply_to = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="replies",
+        null=True,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -283,6 +291,15 @@ class Message(models.Model):
             )
 
         self.body = normalized_body
+
+        if (
+            self.reply_to_id is not None
+            and self.conversation_id is not None
+            and self.reply_to.conversation_id != self.conversation_id
+        ):
+            raise ValidationError(
+                {"reply_to": "Le message cité appartient à une autre conversation."}
+            )
 
         if (
             self.conversation_id is not None

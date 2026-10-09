@@ -631,12 +631,25 @@ class DemoApi implements AuthApi {
     String body, {
     Uint8List? imageBytes,
     String? imageFilename,
+    String? replyToId,
   }) async {
     final trimmed = body.trim();
     if (conversationId != 'demo-conversation-1' ||
         (trimmed.isEmpty && imageBytes == null) ||
         trimmed.length > 2000) {
       throw const FormatException('Message de démonstration incorrect.');
+    }
+    ChatMessage? repliedMessage;
+    if (replyToId != null) {
+      for (final item in _messages) {
+        if (item.id == replyToId) {
+          repliedMessage = item;
+          break;
+        }
+      }
+      if (repliedMessage == null) {
+        throw const FormatException('Message cité absent.');
+      }
     }
     final message = ChatMessage(
       id: 'demo-message-${_messages.length + 1}',
@@ -646,6 +659,15 @@ class DemoApi implements AuthApi {
       read: false,
       readReceiptsAvailable: false,
       imageBytes: imageBytes,
+      replyPreview: repliedMessage == null
+          ? null
+          : ChatReplyPreview(
+              id: repliedMessage.id,
+              body: repliedMessage.body,
+              hasImage: repliedMessage.imageBytes != null ||
+                  repliedMessage.imageUrl != null,
+              senderName: repliedMessage.mine ? 'Vous' : 'Grâce',
+            ),
     );
     _messages.add(message);
     return message;
@@ -685,6 +707,7 @@ class DemoApi implements AuthApi {
           .map((entry) => MessageReactionSummary(entry.key, entry.value))
           .toList(growable: false),
       myReaction: emoji.isEmpty ? null : emoji,
+      replyPreview: current.replyPreview,
     );
     _messages[index] = updated;
     return updated;
@@ -709,6 +732,7 @@ class DemoApi implements AuthApi {
           imageBytes: message.imageBytes,
           reactions: message.reactions,
           myReaction: message.myReaction,
+          replyPreview: message.replyPreview,
         );
       }
     }
