@@ -39,6 +39,7 @@ class ConversationPreferenceSerializer(serializers.Serializer):
     pinned = serializers.BooleanField(required=False)
     muted = serializers.BooleanField(required=False)
     archived = serializers.BooleanField(required=False)
+    marked_unread = serializers.BooleanField(required=False)
 
     def validate(self, attrs):
         if not attrs:
@@ -253,6 +254,7 @@ class ConversationSerializer(
     pinned = serializers.SerializerMethodField()
     muted = serializers.SerializerMethodField()
     archived = serializers.SerializerMethodField()
+    marked_unread = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -267,6 +269,7 @@ class ConversationSerializer(
             "pinned",
             "muted",
             "archived",
+            "marked_unread",
             "created_at",
             "updated_at",
         )
@@ -299,6 +302,10 @@ class ConversationSerializer(
     def get_archived(self, conversation: Conversation) -> bool:
         preference = self._preference(conversation)
         return bool(preference and preference.archived)
+
+    def get_marked_unread(self, conversation: Conversation) -> bool:
+        preference = self._preference(conversation)
+        return bool(preference and preference.marked_unread)
 
     def get_other_profile(
         self,
@@ -341,8 +348,11 @@ class ConversationSerializer(
     ) -> int:
         request = self.context["request"]
 
-        return conversation.unread_count_for_user(
-            request.user
+        unread_count = conversation.unread_count_for_user(request.user)
+        preference = self._preference(conversation)
+        return max(
+            unread_count,
+            1 if preference and preference.marked_unread else 0,
         )
 
     def get_other_presence(

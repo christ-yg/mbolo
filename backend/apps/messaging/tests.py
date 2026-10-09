@@ -446,6 +446,7 @@ class MessagingServiceTests(TestCase):
             pinned=True,
             muted=True,
             archived=True,
+            marked_unread=True,
         )
 
         preference = ConversationPreference.objects.get(
@@ -455,6 +456,7 @@ class MessagingServiceTests(TestCase):
         self.assertTrue(preference.pinned)
         self.assertTrue(preference.muted)
         self.assertTrue(preference.archived)
+        self.assertTrue(preference.marked_unread)
         self.assertFalse(
             ConversationPreference.objects.filter(
                 conversation=conversation,
@@ -469,6 +471,13 @@ class MessagingServiceTests(TestCase):
         )
         preference.refresh_from_db()
         self.assertFalse(preference.archived)
+
+        mark_conversation_as_read(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+        )
+        preference.refresh_from_db()
+        self.assertFalse(preference.marked_unread)
 
     def test_reply_from_another_conversation_is_rejected(self):
         third_user, third_profile = self.create_user_with_profile(

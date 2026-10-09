@@ -9,6 +9,7 @@ class DemoApi implements AuthApi {
   bool _conversationPinned = false;
   bool _conversationMuted = false;
   bool _conversationArchived = false;
+  bool _conversationMarkedUnread = false;
   bool _incognito = false;
   bool _boostActive = false;
   final List<PremiumPayment> _premiumPayments = <PremiumPayment>[];
@@ -607,7 +608,9 @@ class DemoApi implements AuthApi {
         matchId: 'demo-match-1',
         otherProfile: _discoveryProfiles[1],
         lastMessage: _messages.isEmpty ? null : _messages.last,
-        unreadCount: _messages.where((message) => !message.mine && !message.read).length,
+        unreadCount: _conversationMarkedUnread
+            ? 1
+            : _messages.where((message) => !message.mine && !message.read).length,
         online: true,
         updatedAt: _messages.isEmpty
             ? DateTime(2026, 10, 5, 18)
@@ -615,6 +618,7 @@ class DemoApi implements AuthApi {
         pinned: _conversationPinned,
         muted: _conversationMuted,
         archived: _conversationArchived,
+        markedUnread: _conversationMarkedUnread,
       ),
     ];
   }
@@ -625,14 +629,17 @@ class DemoApi implements AuthApi {
     bool? pinned,
     bool? muted,
     bool? archived,
+    bool? markedUnread,
   }) async {
     if (conversationId != 'demo-conversation-1' ||
-        (pinned == null && muted == null && archived == null)) {
+        (pinned == null && muted == null && archived == null &&
+            markedUnread == null)) {
       throw const FormatException('Préférences incorrectes.');
     }
     if (pinned != null) _conversationPinned = pinned;
     if (muted != null) _conversationMuted = muted;
     if (archived != null) _conversationArchived = archived;
+    if (markedUnread != null) _conversationMarkedUnread = markedUnread;
     return (await getConversations()).single;
   }
 
@@ -850,6 +857,7 @@ class DemoApi implements AuthApi {
         );
       }
     }
+    _conversationMarkedUnread = false;
   }
 
   @override

@@ -1595,6 +1595,7 @@ class _ConversationPageState extends State<ConversationPage>
     bool? pinned,
     bool? muted,
     bool? archived,
+    bool? markedUnread,
   }) async {
     try {
       final updated = await widget.api.updateConversationPreferences(
@@ -1602,6 +1603,7 @@ class _ConversationPageState extends State<ConversationPage>
         pinned: pinned,
         muted: muted,
         archived: archived,
+        markedUnread: markedUnread,
       );
       if (!mounted) return true;
       setState(() {
@@ -1613,7 +1615,9 @@ class _ConversationPageState extends State<ConversationPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            archived != null
+            markedUnread != null
+                ? 'Conversation marquée comme non lue.'
+                : archived != null
                 ? (updated.archived
                     ? 'Conversation archivée. Elle reste récupérable.'
                     : 'Conversation restaurée.')
@@ -1644,6 +1648,10 @@ class _ConversationPageState extends State<ConversationPage>
         return;
       case 'archive':
         final changed = await _updatePreferences(archived: !_archived);
+        if (changed && mounted) Navigator.of(context).pop();
+        return;
+      case 'unread':
+        final changed = await _updatePreferences(markedUnread: true);
         if (changed && mounted) Navigator.of(context).pop();
         return;
       case 'safety':
@@ -1950,6 +1958,13 @@ class _ConversationPageState extends State<ConversationPage>
                         : Icons.archive_outlined,
                   ),
                   title: Text(_archived ? 'Restaurer' : 'Archiver'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'unread',
+                child: ListTile(
+                  leading: Icon(Icons.mark_email_unread_outlined),
+                  title: Text('Marquer comme non lu'),
                 ),
               ),
               const PopupMenuDivider(),

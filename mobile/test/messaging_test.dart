@@ -16,10 +16,12 @@ void main() {
       pinned: true,
       muted: true,
       archived: true,
+      markedUnread: true,
     );
     expect(preferred.pinned, isTrue);
     expect(preferred.muted, isTrue);
     expect(preferred.archived, isTrue);
+    expect(preferred.markedUnread, isTrue);
 
     final initial = await api.getMessages(conversations.single.id);
     expect(initial, hasLength(1));
@@ -36,6 +38,7 @@ void main() {
     await api.markConversationRead(conversations.single.id);
     final readConversations = await api.getConversations();
     expect(readConversations.single.unreadCount, 0);
+    expect(readConversations.single.markedUnread, isFalse);
     expect(await api.getMessageUnreadCount(), 0);
 
     final sent = await api.sendMessage(

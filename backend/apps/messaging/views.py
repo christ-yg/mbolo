@@ -396,6 +396,7 @@ class ConversationPreferenceView(APIView):
                 pinned=input_serializer.validated_data.get("pinned"),
                 muted=input_serializer.validated_data.get("muted"),
                 archived=input_serializer.validated_data.get("archived"),
+                marked_unread=input_serializer.validated_data.get("marked_unread"),
             )
         except DjangoValidationError as exc:
             return validation_error_response(exc)

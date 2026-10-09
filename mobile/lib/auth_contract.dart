@@ -700,6 +700,7 @@ class ConversationSummary {
     this.pinned = false,
     this.muted = false,
     this.archived = false,
+    this.markedUnread = false,
   });
 
   final String id;
@@ -712,6 +713,7 @@ class ConversationSummary {
   final bool pinned;
   final bool muted;
   final bool archived;
+  final bool markedUnread;
 
   factory ConversationSummary.fromJson(Map<String, dynamic> data) {
     final id = data['id'];
@@ -741,6 +743,7 @@ class ConversationSummary {
       pinned: data['pinned'] == true,
       muted: data['muted'] == true,
       archived: data['archived'] == true,
+      markedUnread: data['marked_unread'] == true,
     );
   }
 }
@@ -954,6 +957,7 @@ abstract class AuthApi {
     bool? pinned,
     bool? muted,
     bool? archived,
+    bool? markedUnread,
   });
   Future<int> getMessageUnreadCount();
   Future<List<ChatMessage>> getMessages(String conversationId);

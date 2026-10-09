@@ -64,6 +64,7 @@ def get_actor_profile(actor):
 def update_conversation_preferences(
     *, actor, conversation_id: UUID, pinned: bool | None = None,
     muted: bool | None = None, archived: bool | None = None,
+    marked_unread: bool | None = None,
 ):
     conversation = get_conversation_for_actor(
         actor=actor,
@@ -83,6 +84,9 @@ def update_conversation_preferences(
     if archived is not None:
         preference.archived = archived
         update_fields.append("archived")
+    if marked_unread is not None:
+        preference.marked_unread = marked_unread
+        update_fields.append("marked_unread")
     if update_fields:
         preference.save(update_fields=(*update_fields, "updated_at"))
     return conversation
@@ -440,6 +444,12 @@ def mark_conversation_as_read(
             read_at=read_at,
         )
     )
+
+    ConversationPreference.objects.filter(
+        conversation=conversation,
+        user=actor,
+        marked_unread=True,
+    ).update(marked_unread=False, updated_at=read_at)
 
     return MarkConversationReadResult(
         conversation=conversation,
