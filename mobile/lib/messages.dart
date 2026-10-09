@@ -378,69 +378,11 @@ class _MessagesPageState extends State<MessagesPage>
                 order: index,
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Card(
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      onTap: () => _open(conversation),
-                      leading: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 26,
-                            backgroundColor: const Color(0xFFFFD8E3),
-                            backgroundImage:
-                                photo != null && photo.imageUrl.isNotEmpty
-                                    ? NetworkImage(photo.imageUrl)
-                                    : null,
-                            child: photo == null || photo.imageUrl.isEmpty
-                                ? const Icon(Icons.person_outline)
-                                : null,
-                          ),
-                          if (conversation.online)
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Theme.of(context).colorScheme.surface,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      title: Text(
-                        conversation.otherProfile.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      subtitle: Text(
-                        last?.body ?? 'Commence la conversation',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (last != null)
-                            Text(
-                              _time(last.createdAt),
-                              style: Theme.of(context).textTheme.labelSmall,
-                            ),
-                          if (conversation.unreadCount > 0) ...[
-                            const SizedBox(height: 4),
-                            Badge(label: Text('${conversation.unreadCount}')),
-                          ],
-                        ],
-                      ),
-                    ),
+                  child: _PremiumConversationCard(
+                    conversation: conversation,
+                    photo: photo,
+                    time: last == null ? null : _time(last.createdAt),
+                    onTap: () => _open(conversation),
                   ),
                 ),
               );
@@ -468,27 +410,10 @@ class _MessagesPageState extends State<MessagesPage>
             final photo = profile.photos.isEmpty ? null : profile.photos.first;
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Card(
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(14),
-                  onTap: () => _openMatch(match),
-                  leading: CircleAvatar(
-                    radius: 28,
-                    backgroundColor: const Color(0xFFFFD8E3),
-                    backgroundImage: photo != null && photo.imageUrl.isNotEmpty
-                        ? NetworkImage(photo.imageUrl)
-                        : null,
-                    child: photo == null || photo.imageUrl.isEmpty
-                        ? const Icon(Icons.person_outline)
-                        : null,
-                  ),
-                  title: Text(
-                    '${profile.displayName}, ${profile.age}',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: Text('${profile.city} · ${profile.datingIntent}'),
-                  trailing: const Icon(Icons.chat_bubble_rounded),
-                ),
+              child: _PremiumMatchCard(
+                match: match,
+                photo: photo,
+                onTap: () => _openMatch(match),
               ),
             );
           }),
@@ -523,6 +448,20 @@ class _MessagesPageState extends State<MessagesPage>
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Card(
+                color: like.superLike
+                    ? Theme.of(context).colorScheme.secondaryContainer
+                    : null,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(26),
+                  side: BorderSide(
+                    color: like.superLike
+                        ? Theme.of(context)
+                            .colorScheme
+                            .secondary
+                            .withValues(alpha: .38)
+                        : Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -560,10 +499,31 @@ class _MessagesPageState extends State<MessagesPage>
                                     ),
                                     if (like.superLike) ...[
                                       const SizedBox(width: 6),
-                                      const Icon(
-                                        Icons.star_rounded,
-                                        color: Color(0xFF6750A4),
-                                        size: 20,
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .secondary,
+                                          borderRadius:
+                                              BorderRadius.circular(99),
+                                        ),
+                                        child: Text(
+                                          'SUPER LIKE',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelSmall
+                                              ?.copyWith(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSecondary,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: .6,
+                                              ),
+                                        ),
                                       ),
                                     ],
                                   ],
@@ -606,6 +566,304 @@ class _MessagesPageState extends State<MessagesPage>
             );
           }),
       ];
+}
+
+class _PremiumConversationCard extends StatelessWidget {
+  const _PremiumConversationCard({
+    required this.conversation,
+    required this.photo,
+    required this.time,
+    required this.onTap,
+  });
+
+  final ConversationSummary conversation;
+  final ProfilePhoto? photo;
+  final String? time;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final profile = conversation.otherProfile;
+    final unread = conversation.unreadCount > 0;
+    return Semantics(
+      button: true,
+      label: unread
+          ? '${profile.displayName}, ${conversation.unreadCount} messages non lus'
+          : 'Conversation avec ${profile.displayName}',
+      child: Material(
+        color: unread ? scheme.primaryContainer : scheme.surface,
+        borderRadius: BorderRadius.circular(26),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: unread
+                    ? scheme.primary.withValues(alpha: .3)
+                    : scheme.outlineVariant,
+              ),
+              borderRadius: BorderRadius.circular(26),
+            ),
+            child: Row(
+              children: [
+                _PremiumAvatar(
+                  imageUrl: photo?.imageUrl,
+                  online: conversation.online,
+                  heroTag: 'conversation-avatar-${conversation.id}',
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              profile.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                          if (profile.verified) ...[
+                            const SizedBox(width: 5),
+                            Icon(Icons.verified_rounded,
+                                size: 18, color: scheme.primary),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        conversation.lastMessage?.body ??
+                            'Commence la conversation',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight:
+                                  unread ? FontWeight.w700 : FontWeight.w400,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        conversation.online
+                            ? 'En ligne maintenant'
+                            : profile.city,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: conversation.online
+                                  ? const Color(0xFF238A55)
+                                  : scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (time != null)
+                      Text(time!, style: Theme.of(context).textTheme.labelSmall),
+                    const SizedBox(height: 7),
+                    if (unread)
+                      Badge(
+                        largeSize: 25,
+                        label: Text('${conversation.unreadCount}'),
+                      )
+                    else
+                      Icon(Icons.chevron_right_rounded,
+                          color: scheme.onSurfaceVariant),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumMatchCard extends StatelessWidget {
+  const _PremiumMatchCard({
+    required this.match,
+    required this.photo,
+    required this.onTap,
+  });
+
+  final MatchSummary match;
+  final ProfilePhoto? photo;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = match.otherProfile;
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(26),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 126,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 106,
+                height: double.infinity,
+                child: photo != null && photo!.imageUrl.isNotEmpty
+                    ? Image.network(
+                        photo!.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const _PremiumPhotoFallback(),
+                      )
+                    : const _PremiumPhotoFallback(),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(15),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '${profile.displayName}, ${profile.age}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                          if (profile.verified) ...[
+                            const SizedBox(width: 5),
+                            Icon(Icons.verified_rounded,
+                                size: 18, color: scheme.primary),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '${profile.city} · ${profile.datingIntent}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: scheme.onSurfaceVariant),
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Icon(Icons.favorite_rounded,
+                              size: 16, color: scheme.primary),
+                          const SizedBox(width: 5),
+                          Text('Nouveau match',
+                              style: Theme.of(context).textTheme.labelMedium),
+                          const Spacer(),
+                          Icon(Icons.chat_bubble_rounded,
+                              size: 20, color: scheme.primary),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumAvatar extends StatelessWidget {
+  const _PremiumAvatar({
+    required this.imageUrl,
+    required this.online,
+    required this.heroTag,
+  });
+
+  final String? imageUrl;
+  final bool online;
+  final String heroTag;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Hero(
+      tag: heroTag,
+      child: Stack(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [scheme.primary, scheme.secondary],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: CircleAvatar(
+              radius: 29,
+              backgroundColor: scheme.surfaceContainerHighest,
+              backgroundImage: imageUrl != null && imageUrl!.isNotEmpty
+                  ? NetworkImage(imageUrl!)
+                  : null,
+              child: imageUrl == null || imageUrl!.isEmpty
+                  ? const Icon(Icons.person_outline)
+                  : null,
+            ),
+          ),
+          if (online)
+            Positioned(
+              right: 1,
+              bottom: 1,
+              child: Container(
+                width: 15,
+                height: 15,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF35C779),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: scheme.surface, width: 2),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PremiumPhotoFallback extends StatelessWidget {
+  const _PremiumPhotoFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [scheme.primaryContainer, scheme.secondaryContainer],
+        ),
+      ),
+      child: Icon(Icons.person_rounded, size: 48, color: scheme.primary),
+    );
+  }
 }
 
 class _MessagesHero extends StatelessWidget {
