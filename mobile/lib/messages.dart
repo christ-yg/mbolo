@@ -2033,29 +2033,10 @@ class _AnimatedMessageBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 if (message.imageBytes != null || message.imageUrl != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: message.imageBytes != null
-                        ? Image.memory(
-                            message.imageBytes!,
-                            width: 250,
-                            height: 230,
-                            fit: BoxFit.cover,
-                            gaplessPlayback: true,
-                          )
-                        : Image.network(
-                            message.imageUrl!,
-                            width: 250,
-                            height: 230,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const SizedBox(
-                              width: 250,
-                              height: 120,
-                              child: Center(
-                                child: Icon(Icons.broken_image_outlined),
-                              ),
-                            ),
-                          ),
+                  _MessageImage(
+                    messageId: message.id,
+                    bytes: message.imageBytes,
+                    url: message.imageUrl,
                   ),
                   if (message.body.isNotEmpty) const SizedBox(height: 9),
                 ],
@@ -2090,6 +2071,156 @@ class _AnimatedMessageBubble extends StatelessWidget {
                   ],
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageImage extends StatelessWidget {
+  const _MessageImage({
+    required this.messageId,
+    required this.bytes,
+    required this.url,
+  });
+
+  final String messageId;
+  final Uint8List? bytes;
+  final String? url;
+
+  ImageProvider<Object> get _provider => bytes != null
+      ? MemoryImage(bytes!)
+      : NetworkImage(url!);
+
+  Future<void> _open(BuildContext context) async {
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    await Navigator.of(context).push<void>(
+      PageRouteBuilder<void>(
+        opaque: true,
+        barrierColor: Colors.black,
+        transitionDuration:
+            reduceMotion ? Duration.zero : const Duration(milliseconds: 280),
+        reverseTransitionDuration:
+            reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+        pageBuilder: (_, __, ___) => _FullscreenMessageImage(
+          heroTag: 'message-image-$messageId',
+          provider: _provider,
+        ),
+        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Ouvrir la photo du message en plein écran',
+      child: Tooltip(
+        message: 'Ouvrir la photo',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _open(context),
+          child: Hero(
+            tag: 'message-image-$messageId',
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image(
+                image: _provider,
+                width: 250,
+                height: 230,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                errorBuilder: (_, __, ___) => const SizedBox(
+                  width: 250,
+                  height: 120,
+                  child: Center(child: Icon(Icons.broken_image_outlined)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FullscreenMessageImage extends StatefulWidget {
+  const _FullscreenMessageImage({
+    required this.heroTag,
+    required this.provider,
+  });
+
+  final String heroTag;
+  final ImageProvider<Object> provider;
+
+  @override
+  State<_FullscreenMessageImage> createState() =>
+      _FullscreenMessageImageState();
+}
+
+class _FullscreenMessageImageState extends State<_FullscreenMessageImage> {
+  final TransformationController _transform = TransformationController();
+  bool _zoomed = false;
+
+  @override
+  void dispose() {
+    _transform.dispose();
+    super.dispose();
+  }
+
+  void _toggleZoom() {
+    setState(() {
+      _zoomed = !_zoomed;
+      _transform.value = _zoomed
+          ? Matrix4.diagonal3Values(2.2, 2.2, 1)
+          : Matrix4.identity();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF09070A),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Photo'),
+        actions: [
+          IconButton(
+            tooltip: _zoomed ? 'Réinitialiser le zoom' : 'Agrandir',
+            onPressed: _toggleZoom,
+            icon: Icon(_zoomed ? Icons.zoom_out_map : Icons.zoom_in_rounded),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Semantics(
+          image: true,
+          label: 'Photo partagée dans la conversation',
+          child: GestureDetector(
+            onDoubleTap: _toggleZoom,
+            child: InteractiveViewer(
+              transformationController: _transform,
+              minScale: 0.8,
+              maxScale: 4,
+              boundaryMargin: const EdgeInsets.all(48),
+              child: Center(
+                child: Hero(
+                  tag: widget.heroTag,
+                  child: Image(
+                    image: widget.provider,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
