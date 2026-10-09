@@ -1060,65 +1060,69 @@ class _AnimatedMessageBubble extends StatelessWidget {
             }
           },
           child: Container(
-          constraints: const BoxConstraints(maxWidth: 320),
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.fromLTRB(15, 11, 15, 8),
-          decoration: BoxDecoration(
-            gradient: mine
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFC52C61), Color(0xFF8B1744)],
-                  )
-                : null,
-            color: mine ? null : scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(20),
-              topRight: const Radius.circular(20),
-              bottomLeft: Radius.circular(mine ? 20 : 5),
-              bottomRight: Radius.circular(mine ? 5 : 20),
+            constraints: const BoxConstraints(maxWidth: 320),
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.fromLTRB(15, 11, 15, 8),
+            decoration: BoxDecoration(
+              gradient: mine
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFC52C61), Color(0xFF8B1744)],
+                    )
+                  : null,
+              color: mine ? null : scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(20),
+                topRight: const Radius.circular(20),
+                bottomLeft: Radius.circular(mine ? 20 : 5),
+                bottomRight: Radius.circular(mine ? 5 : 20),
+              ),
+              boxShadow: mine
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x2E8B1744),
+                        blurRadius: 18,
+                        offset: Offset(0, 7),
+                      ),
+                    ]
+                  : null,
             ),
-            boxShadow: mine
-                ? const [
-                    BoxShadow(
-                      color: Color(0x2E8B1744),
-                      blurRadius: 18,
-                      offset: Offset(0, 7),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                message.body,
-                style: TextStyle(color: mine ? Colors.white : scheme.onSurface),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    time,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: mine ? Colors.white70 : scheme.onSurfaceVariant,
-          ),
-        ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  message.body,
+                  style: TextStyle(
+                    color: mine ? Colors.white : scheme.onSurface,
                   ),
-                  if (mine && message.readReceiptsAvailable) ...[
-                    const SizedBox(width: 4),
-                    Icon(
-                      message.read ? Icons.done_all : Icons.done,
-                      size: 15,
-                      color: message.read
-                          ? const Color(0xFF9FE7FF)
-                          : Colors.white70,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      time,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: mine
+                                ? Colors.white70
+                                : scheme.onSurfaceVariant,
+                          ),
                     ),
+                    if (mine && message.readReceiptsAvailable) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        message.read ? Icons.done_all : Icons.done,
+                        size: 15,
+                        color: message.read
+                            ? const Color(0xFF9FE7FF)
+                            : Colors.white70,
+                      ),
+                    ],
                   ],
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
