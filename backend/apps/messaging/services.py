@@ -267,7 +267,7 @@ def delete_message_for_everyone(*, actor, conversation_id: UUID, message_id: UUI
     )
     try:
         message = (
-            Message.objects.select_for_update()
+            Message.objects.select_for_update(of=("self",))
             .select_related("sender", "reply_to", "reply_to__sender__profile")
             .get(id=message_id, conversation=conversation)
         )
