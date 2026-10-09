@@ -2029,28 +2029,40 @@ class _ConversationPageState extends State<ConversationPage>
               child: _searching
                   ? Padding(
                       padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
-                      child: SearchBar(
+                      child: TextField(
                         controller: _messageSearch,
                         autofocus: true,
-                        hintText: 'Rechercher dans la conversation',
-                        leading: const Icon(Icons.search_rounded),
-                        trailing: [
-                          if (_messageQuery.isNotEmpty)
-                            IconButton(
-                              tooltip: 'Effacer',
-                              onPressed: _messageSearch.clear,
-                              icon: const Icon(Icons.close_rounded),
-                            ),
-                          Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: Text(
-                              _messageQuery.isEmpty
-                                  ? '${_messages.length}'
-                                  : '${_displayedMessages.length} résultat${_displayedMessages.length == 1 ? '' : 's'}',
-                              style: Theme.of(context).textTheme.labelMedium,
-                            ),
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          hintText: 'Rechercher dans la conversation',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
                           ),
-                        ],
+                          suffixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_messageQuery.isNotEmpty)
+                                IconButton(
+                                  tooltip: 'Effacer',
+                                  onPressed: _messageSearch.clear,
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                              Padding(
+                                padding: const EdgeInsets.only(right: 12),
+                                child: Text(
+                                  _messageQuery.isEmpty
+                                      ? '${_messages.length}'
+                                      : '${_displayedMessages.length} résultat${_displayedMessages.length == 1 ? '' : 's'}',
+                                  style:
+                                      Theme.of(context).textTheme.labelMedium,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     )
                   : const SizedBox.shrink(),
