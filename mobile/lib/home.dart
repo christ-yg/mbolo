@@ -1,8 +1,11 @@
+import 'dart:math' show min;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'auth_contract.dart';
+import 'design_system.dart';
 import 'messages.dart';
 import 'notifications.dart';
 import 'premium.dart';
@@ -159,11 +162,15 @@ class _MboloHomeState extends State<MboloHome> {
       setState(() {
         _profiles = _profiles.skip(1).toList(growable: false);
       });
+      if (result.matched) {
+        await _showMatchCelebration(current);
+      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             result.matched
-                ? 'C’est un match avec ${current.displayName} !'
+                ? 'Une nouvelle connexion avec ${current.displayName}.'
                 : superLike
                 ? 'Super Like envoyé à ${current.displayName} ⭐'
                 : liked
@@ -182,6 +189,43 @@ class _MboloHomeState extends State<MboloHome> {
       if (mounted) setState(() => _deciding = false);
       await _loadPremiumActions();
     }
+  }
+
+  Future<void> _showMatchCelebration(DiscoveryProfile profile) async {
+    await HapticFeedback.heavyImpact();
+    if (!mounted) return;
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Fermer la célébration du match',
+      barrierColor: const Color(0xD90D080C),
+      transitionDuration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : MboloMotion.emphasized,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return _MatchCelebrationDialog(
+          profile: profile,
+          onMessage: () {
+            Navigator.of(dialogContext).pop();
+            setState(() => _tab = 1);
+          },
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: .86, end: 1).animate(curved),
+            child: child,
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _rewind() async {
@@ -329,6 +373,33 @@ class _MboloHomeState extends State<MboloHome> {
         onShowcase: _openShowcase,
       ),
     ];
+    void selectTab(int value) {
+      if (value == _tab) return;
+      HapticFeedback.selectionClick();
+      setState(() => _tab = value);
+    }
+
+    final pageBody = SafeArea(
+      child: AnimatedSwitcher(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : MboloMotion.emphasized,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.025, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        ),
+        child: KeyedSubtree(key: ValueKey<int>(_tab), child: pages[_tab]),
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const _MboloWordmark(),
@@ -368,66 +439,267 @@ class _MboloHomeState extends State<MboloHome> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 320),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.035, 0),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 900) return pageBody;
+          return Row(
+            children: [
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+                  child: NavigationRail(
+                    selectedIndex: _tab,
+                    onDestinationSelected: selectTab,
+                    extended: constraints.maxWidth >= 1180,
+                    minExtendedWidth: 210,
+                    groupAlignment: -.72,
+                    leading: Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                    destinations: const [
+                      NavigationRailDestination(
+                        icon: Icon(Icons.favorite_outline),
+                        selectedIcon: Icon(Icons.favorite),
+                        label: Text('Découvrir'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.chat_bubble_outline),
+                        selectedIcon: Icon(Icons.chat_bubble),
+                        label: Text('Messages'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.shield_outlined),
+                        selectedIcon: Icon(Icons.shield),
+                        label: Text('Sécurité'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.person_outline),
+                        selectedIcon: Icon(Icons.person),
+                        label: Text('Profil'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              VerticalDivider(
+                width: 1,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+              Expanded(child: pageBody),
+            ],
+          );
+        },
+      ),
+      bottomNavigationBar: MediaQuery.sizeOf(context).width >= 900
+          ? null
+          : DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x18000000),
+                    blurRadius: 24,
+                    offset: Offset(0, -8),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: NavigationBar(
+                  selectedIndex: _tab,
+                  onDestinationSelected: selectTab,
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.favorite_outline),
+                      selectedIcon: Icon(Icons.favorite),
+                      label: 'Découvrir',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.chat_bubble_outline),
+                      selectedIcon: Icon(Icons.chat_bubble),
+                      label: 'Messages',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.shield_outlined),
+                      selectedIcon: Icon(Icons.shield),
+                      label: 'Sécurité',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.person_outline),
+                      selectedIcon: Icon(Icons.person),
+                      label: 'Profil',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+class _MatchCelebrationDialog extends StatelessWidget {
+  const _MatchCelebrationDialog({
+    required this.profile,
+    required this.onMessage,
+  });
+
+  final DiscoveryProfile profile;
+  final VoidCallback onMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final photo = profile.photos.isEmpty
+        ? null
+        : profile.photos.firstWhere(
+            (item) => item.primary,
+            orElse: () => profile.photos.first,
+          );
+    return SafeArea(
+      child: Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: min(MediaQuery.sizeOf(context).width - 32, 440),
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF4B1733), Color(0xFF160C13)],
+              ),
+              borderRadius: BorderRadius.circular(MboloRadius.hero),
+              border: Border.all(color: const Color(0x66ECCB96)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x99000000),
+                  blurRadius: 70,
+                  offset: Offset(0, 28),
+                ),
+              ],
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Positioned(
+                  top: -14,
+                  left: 4,
+                  child: _MatchSparkle(icon: Icons.auto_awesome, size: 24),
+                ),
+                const Positioned(
+                  top: 34,
+                  right: 2,
+                  child: _MatchSparkle(icon: Icons.favorite, size: 20),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'C’EST UN MATCH',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: MboloColors.champagne,
+                            letterSpacing: 2.2,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      width: 132,
+                      height: 132,
+                      padding: const EdgeInsets.all(5),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            MboloColors.champagne,
+                            MboloColors.romanceBright,
+                          ],
+                        ),
+                      ),
+                      child: ClipOval(
+                        child: photo != null && photo.imageUrl.isNotEmpty
+                            ? Image.network(
+                                photo.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const _ProfilePhotoFallback(),
+                              )
+                            : const _ProfilePhotoFallback(),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Toi et ${profile.displayName}\nvous vous plaisez.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            color: MboloColors.ivory,
+                            fontWeight: FontWeight.w800,
+                            height: 1.08,
+                          ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Une conversation respectueuse peut commencer.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: const Color(0xFFD8C0CB),
+                          ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: onMessage,
+                        icon: const Icon(Icons.chat_bubble_rounded),
+                        label: const Text('Envoyer un message'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: MboloColors.romanceBright,
+                          foregroundColor: MboloColors.blackPlum,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(
+                        'Continuer à découvrir',
+                        style: TextStyle(color: scheme.onPrimaryContainer),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          child: KeyedSubtree(key: ValueKey<int>(_tab), child: pages[_tab]),
         ),
       ),
-      bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x18000000),
-              blurRadius: 24,
-              offset: Offset(0, -8),
-            ),
-          ],
-        ),
-        child: NavigationBar(
-          selectedIndex: _tab,
-          onDestinationSelected: (value) {
-            if (value == _tab) return;
-            HapticFeedback.selectionClick();
-            setState(() => _tab = value);
-          },
-          destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.favorite_outline),
-            selectedIcon: Icon(Icons.favorite),
-            label: 'Découvrir',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'Messages',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.shield_outlined),
-            selectedIcon: Icon(Icons.shield),
-            label: 'Sécurité',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil',
-          ),
-          ],
-        ),
+    );
+  }
+}
+
+class _MatchSparkle extends StatelessWidget {
+  const _MatchSparkle({required this.icon, required this.size});
+
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: .65, end: 1),
+      duration: reduceMotion ? Duration.zero : MboloMotion.emphasized,
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) => Transform.scale(
+        scale: value,
+        child: Opacity(opacity: value.clamp(0, 1), child: child),
       ),
+      child: Icon(icon, size: size, color: MboloColors.champagne),
     );
   }
 }
@@ -1137,15 +1409,31 @@ class _SwipeableProfileCard extends StatefulWidget {
 
 class _SwipeableProfileCardState extends State<_SwipeableProfileCard> {
   double _drag = 0;
+  bool _committing = false;
 
   Future<void> _finish(DragEndDetails details) async {
     final velocity = details.primaryVelocity ?? 0;
     final accepted = _drag.abs() >= 85 || velocity.abs() >= 650;
     final liked = _drag > 0 || (_drag == 0 && velocity > 0);
-    if (mounted) setState(() => _drag = 0);
-    if (!accepted || !widget.enabled) return;
+    if (!accepted || !widget.enabled) {
+      if (mounted) setState(() => _drag = 0);
+      return;
+    }
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final width = MediaQuery.sizeOf(context).width;
+    setState(() {
+      _committing = true;
+      _drag = (liked ? 1 : -1) * width * 1.25;
+    });
     await HapticFeedback.mediumImpact();
+    if (!reduceMotion) await Future<void>.delayed(MboloMotion.fast);
     await widget.onSwipe(liked);
+    if (mounted) {
+      setState(() {
+        _committing = false;
+        _drag = 0;
+      });
+    }
   }
 
   @override
@@ -1154,25 +1442,30 @@ class _SwipeableProfileCardState extends State<_SwipeableProfileCard> {
     final progress = (_drag.abs() / (width * 0.36)).clamp(0.0, 1.0);
     final liked = _drag >= 0;
     return GestureDetector(
-      onTap: widget.enabled ? widget.onTap : null,
-      onHorizontalDragUpdate: widget.enabled
+      onTap: widget.enabled && !_committing ? widget.onTap : null,
+      onHorizontalDragUpdate: widget.enabled && !_committing
           ? (details) => setState(
                 () => _drag = (_drag + details.delta.dx).clamp(-140.0, 140.0),
               )
           : null,
-      onHorizontalDragEnd: widget.enabled ? _finish : null,
+      onHorizontalDragEnd: widget.enabled && !_committing ? _finish : null,
       child: AnimatedContainer(
-        duration: _drag == 0
-            ? const Duration(milliseconds: 220)
-            : Duration.zero,
-        curve: Curves.easeOutCubic,
+        duration: _committing
+            ? MboloMotion.fast
+            : _drag == 0
+                ? MboloMotion.standard
+                : Duration.zero,
+        curve: _committing ? Curves.easeInCubic : Curves.easeOutCubic,
         transformAlignment: Alignment.center,
         transform: Matrix4.identity()
           ..translateByDouble(_drag, _drag.abs() * 0.025, 0, 1)
           ..rotateZ(_drag / width * 0.075),
         child: Transform.scale(
           scale: 1 - (progress * 0.025),
-          child: Stack(
+          child: AnimatedOpacity(
+            duration: _committing ? MboloMotion.fast : Duration.zero,
+            opacity: _committing ? 0 : 1,
+            child: Stack(
             children: [
               widget.child,
               if (_drag.abs() > 8)
@@ -1231,6 +1524,7 @@ class _SwipeableProfileCardState extends State<_SwipeableProfileCard> {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),

@@ -343,4 +343,58 @@ void main() {
     expect(find.text('0 nouvelle'), findsOneWidget);
   });
 
+  testWidgets('Wide screens use the adaptive navigation rail', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
+    await tester.enterText(find.byType(TextFormField).at(0), 'demo@mbolo.test');
+    await tester.enterText(find.byType(TextFormField).at(1), 'MboloDemo!');
+    await tester.tap(find.text('Se connecter'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.tap(find.text('Confirmer'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.text('Découvrir'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('A reciprocal like opens the premium match celebration', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MboloApp(api: DemoApi(), demo: true));
+    await tester.enterText(find.byType(TextFormField).at(0), 'demo@mbolo.test');
+    await tester.enterText(find.byType(TextFormField).at(1), 'MboloDemo!');
+    await tester.tap(find.text('Se connecter'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.tap(find.text('Confirmer'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Passer'),
+      280,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Passer'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Ça me plaît'),
+      280,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Ça me plaît'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('C’EST UN MATCH'), findsOneWidget);
+    expect(find.textContaining('Grâce'), findsOneWidget);
+    expect(find.text('Envoyer un message'), findsOneWidget);
+  });
+
 }
