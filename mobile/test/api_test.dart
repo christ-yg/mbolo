@@ -205,6 +205,8 @@ class FakeServer implements HttpClientAdapter {
       }
     } else if (path.endsWith('/notifications/unread-count/')) {
       data = {'unread_count': 1};
+    } else if (path.endsWith('/messages/unread-count/')) {
+      data = {'unread_count': 2};
     } else if (path.endsWith('/notifications/read-all/')) {
       data = {'marked_count': 1, 'read_at': '2026-10-06T11:00:00Z'};
     } else if (path.endsWith('/notifications/99999999-9999-9999-9999-999999999999/read/')) {
@@ -799,6 +801,19 @@ void main() {
     expect(request.method, 'POST');
     expect(request.data['is_typing'], isTrue);
     expect(request.headers['X-CSRFToken'], 'csrf-test');
+  });
+
+  test('Message badge uses the server unread counter', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    expect(await api.getMessageUnreadCount(), 2);
+    expect(server.requests.last.method, 'GET');
+    expect(server.requests.last.uri.path, endsWith('/messages/unread-count/'));
   });
 
   test('Premium catalogue and checkout remain server-driven', () async {

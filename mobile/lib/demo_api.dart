@@ -614,6 +614,10 @@ class DemoApi implements AuthApi {
   }
 
   @override
+  Future<int> getMessageUnreadCount() async =>
+      _messages.where((message) => !message.mine && !message.read).length;
+
+  @override
   Future<List<ChatMessage>> getMessages(String conversationId) async {
     if (conversationId != 'demo-conversation-1') {
       throw const FormatException('Conversation absente.');

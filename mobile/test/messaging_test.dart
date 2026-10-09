@@ -9,6 +9,7 @@ void main() {
     expect(conversations, hasLength(1));
     expect(conversations.single.otherProfile.displayName, 'Grâce');
     expect(conversations.single.unreadCount, 1);
+    expect(await api.getMessageUnreadCount(), 1);
 
     final initial = await api.getMessages(conversations.single.id);
     expect(initial, hasLength(1));
@@ -17,6 +18,7 @@ void main() {
     await api.markConversationRead(conversations.single.id);
     final readConversations = await api.getConversations();
     expect(readConversations.single.unreadCount, 0);
+    expect(await api.getMessageUnreadCount(), 0);
 
     final sent = await api.sendMessage(
       conversations.single.id,

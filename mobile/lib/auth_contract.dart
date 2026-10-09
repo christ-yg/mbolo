@@ -857,6 +857,7 @@ abstract class AuthApi {
     required String decision,
   });
   Future<List<ConversationSummary>> getConversations();
+  Future<int> getMessageUnreadCount();
   Future<List<ChatMessage>> getMessages(String conversationId);
   Future<ChatMessage> sendMessage(String conversationId, String body);
   Future<void> markConversationRead(String conversationId);

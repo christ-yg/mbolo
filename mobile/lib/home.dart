@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' show min;
 
 import 'package:flutter/material.dart';
@@ -35,12 +36,15 @@ class MboloHome extends StatefulWidget {
   State<MboloHome> createState() => _MboloHomeState();
 }
 
-class _MboloHomeState extends State<MboloHome> {
+class _MboloHomeState extends State<MboloHome> with WidgetsBindingObserver {
   int _tab = 0;
   List<DiscoveryProfile> _profiles = <DiscoveryProfile>[];
   bool _discoveryLoading = true;
   bool _deciding = false;
   int _notificationUnread = 0;
+  int _messageUnread = 0;
+  bool _activityRefreshing = false;
+  Timer? _activityPoll;
   SuperLikeState? _superLikeState;
   RewindState? _rewindState;
   MemberProfile? _onboardingProfile;
@@ -52,10 +56,41 @@ class _MboloHomeState extends State<MboloHome> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadDiscovery();
-    _loadNotificationCount();
+    _loadActivityCounts();
+    _startActivityPolling();
     _loadPremiumActions();
     _loadOnboardingProgress();
+  }
+
+  @override
+  void dispose() {
+    _activityPoll?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startActivityPolling();
+      unawaited(_loadActivityCounts());
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _activityPoll?.cancel();
+      _activityPoll = null;
+    }
+  }
+
+  void _startActivityPolling() {
+    _activityPoll?.cancel();
+    _activityPoll = Timer.periodic(
+      const Duration(seconds: 12),
+      (_) => unawaited(_loadActivityCounts()),
+    );
   }
 
   Future<void> _loadOnboardingProgress() async {
@@ -109,12 +144,24 @@ class _MboloHomeState extends State<MboloHome> {
     }
   }
 
-  Future<void> _loadNotificationCount() async {
+  Future<void> _loadActivityCounts() async {
+    if (_activityRefreshing) return;
+    _activityRefreshing = true;
     try {
-      final count = await widget.api.getNotificationUnreadCount();
-      if (mounted) setState(() => _notificationUnread = count);
+      final counts = await Future.wait<int>([
+        widget.api.getNotificationUnreadCount(),
+        widget.api.getMessageUnreadCount(),
+      ]);
+      if (mounted) {
+        setState(() {
+          _notificationUnread = counts[0];
+          _messageUnread = counts[1];
+        });
+      }
     } catch (_) {
-      // The main experience remains available when the badge cannot refresh.
+      // Navigation remains available when activity counters cannot refresh.
+    } finally {
+      _activityRefreshing = false;
     }
   }
 
@@ -124,7 +171,7 @@ class _MboloHomeState extends State<MboloHome> {
         builder: (context) => NotificationsPage(api: widget.api),
       ),
     );
-    await _loadNotificationCount();
+    await _loadActivityCounts();
   }
 
   Future<void> _loadDiscovery() async {
@@ -377,7 +424,14 @@ class _MboloHomeState extends State<MboloHome> {
       if (value == _tab) return;
       HapticFeedback.selectionClick();
       setState(() => _tab = value);
+      if (value == 1) unawaited(_loadActivityCounts());
     }
+
+    Widget messageIcon(IconData icon) => Badge(
+          isLabelVisible: _messageUnread > 0,
+          label: Text(_messageUnread > 99 ? '99+' : '$_messageUnread'),
+          child: Icon(icon),
+        );
 
     final pageBody = SafeArea(
       child: AnimatedSwitcher(
@@ -460,18 +514,18 @@ class _MboloHomeState extends State<MboloHome> {
                         color: Theme.of(context).colorScheme.secondary,
                       ),
                     ),
-                    destinations: const [
-                      NavigationRailDestination(
+                    destinations: [
+                      const NavigationRailDestination(
                         icon: Icon(Icons.favorite_outline),
                         selectedIcon: Icon(Icons.favorite),
                         label: Text('Découvrir'),
                       ),
                       NavigationRailDestination(
-                        icon: Icon(Icons.chat_bubble_outline),
-                        selectedIcon: Icon(Icons.chat_bubble),
-                        label: Text('Messages'),
+                        icon: messageIcon(Icons.chat_bubble_outline),
+                        selectedIcon: messageIcon(Icons.chat_bubble),
+                        label: const Text('Messages'),
                       ),
-                      NavigationRailDestination(
+                      const NavigationRailDestination(
                         icon: Icon(Icons.shield_outlined),
                         selectedIcon: Icon(Icons.shield),
                         label: Text('Sécurité'),
@@ -512,18 +566,18 @@ class _MboloHomeState extends State<MboloHome> {
                 child: NavigationBar(
                   selectedIndex: _tab,
                   onDestinationSelected: selectTab,
-                  destinations: const [
-                    NavigationDestination(
+                  destinations: [
+                    const NavigationDestination(
                       icon: Icon(Icons.favorite_outline),
                       selectedIcon: Icon(Icons.favorite),
                       label: 'Découvrir',
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.chat_bubble_outline),
-                      selectedIcon: Icon(Icons.chat_bubble),
+                      icon: messageIcon(Icons.chat_bubble_outline),
+                      selectedIcon: messageIcon(Icons.chat_bubble),
                       label: 'Messages',
                     ),
-                    NavigationDestination(
+                    const NavigationDestination(
                       icon: Icon(Icons.shield_outlined),
                       selectedIcon: Icon(Icons.shield),
                       label: 'Sécurité',

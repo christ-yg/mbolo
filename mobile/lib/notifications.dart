@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'auth_contract.dart';
@@ -11,25 +13,68 @@ class NotificationsPage extends StatefulWidget {
   State<NotificationsPage> createState() => _NotificationsPageState();
 }
 
-class _NotificationsPageState extends State<NotificationsPage> {
+class _NotificationsPageState extends State<NotificationsPage>
+    with WidgetsBindingObserver {
   List<AppNotification> _items = <AppNotification>[];
   bool _loading = true;
   bool _working = false;
+  bool _refreshing = false;
+  Timer? _refreshTimer;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    _startRefreshing();
   }
 
-  Future<void> _load() async {
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startRefreshing();
+      unawaited(_load(silent: true));
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+    }
+  }
+
+  void _startRefreshing() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 12),
+      (_) => unawaited(_load(silent: true)),
+    );
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (_refreshing || _working) return;
+    _refreshing = true;
+    if (!silent && mounted) setState(() => _error = null);
     try {
       final items = await widget.api.getNotifications();
-      if (mounted) setState(() => _items = items);
+      if (mounted) {
+        setState(() {
+          _items = items;
+          _error = null;
+        });
+      }
     } catch (error) {
-      if (mounted) setState(() => _error = friendlyError(error));
+      if (!silent && mounted) setState(() => _error = friendlyError(error));
     } finally {
+      _refreshing = false;
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -192,17 +237,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
-                      Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                      _NotificationError(
+                        message: _error!,
+                        onRetry: _load,
+                      ),
                     ],
                     const SizedBox(height: 20),
                     if (_items.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Text(
-                          'Aucune notification pour le moment.',
-                          textAlign: TextAlign.center,
-                        ),
-                      )
+                      const _NotificationEmptyState()
                     else
                       ..._items.indexed.map(
                         (entry) {
@@ -236,6 +278,87 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   ],
                 ),
               ),
+      ),
+    );
+  }
+}
+
+class _NotificationError extends StatelessWidget {
+  const _NotificationError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function({bool silent}) onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.errorContainer,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(Icons.cloud_off_rounded, color: scheme.onErrorContainer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(color: scheme.onErrorContainer),
+              ),
+            ),
+            TextButton(
+              onPressed: () => onRetry(silent: false),
+              child: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationEmptyState extends StatelessWidget {
+  const _NotificationEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 34),
+      child: Column(
+        children: [
+          Container(
+            width: 82,
+            height: 82,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [scheme.primaryContainer, scheme.secondaryContainer],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.notifications_none_rounded,
+              size: 38,
+              color: scheme.primary,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Tout est calme pour le moment',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            'Tes matchs, messages et alertes de sécurité apparaîtront ici.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+        ],
       ),
     );
   }

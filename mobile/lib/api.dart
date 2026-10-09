@@ -589,6 +589,16 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<int> getMessageUnreadCount() async {
+    final response = await client.get<dynamic>('messages/unread-count/');
+    final count = objectData(response.data)['unread_count'];
+    if (count is! int || count < 0) {
+      throw const FormatException('Compteur de messages incorrect.');
+    }
+    return count;
+  }
+
+  @override
   Future<List<ChatMessage>> getMessages(String conversationId) async {
     final response = await client.get<dynamic>(
       'conversations/$conversationId/messages/',
