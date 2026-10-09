@@ -697,6 +697,8 @@ class ConversationSummary {
     required this.online,
     required this.updatedAt,
     this.lastMessage,
+    this.pinned = false,
+    this.muted = false,
   });
 
   final String id;
@@ -706,6 +708,8 @@ class ConversationSummary {
   final int unreadCount;
   final bool online;
   final DateTime updatedAt;
+  final bool pinned;
+  final bool muted;
 
   factory ConversationSummary.fromJson(Map<String, dynamic> data) {
     final id = data['id'];
@@ -732,6 +736,8 @@ class ConversationSummary {
       online: rawPresence is Map<String, dynamic> &&
           rawPresence['is_online'] == true,
       updatedAt: updatedAt,
+      pinned: data['pinned'] == true,
+      muted: data['muted'] == true,
     );
   }
 }
@@ -940,6 +946,11 @@ abstract class AuthApi {
     required String decision,
   });
   Future<List<ConversationSummary>> getConversations();
+  Future<ConversationSummary> updateConversationPreferences(
+    String conversationId, {
+    bool? pinned,
+    bool? muted,
+  });
   Future<int> getMessageUnreadCount();
   Future<List<ChatMessage>> getMessages(String conversationId);
   Future<ChatMessage> sendMessage(

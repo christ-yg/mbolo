@@ -107,6 +107,7 @@ class _MessagesPageState extends State<MessagesPage>
         results[0] as List<ConversationSummary>,
       )
         ..sort((a, b) {
+          if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
           final unread = b.unreadCount.compareTo(a.unreadCount);
           return unread != 0 ? unread : b.updatedAt.compareTo(a.updatedAt);
         });
@@ -677,6 +678,22 @@ class _PremiumConversationCard extends StatelessWidget {
                             Icon(Icons.verified_rounded,
                                 size: 18, color: scheme.primary),
                           ],
+                          if (conversation.pinned) ...[
+                            const SizedBox(width: 5),
+                            Icon(
+                              Icons.push_pin_rounded,
+                              size: 16,
+                              color: scheme.primary,
+                            ),
+                          ],
+                          if (conversation.muted) ...[
+                            const SizedBox(width: 5),
+                            Icon(
+                              Icons.notifications_off_outlined,
+                              size: 16,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -1225,6 +1242,8 @@ class _ConversationPageState extends State<ConversationPage>
   String? _pendingImageName;
   bool _pickingImage = false;
   ChatMessage? _replyingTo;
+  late bool _pinned = widget.conversation.pinned;
+  late bool _muted = widget.conversation.muted;
 
   @override
   void initState() {
@@ -1537,6 +1556,51 @@ class _ConversationPageState extends State<ConversationPage>
     if (changed && mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _updatePreferences({bool? pinned, bool? muted}) async {
+    try {
+      final updated = await widget.api.updateConversationPreferences(
+        widget.conversation.id,
+        pinned: pinned,
+        muted: muted,
+      );
+      if (!mounted) return;
+      setState(() {
+        _pinned = updated.pinned;
+        _muted = updated.muted;
+        _error = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            pinned != null
+                ? (updated.pinned
+                    ? 'Conversation épinglée.'
+                    : 'Conversation désépinglée.')
+                : (updated.muted
+                    ? 'Notifications de cette conversation coupées.'
+                    : 'Notifications réactivées.'),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    }
+  }
+
+  Future<void> _handleConversationAction(String action) async {
+    switch (action) {
+      case 'pin':
+        await _updatePreferences(pinned: !_pinned);
+        return;
+      case 'mute':
+        await _updatePreferences(muted: !_muted);
+        return;
+      case 'safety':
+        await _openSafetyActions();
+        return;
+    }
+  }
+
   Future<void> _deleteMessage(ChatMessage message) async {
     if (!message.mine || message.deleted) return;
     final confirmed = await showDialog<bool>(
@@ -1798,10 +1862,43 @@ class _ConversationPageState extends State<ConversationPage>
           ],
         ),
         actions: [
-          IconButton(
-            tooltip: 'Actions de sécurité',
-            onPressed: _openSafetyActions,
-            icon: const Icon(Icons.more_vert),
+          PopupMenuButton<String>(
+            tooltip: 'Options de conversation',
+            onSelected: _handleConversationAction,
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'pin',
+                child: ListTile(
+                  leading: Icon(
+                    _pinned
+                        ? Icons.push_pin_outlined
+                        : Icons.push_pin_rounded,
+                  ),
+                  title: Text(_pinned ? 'Désépingler' : 'Épingler'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'mute',
+                child: ListTile(
+                  leading: Icon(
+                    _muted
+                        ? Icons.notifications_active_outlined
+                        : Icons.notifications_off_outlined,
+                  ),
+                  title: Text(
+                    _muted ? 'Réactiver les notifications' : 'Mettre en sourdine',
+                  ),
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'safety',
+                child: ListTile(
+                  leading: Icon(Icons.shield_outlined),
+                  title: Text('Sécurité et signalement'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

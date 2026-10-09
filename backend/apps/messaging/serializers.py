@@ -11,7 +11,7 @@ from apps.profiles.serializers import (
 from apps.subscriptions.services import get_subscription_state
 from apps.safety.models import ReportReason
 
-from .models import Conversation, Message, MessageReaction
+from .models import Conversation, ConversationPreference, Message, MessageReaction
 
 
 class MessageReactionInputSerializer(serializers.Serializer):
@@ -33,6 +33,16 @@ class ConversationCreateSerializer(
     match_id = serializers.UUIDField(
         required=True,
     )
+
+
+class ConversationPreferenceSerializer(serializers.Serializer):
+    pinned = serializers.BooleanField(required=False)
+    muted = serializers.BooleanField(required=False)
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError("Aucune préférence à modifier.")
+        return attrs
 
 
 class MessageCreateSerializer(
@@ -239,6 +249,9 @@ class ConversationSerializer(
         serializers.SerializerMethodField()
     )
 
+    pinned = serializers.SerializerMethodField()
+    muted = serializers.SerializerMethodField()
+
     class Meta:
         model = Conversation
 
@@ -249,11 +262,36 @@ class ConversationSerializer(
             "last_message",
             "unread_count",
             "other_presence",
+            "pinned",
+            "muted",
             "created_at",
             "updated_at",
         )
 
         read_only_fields = fields
+
+    def _preference(self, conversation: Conversation):
+        request = self.context["request"]
+        prefetched = getattr(conversation, "_prefetched_objects_cache", {}).get(
+            "preferences"
+        )
+        if prefetched is not None:
+            return next(
+                (item for item in prefetched if item.user_id == request.user.id),
+                None,
+            )
+        return ConversationPreference.objects.filter(
+            conversation=conversation,
+            user=request.user,
+        ).first()
+
+    def get_pinned(self, conversation: Conversation) -> bool:
+        preference = self._preference(conversation)
+        return bool(preference and preference.pinned)
+
+    def get_muted(self, conversation: Conversation) -> bool:
+        preference = self._preference(conversation)
+        return bool(preference and preference.muted)
 
     def get_other_profile(
         self,

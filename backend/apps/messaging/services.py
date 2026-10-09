@@ -17,7 +17,7 @@ from apps.interactions.models import Match
 from apps.photos.image_processing import process_profile_photo
 from apps.safety.report_services import create_report
 
-from .models import Conversation, Message, MessageReaction
+from .models import Conversation, ConversationPreference, Message, MessageReaction
 
 
 @dataclass(frozen=True)
@@ -58,6 +58,31 @@ def get_actor_profile(actor):
             "Complétez votre profil avant d'accéder "
             "à la messagerie."
         ) from exc
+
+
+@transaction.atomic
+def update_conversation_preferences(
+    *, actor, conversation_id: UUID, pinned: bool | None = None,
+    muted: bool | None = None,
+):
+    conversation = get_conversation_for_actor(
+        actor=actor,
+        conversation_id=conversation_id,
+    )
+    preference, _ = ConversationPreference.objects.get_or_create(
+        conversation=conversation,
+        user=actor,
+    )
+    update_fields = []
+    if pinned is not None:
+        preference.pinned = pinned
+        update_fields.append("pinned")
+    if muted is not None:
+        preference.muted = muted
+        update_fields.append("muted")
+    if update_fields:
+        preference.save(update_fields=(*update_fields, "updated_at"))
+    return conversation
 
 
 @transaction.atomic

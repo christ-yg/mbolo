@@ -149,6 +149,46 @@ class Conversation(models.Model):
         )
 
 
+class ConversationPreference(models.Model):
+    """Préférences privées d'un membre pour une conversation."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name="preferences",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="conversation_preferences",
+    )
+    pinned = models.BooleanField(default=False)
+    muted = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "messaging_conversation_preference"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("conversation", "user"),
+                name="unique_conversation_preference_per_user",
+            )
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        if self.conversation_id and self.user_id:
+            if not self.conversation.includes_user(self.user):
+                raise ValidationError(
+                    {"user": "Ce compte ne participe pas à la conversation."}
+                )
+
+    def save(self, *args, **kwargs) -> None:
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
 class Message(models.Model):
     """
     Message texte envoyé dans une conversation privée.

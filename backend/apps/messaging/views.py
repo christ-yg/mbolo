@@ -25,7 +25,7 @@ from apps.notifications.services import (
 )
 from apps.safety.report_throttles import ReportCreateThrottle
 
-from .models import Conversation, Message
+from .models import Conversation, ConversationPreference, Message
 from .realtime import broadcast_conversation_event
 from .pagination import (
     ConversationPagination,
@@ -33,6 +33,7 @@ from .pagination import (
 )
 from .serializers import (
     ConversationCreateSerializer,
+    ConversationPreferenceSerializer,
     ConversationSerializer,
     MarkConversationReadSerializer,
     MessageCreateSerializer,
@@ -55,6 +56,7 @@ from .services import (
     delete_message_for_everyone,
     edit_message,
     report_message,
+    update_conversation_preferences,
 )
 from .typing import (
     get_other_typing_status,
@@ -111,6 +113,7 @@ class ConversationListCreateView(APIView):
                     "match__profile_two",
                     "match__profile_two__user",
                 )
+                .prefetch_related("preferences")
                 .filter(
                     Q(match__profile_one=profile)
                     | Q(match__profile_two=profile),
@@ -207,6 +210,7 @@ class ConversationMessageListCreateView(
     permission_classes = (
         IsAuthenticated,
     )
+
 
     def get(
         self,
@@ -329,8 +333,14 @@ class ConversationMessageListCreateView(
             actor=recipient_user,
         )
 
-        durable_notification_result = (
-            create_message_notification(
+        recipient_muted = ConversationPreference.objects.filter(
+            conversation=message.conversation,
+            user=recipient_user,
+            muted=True,
+        ).exists()
+
+        if not recipient_muted:
+            durable_notification_result = create_message_notification(
                 recipient=recipient_user,
                 sender_display_name=(
                     request.user.profile.display_name
@@ -339,32 +349,27 @@ class ConversationMessageListCreateView(
                 message_id=message.id,
                 body_preview=message.body[:160] if message.body else "Photo",
             )
-        )
 
-        notification_unread_count = (
-            get_unread_notification_count(
+            notification_unread_count = get_unread_notification_count(
                 actor=recipient_user,
             )
-        )
 
-        broadcast_account_event(
-            user_id=recipient_user.id,
-            event={
-                "event": "message.notification",
-                "conversation_id": str(message.conversation_id),
-                "message_id": str(message.id),
-                "sender_display_name": request.user.profile.display_name,
-                "body_preview": message.body[:160],
-                "created_at": message.created_at.isoformat(),
-                "unread_count": recipient_unread_count,
-                "notification_unread_count": (
-                    notification_unread_count
-                ),
-                "notification": NotificationSerializer(
-                    durable_notification_result.notification
-                ).data,
-            },
-        )
+            broadcast_account_event(
+                user_id=recipient_user.id,
+                event={
+                    "event": "message.notification",
+                    "conversation_id": str(message.conversation_id),
+                    "message_id": str(message.id),
+                    "sender_display_name": request.user.profile.display_name,
+                    "body_preview": message.body[:160],
+                    "created_at": message.created_at.isoformat(),
+                    "unread_count": recipient_unread_count,
+                    "notification_unread_count": notification_unread_count,
+                    "notification": NotificationSerializer(
+                        durable_notification_result.notification
+                    ).data,
+                },
+            )
 
         broadcast_account_event(
             user_id=request.user.id,
@@ -378,6 +383,28 @@ class ConversationMessageListCreateView(
             output_serializer.data,
             status=status.HTTP_201_CREATED,
         )
+class ConversationPreferenceView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def patch(self, request: Request, conversation_id) -> Response:
+        input_serializer = ConversationPreferenceSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        try:
+            conversation = update_conversation_preferences(
+                actor=request.user,
+                conversation_id=conversation_id,
+                pinned=input_serializer.validated_data.get("pinned"),
+                muted=input_serializer.validated_data.get("muted"),
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+        output = ConversationSerializer(
+            conversation,
+            context={"request": request},
+        )
+        return Response(output.data, status=status.HTTP_200_OK)
+
+
 class ConversationMarkReadView(APIView):
     """
     POST /api/v1/conversations/<uuid>/read/

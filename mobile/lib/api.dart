@@ -602,6 +602,26 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<ConversationSummary> updateConversationPreferences(
+    String conversationId, {
+    bool? pinned,
+    bool? muted,
+  }) async {
+    if (pinned == null && muted == null) {
+      throw const FormatException('Aucune préférence à modifier.');
+    }
+    return ConversationSummary.fromJson(
+      await _patchObject(
+        'conversations/$conversationId/preferences/',
+        {
+          if (pinned != null) 'pinned': pinned,
+          if (muted != null) 'muted': muted,
+        },
+      ),
+    );
+  }
+
+  @override
   Future<int> getMessageUnreadCount() async {
     final response = await client.get<dynamic>('messages/unread-count/');
     final count = objectData(response.data)['unread_count'];

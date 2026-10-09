@@ -11,6 +11,14 @@ void main() {
     expect(conversations.single.unreadCount, 1);
     expect(await api.getMessageUnreadCount(), 1);
 
+    final preferred = await api.updateConversationPreferences(
+      conversations.single.id,
+      pinned: true,
+      muted: true,
+    );
+    expect(preferred.pinned, isTrue);
+    expect(preferred.muted, isTrue);
+
     final initial = await api.getMessages(conversations.single.id);
     expect(initial, hasLength(1));
     expect(initial.single.mine, isFalse);

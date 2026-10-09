@@ -10,6 +10,7 @@ from .views import (
     ConversationMessageListCreateView,
     UnreadMessageCountView,
     ConversationTypingView,
+    ConversationPreferenceView,
     MessageReactionView,
     MessageDetailView,
     MessageReportView,
@@ -33,6 +34,11 @@ urlpatterns = [
         ),
         ConversationMessageListCreateView.as_view(),
         name="conversation-message-list-create",
+    ),
+    path(
+        "conversations/<uuid:conversation_id>/preferences/",
+        ConversationPreferenceView.as_view(),
+        name="conversation-preferences",
     ),
     path(
         (

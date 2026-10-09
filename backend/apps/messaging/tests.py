@@ -21,7 +21,7 @@ from apps.subscriptions.models import (
     SubscriptionStatus,
 )
 
-from .models import Conversation, Message
+from .models import Conversation, ConversationPreference, Message
 from .serializers import MessageSerializer
 from .services import (
     get_or_create_conversation,
@@ -32,6 +32,7 @@ from .services import (
     delete_message_for_everyone,
     edit_message,
     report_message,
+    update_conversation_preferences,
 )
 from .typing import (
     get_other_typing_status,
@@ -435,6 +436,29 @@ class MessagingServiceTests(TestCase):
                 message_id=message.id,
                 reason="spam",
             )
+
+    def test_participant_can_pin_and_mute_conversation_privately(self):
+        conversation = Conversation.objects.create(match=self.match)
+
+        update_conversation_preferences(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            pinned=True,
+            muted=True,
+        )
+
+        preference = ConversationPreference.objects.get(
+            conversation=conversation,
+            user=self.user_one,
+        )
+        self.assertTrue(preference.pinned)
+        self.assertTrue(preference.muted)
+        self.assertFalse(
+            ConversationPreference.objects.filter(
+                conversation=conversation,
+                user=self.user_two,
+            ).exists()
+        )
 
     def test_reply_from_another_conversation_is_rejected(self):
         third_user, third_profile = self.create_user_with_profile(

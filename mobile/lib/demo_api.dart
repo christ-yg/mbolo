@@ -6,6 +6,8 @@ import 'auth_contract.dart';
 class DemoApi implements AuthApi {
   static const account = Account('demo', 'demo@mbolo.test', true);
   bool _authenticated = false;
+  bool _conversationPinned = false;
+  bool _conversationMuted = false;
   bool _incognito = false;
   bool _boostActive = false;
   final List<PremiumPayment> _premiumPayments = <PremiumPayment>[];
@@ -609,8 +611,25 @@ class DemoApi implements AuthApi {
         updatedAt: _messages.isEmpty
             ? DateTime(2026, 10, 5, 18)
             : _messages.last.createdAt,
+        pinned: _conversationPinned,
+        muted: _conversationMuted,
       ),
     ];
+  }
+
+  @override
+  Future<ConversationSummary> updateConversationPreferences(
+    String conversationId, {
+    bool? pinned,
+    bool? muted,
+  }) async {
+    if (conversationId != 'demo-conversation-1' ||
+        (pinned == null && muted == null)) {
+      throw const FormatException('Préférences incorrectes.');
+    }
+    if (pinned != null) _conversationPinned = pinned;
+    if (muted != null) _conversationMuted = muted;
+    return (await getConversations()).single;
   }
 
   @override
