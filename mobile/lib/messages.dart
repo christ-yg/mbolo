@@ -32,6 +32,7 @@ class _MessagesPageState extends State<MessagesPage>
   bool _refreshing = false;
   Timer? _refreshTimer;
   String _query = '';
+  bool _showArchived = false;
   String? _workingLike;
   String? _error;
 
@@ -338,9 +339,10 @@ class _MessagesPageState extends State<MessagesPage>
     );
   }
 
-  List<ConversationSummary> get _visibleConversations => _query.isEmpty
-      ? _conversations
-      : _conversations.where((conversation) {
+  List<ConversationSummary> get _visibleConversations =>
+      _conversations.where((conversation) {
+          if (conversation.archived != _showArchived) return false;
+          if (_query.isEmpty) return true;
           final profile = conversation.otherProfile;
           final haystack = '${profile.displayName} ${profile.city} '
               '${conversation.lastMessage?.body ?? ''}'.toLowerCase();
@@ -371,6 +373,28 @@ class _MessagesPageState extends State<MessagesPage>
                   fontWeight: FontWeight.w800,
                 ),
           ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: Text(
+                  'Actives (${_conversations.where((item) => !item.archived).length})',
+                ),
+                avatar: const Icon(Icons.forum_rounded, size: 17),
+                selected: !_showArchived,
+                onSelected: (_) => setState(() => _showArchived = false),
+              ),
+              ChoiceChip(
+                label: Text(
+                  'Archivées (${_conversations.where((item) => item.archived).length})',
+                ),
+                avatar: const Icon(Icons.archive_outlined, size: 17),
+                selected: _showArchived,
+                onSelected: (_) => setState(() => _showArchived = true),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           if (_visibleConversations.isEmpty)
             Card(
@@ -382,7 +406,9 @@ class _MessagesPageState extends State<MessagesPage>
                     const SizedBox(height: 12),
                     Text(
                       _query.isEmpty
-                          ? 'Tes conversations apparaîtront ici après un match.'
+                          ? (_showArchived
+                              ? 'Aucune conversation archivée. Tu peux archiver et restaurer une discussion à tout moment.'
+                              : 'Tes conversations apparaîtront ici après un match.')
                           : 'Aucune conversation ne correspond à ta recherche.',
                       textAlign: TextAlign.center,
                     ),
@@ -692,6 +718,14 @@ class _PremiumConversationCard extends StatelessWidget {
                               Icons.notifications_off_outlined,
                               size: 16,
                               color: scheme.onSurfaceVariant,
+                            ),
+                          ],
+                          if (conversation.archived) ...[
+                            const SizedBox(width: 5),
+                            Icon(
+                              Icons.archive_rounded,
+                              size: 16,
+                              color: scheme.secondary,
                             ),
                           ],
                         ],
@@ -1244,6 +1278,7 @@ class _ConversationPageState extends State<ConversationPage>
   ChatMessage? _replyingTo;
   late bool _pinned = widget.conversation.pinned;
   late bool _muted = widget.conversation.muted;
+  late bool _archived = widget.conversation.archived;
 
   @override
   void initState() {
@@ -1556,23 +1591,33 @@ class _ConversationPageState extends State<ConversationPage>
     if (changed && mounted) Navigator.of(context).pop();
   }
 
-  Future<void> _updatePreferences({bool? pinned, bool? muted}) async {
+  Future<bool> _updatePreferences({
+    bool? pinned,
+    bool? muted,
+    bool? archived,
+  }) async {
     try {
       final updated = await widget.api.updateConversationPreferences(
         widget.conversation.id,
         pinned: pinned,
         muted: muted,
+        archived: archived,
       );
-      if (!mounted) return;
+      if (!mounted) return true;
       setState(() {
         _pinned = updated.pinned;
         _muted = updated.muted;
+        _archived = updated.archived;
         _error = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            pinned != null
+            archived != null
+                ? (updated.archived
+                    ? 'Conversation archivée. Elle reste récupérable.'
+                    : 'Conversation restaurée.')
+                : pinned != null
                 ? (updated.pinned
                     ? 'Conversation épinglée.'
                     : 'Conversation désépinglée.')
@@ -1582,8 +1627,10 @@ class _ConversationPageState extends State<ConversationPage>
           ),
         ),
       );
+      return true;
     } catch (error) {
       if (mounted) setState(() => _error = friendlyError(error));
+      return false;
     }
   }
 
@@ -1594,6 +1641,10 @@ class _ConversationPageState extends State<ConversationPage>
         return;
       case 'mute':
         await _updatePreferences(muted: !_muted);
+        return;
+      case 'archive':
+        final changed = await _updatePreferences(archived: !_archived);
+        if (changed && mounted) Navigator.of(context).pop();
         return;
       case 'safety':
         await _openSafetyActions();
@@ -1888,6 +1939,17 @@ class _ConversationPageState extends State<ConversationPage>
                   title: Text(
                     _muted ? 'Réactiver les notifications' : 'Mettre en sourdine',
                   ),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'archive',
+                child: ListTile(
+                  leading: Icon(
+                    _archived
+                        ? Icons.unarchive_outlined
+                        : Icons.archive_outlined,
+                  ),
+                  title: Text(_archived ? 'Restaurer' : 'Archiver'),
                 ),
               ),
               const PopupMenuDivider(),

@@ -8,6 +8,7 @@ class DemoApi implements AuthApi {
   bool _authenticated = false;
   bool _conversationPinned = false;
   bool _conversationMuted = false;
+  bool _conversationArchived = false;
   bool _incognito = false;
   bool _boostActive = false;
   final List<PremiumPayment> _premiumPayments = <PremiumPayment>[];
@@ -613,6 +614,7 @@ class DemoApi implements AuthApi {
             : _messages.last.createdAt,
         pinned: _conversationPinned,
         muted: _conversationMuted,
+        archived: _conversationArchived,
       ),
     ];
   }
@@ -622,13 +624,15 @@ class DemoApi implements AuthApi {
     String conversationId, {
     bool? pinned,
     bool? muted,
+    bool? archived,
   }) async {
     if (conversationId != 'demo-conversation-1' ||
-        (pinned == null && muted == null)) {
+        (pinned == null && muted == null && archived == null)) {
       throw const FormatException('Préférences incorrectes.');
     }
     if (pinned != null) _conversationPinned = pinned;
     if (muted != null) _conversationMuted = muted;
+    if (archived != null) _conversationArchived = archived;
     return (await getConversations()).single;
   }
 

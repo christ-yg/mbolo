@@ -15,9 +15,11 @@ void main() {
       conversations.single.id,
       pinned: true,
       muted: true,
+      archived: true,
     );
     expect(preferred.pinned, isTrue);
     expect(preferred.muted, isTrue);
+    expect(preferred.archived, isTrue);
 
     final initial = await api.getMessages(conversations.single.id);
     expect(initial, hasLength(1));

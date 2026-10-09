@@ -165,6 +165,7 @@ class ConversationPreference(models.Model):
     )
     pinned = models.BooleanField(default=False)
     muted = models.BooleanField(default=False)
+    archived = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

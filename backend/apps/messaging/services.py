@@ -63,7 +63,7 @@ def get_actor_profile(actor):
 @transaction.atomic
 def update_conversation_preferences(
     *, actor, conversation_id: UUID, pinned: bool | None = None,
-    muted: bool | None = None,
+    muted: bool | None = None, archived: bool | None = None,
 ):
     conversation = get_conversation_for_actor(
         actor=actor,
@@ -80,6 +80,9 @@ def update_conversation_preferences(
     if muted is not None:
         preference.muted = muted
         update_fields.append("muted")
+    if archived is not None:
+        preference.archived = archived
+        update_fields.append("archived")
     if update_fields:
         preference.save(update_fields=(*update_fields, "updated_at"))
     return conversation
@@ -251,6 +254,12 @@ def send_message(
     ).update(
         updated_at=timezone.now(),
     )
+
+    # A new exchange makes the discussion active again for both members.
+    ConversationPreference.objects.filter(
+        conversation=conversation,
+        archived=True,
+    ).update(archived=False, updated_at=timezone.now())
 
     return message
 

@@ -606,8 +606,9 @@ class MboloApi implements AuthApi {
     String conversationId, {
     bool? pinned,
     bool? muted,
+    bool? archived,
   }) async {
-    if (pinned == null && muted == null) {
+    if (pinned == null && muted == null && archived == null) {
       throw const FormatException('Aucune préférence à modifier.');
     }
     return ConversationSummary.fromJson(
@@ -616,6 +617,7 @@ class MboloApi implements AuthApi {
         {
           if (pinned != null) 'pinned': pinned,
           if (muted != null) 'muted': muted,
+          if (archived != null) 'archived': archived,
         },
       ),
     );

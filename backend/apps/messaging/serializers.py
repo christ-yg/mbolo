@@ -38,6 +38,7 @@ class ConversationCreateSerializer(
 class ConversationPreferenceSerializer(serializers.Serializer):
     pinned = serializers.BooleanField(required=False)
     muted = serializers.BooleanField(required=False)
+    archived = serializers.BooleanField(required=False)
 
     def validate(self, attrs):
         if not attrs:
@@ -251,6 +252,7 @@ class ConversationSerializer(
 
     pinned = serializers.SerializerMethodField()
     muted = serializers.SerializerMethodField()
+    archived = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -264,6 +266,7 @@ class ConversationSerializer(
             "other_presence",
             "pinned",
             "muted",
+            "archived",
             "created_at",
             "updated_at",
         )
@@ -292,6 +295,10 @@ class ConversationSerializer(
     def get_muted(self, conversation: Conversation) -> bool:
         preference = self._preference(conversation)
         return bool(preference and preference.muted)
+
+    def get_archived(self, conversation: Conversation) -> bool:
+        preference = self._preference(conversation)
+        return bool(preference and preference.archived)
 
     def get_other_profile(
         self,

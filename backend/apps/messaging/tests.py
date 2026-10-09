@@ -445,6 +445,7 @@ class MessagingServiceTests(TestCase):
             conversation_id=conversation.id,
             pinned=True,
             muted=True,
+            archived=True,
         )
 
         preference = ConversationPreference.objects.get(
@@ -453,12 +454,21 @@ class MessagingServiceTests(TestCase):
         )
         self.assertTrue(preference.pinned)
         self.assertTrue(preference.muted)
+        self.assertTrue(preference.archived)
         self.assertFalse(
             ConversationPreference.objects.filter(
                 conversation=conversation,
                 user=self.user_two,
             ).exists()
         )
+
+        send_message(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            body="Nouveau message",
+        )
+        preference.refresh_from_db()
+        self.assertFalse(preference.archived)
 
     def test_reply_from_another_conversation_is_rejected(self):
         third_user, third_profile = self.create_user_with_profile(
