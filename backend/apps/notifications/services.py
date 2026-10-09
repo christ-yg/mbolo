@@ -124,6 +124,37 @@ def create_message_notification(
 
 
 @transaction.atomic
+def create_reaction_notification(
+    *,
+    recipient,
+    actor,
+    actor_display_name: str,
+    conversation_id,
+    message_id,
+    emoji: str,
+) -> NotificationCreationResult:
+    """Crée ou actualise une notification de réaction sans doublon."""
+    normalized_actor = (actor_display_name or "Un membre").strip()[:80]
+    notification, created = Notification.objects.update_or_create(
+        recipient=recipient,
+        source_key=f"reaction:{message_id}:{actor.id}",
+        defaults={
+            "kind": Notification.Kind.MESSAGE,
+            "title": f"{normalized_actor} a réagi à ton message",
+            "body": emoji,
+            "target_path": f"/messages/{conversation_id}",
+            "metadata": {
+                "conversation_id": str(conversation_id),
+                "message_id": str(message_id),
+                "reaction": emoji,
+            },
+            "read_at": None,
+        },
+    )
+    return NotificationCreationResult(notification=notification, created=created)
+
+
+@transaction.atomic
 def create_like_notification(
     *,
     recipient,

@@ -1461,6 +1461,34 @@ class _ConversationPageState extends State<ConversationPage>
   }
 
   Future<void> _react(ChatMessage message, String emoji) async {
+    final previous = message;
+    final counts = <String, int>{
+      for (final reaction in message.reactions) reaction.emoji: reaction.count,
+    };
+    final oldEmoji = message.myReaction;
+    if (oldEmoji != null) counts[oldEmoji] = (counts[oldEmoji] ?? 1) - 1;
+    if (emoji.isNotEmpty) counts[emoji] = (counts[emoji] ?? 0) + 1;
+    final optimistic = ChatMessage(
+      id: message.id,
+      body: message.body,
+      createdAt: message.createdAt,
+      mine: message.mine,
+      read: message.read,
+      readReceiptsAvailable: message.readReceiptsAvailable,
+      imageUrl: message.imageUrl,
+      imageBytes: message.imageBytes,
+      reactions: counts.entries
+          .where((entry) => entry.value > 0)
+          .map((entry) => MessageReactionSummary(entry.key, entry.value))
+          .toList(growable: false),
+      myReaction: emoji.isEmpty ? null : emoji,
+    );
+    setState(() {
+      _messages = _messages
+          .map((item) => item.id == optimistic.id ? optimistic : item)
+          .toList(growable: false);
+      _error = null;
+    });
     try {
       final updated = await widget.api.reactToMessage(
         widget.conversation.id,
@@ -1476,7 +1504,14 @@ class _ConversationPageState extends State<ConversationPage>
       });
       HapticFeedback.selectionClick();
     } catch (error) {
-      if (mounted) setState(() => _error = friendlyError(error));
+      if (mounted) {
+        setState(() {
+          _messages = _messages
+              .map((item) => item.id == previous.id ? previous : item)
+              .toList(growable: false);
+          _error = friendlyError(error);
+        });
+      }
     }
   }
 
@@ -2122,32 +2157,46 @@ class _AnimatedMessageBubble extends StatelessWidget {
                     runSpacing: 4,
                     children: message.reactions
                         .map(
-                          (reaction) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: reaction.emoji == message.myReaction
-                                  ? scheme.primaryContainer
-                                  : (mine
-                                      ? Colors.white.withValues(alpha: .16)
-                                      : scheme.surface),
+                          (reaction) => Semantics(
+                            button: true,
+                            label:
+                                '${reaction.emoji}, ${reaction.count} réaction${reaction.count > 1 ? 's' : ''}',
+                            child: InkWell(
                               borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              '${reaction.emoji} ${reaction.count}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color: reaction.emoji == message.myReaction
-                                        ? scheme.onPrimaryContainer
-                                        : (mine
-                                            ? Colors.white
-                                            : scheme.onSurface),
-                                    fontWeight: FontWeight.w700,
+                              onTap: () => onReact(
+                                reaction.emoji == message.myReaction
+                                    ? ''
+                                    : reaction.emoji,
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: reaction.emoji == message.myReaction
+                                      ? scheme.primaryContainer
+                                      : (mine
+                                          ? Colors.white.withValues(alpha: .16)
+                                          : scheme.surface),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  '${reaction.emoji} ${reaction.count}',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color:
+                                            reaction.emoji == message.myReaction
+                                                ? scheme.onPrimaryContainer
+                                                : (mine
+                                                    ? Colors.white
+                                                    : scheme.onSurface),
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                   ),
+                              ),
                             ),
                           ),
                         )

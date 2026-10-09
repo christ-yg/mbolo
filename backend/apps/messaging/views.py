@@ -19,6 +19,8 @@ from apps.accounts.realtime import broadcast_account_event
 from apps.notifications.serializers import NotificationSerializer
 from apps.notifications.services import (
     create_message_notification,
+    create_reaction_notification,
+    broadcast_notification_created,
     get_unread_notification_count,
 )
 
@@ -545,4 +547,19 @@ class MessageReactionView(APIView):
             conversation_id=conversation_id,
             event={"event": "message.reaction", "message": output.data},
         )
+        emoji = input_serializer.validated_data["emoji"]
+        if emoji and message.sender_id != request.user.id:
+            result = create_reaction_notification(
+                recipient=message.sender,
+                actor=request.user,
+                actor_display_name=request.user.profile.display_name,
+                conversation_id=conversation_id,
+                message_id=message.id,
+                emoji=emoji,
+            )
+            broadcast_notification_created(
+                notification=result.notification,
+                event_name="message.reaction.notification",
+                extra_payload={"conversation_id": str(conversation_id)},
+            )
         return Response(output.data, status=status.HTTP_200_OK)
