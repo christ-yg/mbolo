@@ -662,6 +662,24 @@ class DemoApi implements AuthApi {
   }
 
   @override
+  Future<bool> getTypingStatus(String conversationId) async {
+    if (conversationId != 'demo-conversation-1') {
+      throw const FormatException('Conversation absente.');
+    }
+    return false;
+  }
+
+  @override
+  Future<void> setTypingStatus(
+    String conversationId,
+    bool isTyping,
+  ) async {
+    if (conversationId != 'demo-conversation-1') {
+      throw const FormatException('Conversation absente.');
+    }
+  }
+
+  @override
   Future<List<AppNotification>> getNotifications() async =>
       List<AppNotification>.unmodifiable(_notifications);
 

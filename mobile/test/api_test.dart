@@ -218,6 +218,14 @@ class FakeServer implements HttpClientAdapter {
         'read_at': '2026-10-06T11:00:00Z',
         'created_at': '2026-10-06T10:30:00Z',
       };
+    } else if (path.endsWith('/conversations/demo-conversation-1/typing/')) {
+      data = options.method == 'GET'
+          ? {'other_is_typing': true}
+          : {
+              'conversation_id': 'demo-conversation-1',
+              'is_typing': options.data['is_typing'],
+              'expires_in_seconds': options.data['is_typing'] == true ? 8 : 0,
+            };
     } else if (path.endsWith('/notifications/99999999-9999-9999-9999-999999999999/')) {
       status = 204;
       data = <String, dynamic>{};
@@ -773,6 +781,24 @@ void main() {
     await api.deleteNotification(items.single.id);
     expect(server.requests.last.method, 'DELETE');
     expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
+  });
+
+  test('Typing presence uses authenticated protected routes', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    expect(await api.getTypingStatus('demo-conversation-1'), isTrue);
+    expect(server.requests.last.method, 'GET');
+
+    await api.setTypingStatus('demo-conversation-1', true);
+    final request = server.requests.last;
+    expect(request.method, 'POST');
+    expect(request.data['is_typing'], isTrue);
+    expect(request.headers['X-CSRFToken'], 'csrf-test');
   });
 
   test('Premium catalogue and checkout remain server-driven', () async {

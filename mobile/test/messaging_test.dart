@@ -27,6 +27,9 @@ void main() {
 
     final history = await api.getMessages(conversations.single.id);
     expect(history, hasLength(2));
+
+    expect(await api.getTypingStatus(conversations.single.id), isFalse);
+    await api.setTypingStatus(conversations.single.id, true);
   });
 
   test('la démo refuse un message vide', () async {

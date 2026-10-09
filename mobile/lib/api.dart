@@ -621,6 +621,25 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<bool> getTypingStatus(String conversationId) async {
+    final response = await client.get<dynamic>(
+      'conversations/$conversationId/typing/',
+    );
+    return objectData(response.data)['other_is_typing'] == true;
+  }
+
+  @override
+  Future<void> setTypingStatus(
+    String conversationId,
+    bool isTyping,
+  ) async {
+    await _post(
+      'conversations/$conversationId/typing/',
+      {'is_typing': isTyping},
+    );
+  }
+
+  @override
   Future<List<AppNotification>> getNotifications() async {
     final response = await client.get<dynamic>('notifications/');
     return _paginatedResults(

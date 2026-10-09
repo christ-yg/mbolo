@@ -860,6 +860,8 @@ abstract class AuthApi {
   Future<List<ChatMessage>> getMessages(String conversationId);
   Future<ChatMessage> sendMessage(String conversationId, String body);
   Future<void> markConversationRead(String conversationId);
+  Future<bool> getTypingStatus(String conversationId);
+  Future<void> setTypingStatus(String conversationId, bool isTyping);
   Future<List<AppNotification>> getNotifications();
   Future<int> getNotificationUnreadCount();
   Future<AppNotification> markNotificationRead(String notificationId);

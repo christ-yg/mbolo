@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'auth_contract.dart';
 import 'safety_actions.dart';
@@ -609,19 +612,85 @@ class _ConversationPageState extends State<ConversationPage> {
   List<ChatMessage> _messages = <ChatMessage>[];
   bool _loading = true;
   bool _sending = false;
+  bool _otherTyping = false;
+  bool _selfTyping = false;
+  bool _nearBottom = true;
+  Timer? _typingDebounce;
+  Timer? _typingPoll;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _composer.addListener(_onComposerChanged);
+    _scroll.addListener(_onScroll);
     _load();
+    _pollTyping();
+    _typingPoll = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _pollTyping(),
+    );
   }
 
   @override
   void dispose() {
+    _typingDebounce?.cancel();
+    _typingPoll?.cancel();
+    if (_selfTyping) {
+      unawaited(_publishTyping(false));
+    }
+    _composer.removeListener(_onComposerChanged);
+    _scroll.removeListener(_onScroll);
     _composer.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final nearBottom =
+        _scroll.position.maxScrollExtent - _scroll.position.pixels < 96;
+    if (nearBottom != _nearBottom && mounted) {
+      setState(() => _nearBottom = nearBottom);
+    }
+  }
+
+  void _onComposerChanged() {
+    _typingDebounce?.cancel();
+    final hasText = _composer.text.trim().isNotEmpty;
+    if (hasText && !_selfTyping) {
+      _selfTyping = true;
+      unawaited(_publishTyping(true));
+    } else if (!hasText && _selfTyping) {
+      _selfTyping = false;
+      unawaited(_publishTyping(false));
+    }
+    if (hasText) {
+      _typingDebounce = Timer(const Duration(milliseconds: 1200), () {
+        if (!_selfTyping) return;
+        _selfTyping = false;
+        unawaited(_publishTyping(false));
+      });
+    }
+  }
+
+  Future<void> _publishTyping(bool isTyping) async {
+    try {
+      await widget.api.setTypingStatus(widget.conversation.id, isTyping);
+    } catch (_) {
+      // Typing presence is best-effort and never interrupts message editing.
+    }
+  }
+
+  Future<void> _pollTyping() async {
+    try {
+      final typing = await widget.api.getTypingStatus(widget.conversation.id);
+      if (mounted && typing != _otherTyping) {
+        setState(() => _otherTyping = typing);
+      }
+    } catch (_) {
+      // Typing presence is ephemeral and must never block the conversation.
+    }
   }
 
   Future<void> _load() async {
@@ -641,9 +710,9 @@ class _ConversationPageState extends State<ConversationPage> {
     }
   }
 
-  void _scrollToEnd() {
+  void _scrollToEnd({bool force = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
+      if (_scroll.hasClients && (force || _nearBottom)) {
         _scroll.animateTo(
           _scroll.position.maxScrollExtent,
           duration: const Duration(milliseconds: 250),
@@ -757,26 +826,62 @@ class _ConversationPageState extends State<ConversationPage> {
         child: Column(
           children: [
             Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _messages.isEmpty
-                      ? const Center(
-                          child: Text('Envoie un premier message respectueux.'),
-                        )
-                      : ListView.builder(
-                          controller: _scroll,
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _messages.length,
-                          itemBuilder: (context, index) {
-                            final message = _messages[index];
-                            return _AnimatedMessageBubble(
-                              key: ValueKey<String>(message.id),
-                              message: message,
-                              time: _time(message.createdAt),
-                              order: index,
-                            );
-                          },
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: _loading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _messages.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Envoie un premier message respectueux.',
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: _scroll,
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _messages.length,
+                                itemBuilder: (context, index) {
+                                  final message = _messages[index];
+                                  return _AnimatedMessageBubble(
+                                    key: ValueKey<String>(message.id),
+                                    message: message,
+                                    time: _time(message.createdAt),
+                                    order: index,
+                                  );
+                                },
+                              ),
+                  ),
+                  if (!_nearBottom && !_loading)
+                    Positioned(
+                      right: 16,
+                      bottom: 12,
+                      child: FloatingActionButton.small(
+                        heroTag: 'conversation-scroll-bottom',
+                        tooltip: 'Aller aux messages récents',
+                        onPressed: _scrollToEnd,
+                        child: const Icon(Icons.keyboard_arrow_down_rounded),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: _otherTyping
+                  ? Padding(
+                      key: const ValueKey<String>('typing'),
+                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Semantics(
+                          liveRegion: true,
+                          label: '${profile.displayName} écrit',
+                          child: _TypingIndicator(name: profile.displayName),
                         ),
+                      ),
+                    )
+                  : const SizedBox.shrink(key: ValueKey<String>('idle')),
             ),
             if (_error != null)
               Padding(
@@ -812,6 +917,8 @@ class _ConversationPageState extends State<ConversationPage> {
                         maxLines: 5,
                         maxLength: 2000,
                         textCapitalization: TextCapitalization.sentences,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
                         decoration: InputDecoration(
                           hintText: 'Écris un message…',
                           counterText: '',
@@ -822,7 +929,6 @@ class _ConversationPageState extends State<ConversationPage> {
                             borderSide: BorderSide.none,
                           ),
                         ),
-                        onSubmitted: (_) => _send(),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -850,6 +956,68 @@ class _ConversationPageState extends State<ConversationPage> {
   }
 }
 
+class _TypingIndicator extends StatefulWidget {
+  const _TypingIndicator({required this.name});
+
+  final String name;
+
+  @override
+  State<_TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<_TypingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final color = Theme.of(context).colorScheme.primary;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '${widget.name} écrit',
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+        const SizedBox(width: 7),
+        ...List<Widget>.generate(3, (index) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 3),
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                final phase = reduceMotion
+                    ? 1.0
+                    : ((_controller.value * 3 - index) % 3).clamp(0.0, 1.0);
+                return Transform.translate(
+                  offset: Offset(0, -2 * Curves.easeInOut.transform(phase)),
+                  child: CircleAvatar(radius: 2.5, backgroundColor: color),
+                );
+              },
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
 class _AnimatedMessageBubble extends StatelessWidget {
   const _AnimatedMessageBubble({
     super.key,
@@ -866,9 +1034,12 @@ class _AnimatedMessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final mine = message.mine;
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
-      duration: Duration(milliseconds: 260 + (order.clamp(0, 6) * 35)),
+      duration: reduceMotion
+          ? Duration.zero
+          : Duration(milliseconds: 260 + (order.clamp(0, 6) * 35)),
       curve: Curves.easeOutCubic,
       builder: (context, value, child) => Opacity(
         opacity: value,
@@ -879,7 +1050,16 @@ class _AnimatedMessageBubble extends StatelessWidget {
       ),
       child: Align(
         alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
+        child: GestureDetector(
+          onLongPress: () async {
+            await Clipboard.setData(ClipboardData(text: message.body));
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Message copié.')),
+              );
+            }
+          },
+          child: Container(
           constraints: const BoxConstraints(maxWidth: 320),
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.fromLTRB(15, 11, 15, 8),
@@ -923,7 +1103,8 @@ class _AnimatedMessageBubble extends StatelessWidget {
                     time,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: mine ? Colors.white70 : scheme.onSurfaceVariant,
-                        ),
+          ),
+        ),
                   ),
                   if (mine && message.readReceiptsAvailable) ...[
                     const SizedBox(width: 4),
