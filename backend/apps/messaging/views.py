@@ -49,6 +49,7 @@ from .services import (
     mark_conversation_as_read,
     send_message,
     set_message_reaction,
+    delete_message_for_everyone,
 )
 from .typing import (
     get_other_typing_status,
@@ -566,4 +567,32 @@ class MessageReactionView(APIView):
                 event_name="message.reaction.notification",
                 extra_payload={"conversation_id": str(conversation_id)},
             )
+        return Response(output.data, status=status.HTTP_200_OK)
+
+
+class MessageDetailView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def delete(self, request: Request, conversation_id, message_id) -> Response:
+        try:
+            message = delete_message_for_everyone(
+                actor=request.user,
+                conversation_id=conversation_id,
+                message_id=message_id,
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+        output = MessageSerializer(message, context={"request": request})
+        broadcast_conversation_event(
+            conversation_id=conversation_id,
+            event={"event": "message.deleted", "message": output.data},
+        )
+        log_security_event(
+            request=request,
+            event="message.delete",
+            outcome="success",
+            reason="sender_deleted",
+            user=request.user,
+            email=request.user.email,
+        )
         return Response(output.data, status=status.HTTP_200_OK)

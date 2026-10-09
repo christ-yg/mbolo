@@ -681,8 +681,13 @@ class _PremiumConversationCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        conversation.lastMessage?.body ??
-                            'Commence la conversation',
+                        conversation.lastMessage?.deleted == true
+                            ? 'Message supprimé'
+                            : conversation.lastMessage?.body.isNotEmpty == true
+                                ? conversation.lastMessage!.body
+                                : conversation.lastMessage?.imageUrl != null
+                                    ? '📷 Photo'
+                                    : 'Commence la conversation',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1487,6 +1492,7 @@ class _ConversationPageState extends State<ConversationPage>
           .toList(growable: false),
       myReaction: emoji.isEmpty ? null : emoji,
       replyPreview: message.replyPreview,
+      deleted: message.deleted,
     );
     setState(() {
       _messages = _messages
@@ -1528,6 +1534,49 @@ class _ConversationPageState extends State<ConversationPage>
       matchId: widget.conversation.matchId,
     );
     if (changed && mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _deleteMessage(ChatMessage message) async {
+    if (!message.mine || message.deleted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.delete_outline_rounded),
+        title: const Text('Supprimer ce message ?'),
+        content: const Text(
+          'Son contenu sera retiré pour vous et votre correspondant. '
+          'Cette action est définitive.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final deleted = await widget.api.deleteMessage(
+        widget.conversation.id,
+        message.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages = _messages
+            .map((item) => item.id == deleted.id ? deleted : item)
+            .toList(growable: false);
+        if (_replyingTo?.id == deleted.id) _replyingTo = null;
+        _error = null;
+      });
+      HapticFeedback.mediumImpact();
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    }
   }
 
   String _time(DateTime value) {
@@ -1654,6 +1703,7 @@ class _ConversationPageState extends State<ConversationPage>
                                         onReply: () => setState(() {
                                           _replyingTo = message;
                                         }),
+                                        onDelete: () => _deleteMessage(message),
                                       ),
                                     ],
                                   );
@@ -2057,6 +2107,7 @@ class _AnimatedMessageBubble extends StatelessWidget {
     required this.order,
     required this.onReact,
     required this.onReply,
+    required this.onDelete,
   });
 
   final ChatMessage message;
@@ -2064,6 +2115,7 @@ class _AnimatedMessageBubble extends StatelessWidget {
   final int order;
   final Future<void> Function(String emoji) onReact;
   final VoidCallback onReply;
+  final Future<void> Function() onDelete;
 
   Future<void> _showActions(BuildContext context) async {
     HapticFeedback.selectionClick();
@@ -2086,22 +2138,24 @@ class _AnimatedMessageBubble extends StatelessWidget {
                       ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    for (final emoji in const ['❤️', '🔥', '😂', '😍', '👍'])
-                      IconButton.filledTonal(
+              if (!message.deleted)
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      for (final emoji in const ['❤️', '🔥', '😂', '😍', '👍'])
+                        IconButton.filledTonal(
                           tooltip: 'Réagir $emoji',
                           onPressed: () =>
                               Navigator.of(sheetContext).pop(emoji),
                           icon: Text(emoji, style: const TextStyle(fontSize: 23)),
                         ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              if (message.body.isNotEmpty)
+              if (!message.deleted && message.body.isNotEmpty)
                 ListTile(
                   leading: const Icon(Icons.content_copy_rounded),
                   title: const Text('Copier le message'),
@@ -2110,14 +2164,32 @@ class _AnimatedMessageBubble extends StatelessWidget {
                   ),
                   onTap: () => Navigator.of(sheetContext).pop('copy'),
                 ),
-              ListTile(
-                leading: const Icon(Icons.reply_rounded),
-                title: const Text('Répondre'),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+              if (!message.deleted)
+                ListTile(
+                  leading: const Icon(Icons.reply_rounded),
+                  title: const Text('Répondre'),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  onTap: () => Navigator.of(sheetContext).pop('reply'),
                 ),
-                onTap: () => Navigator.of(sheetContext).pop('reply'),
-              ),
+              if (message.mine && !message.deleted)
+                ListTile(
+                  leading: Icon(
+                    Icons.delete_outline_rounded,
+                    color: Theme.of(sheetContext).colorScheme.error,
+                  ),
+                  title: Text(
+                    'Supprimer pour tout le monde',
+                    style: TextStyle(
+                      color: Theme.of(sheetContext).colorScheme.error,
+                    ),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  onTap: () => Navigator.of(sheetContext).pop('delete'),
+                ),
               TextButton(
                 onPressed: () => Navigator.of(sheetContext).pop(),
                 child: const Text('Fermer'),
@@ -2130,6 +2202,10 @@ class _AnimatedMessageBubble extends StatelessWidget {
     if (action == null || !context.mounted) return;
     if (action == 'reply') {
       onReply();
+      return;
+    }
+    if (action == 'delete') {
+      await onDelete();
       return;
     }
     if (action != 'copy') {
@@ -2227,9 +2303,11 @@ class _AnimatedMessageBubble extends StatelessWidget {
                         Text(
                           message.replyPreview!.body.isNotEmpty
                               ? message.replyPreview!.body
-                              : message.replyPreview!.hasImage
-                                  ? '📷 Photo'
-                                  : 'Message',
+                              : message.replyPreview!.deleted
+                                  ? 'Message supprimé'
+                                  : message.replyPreview!.hasImage
+                                      ? '📷 Photo'
+                                      : 'Message',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -2243,7 +2321,8 @@ class _AnimatedMessageBubble extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                 ],
-                if (message.imageBytes != null || message.imageUrl != null) ...[
+                if (!message.deleted &&
+                    (message.imageBytes != null || message.imageUrl != null)) ...[
                   _MessageImage(
                     messageId: message.id,
                     bytes: message.imageBytes,
@@ -2251,12 +2330,32 @@ class _AnimatedMessageBubble extends StatelessWidget {
                   ),
                   if (message.body.isNotEmpty) const SizedBox(height: 9),
                 ],
-                Text(
-                  message.body,
-                  style: TextStyle(
-                    color: mine ? Colors.white : scheme.onSurface,
+                if (message.deleted)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.block_rounded,
+                        size: 16,
+                        color: mine ? Colors.white70 : scheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Message supprimé',
+                        style: TextStyle(
+                          color: mine ? Colors.white70 : scheme.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Text(
+                    message.body,
+                    style: TextStyle(
+                      color: mine ? Colors.white : scheme.onSurface,
+                    ),
                   ),
-                ),
                 const SizedBox(height: 4),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -2281,7 +2380,7 @@ class _AnimatedMessageBubble extends StatelessWidget {
                     ],
                   ],
                 ),
-                if (message.reactions.isNotEmpty) ...[
+                if (!message.deleted && message.reactions.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Wrap(
                     alignment: WrapAlignment.end,

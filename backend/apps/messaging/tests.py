@@ -29,6 +29,7 @@ from .services import (
     mark_conversation_as_read,
     send_message,
     set_message_reaction,
+    delete_message_for_everyone,
 )
 from .typing import (
     get_other_typing_status,
@@ -323,6 +324,45 @@ class MessagingServiceTests(TestCase):
         )
 
         self.assertEqual(reply.reply_to_id, original.id)
+
+    def test_sender_can_delete_message_for_everyone(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Contenu à supprimer.",
+        )
+        set_message_reaction(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            emoji="❤️",
+        )
+
+        deleted = delete_message_for_everyone(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            message_id=message.id,
+        )
+
+        self.assertIsNotNone(deleted.deleted_at)
+        self.assertEqual(deleted.body, "")
+        self.assertFalse(deleted.reactions.exists())
+
+    def test_recipient_cannot_delete_sender_message(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Message protégé.",
+        )
+
+        with self.assertRaises(ValidationError):
+            delete_message_for_everyone(
+                actor=self.user_two,
+                conversation_id=conversation.id,
+                message_id=message.id,
+            )
 
     def test_reply_from_another_conversation_is_rejected(self):
         third_user, third_profile = self.create_user_with_profile(

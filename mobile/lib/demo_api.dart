@@ -708,9 +708,37 @@ class DemoApi implements AuthApi {
           .toList(growable: false),
       myReaction: emoji.isEmpty ? null : emoji,
       replyPreview: current.replyPreview,
+      deleted: current.deleted,
     );
     _messages[index] = updated;
     return updated;
+  }
+
+  @override
+  Future<ChatMessage> deleteMessage(
+    String conversationId,
+    String messageId,
+  ) async {
+    if (conversationId != 'demo-conversation-1') {
+      throw const FormatException('Conversation absente.');
+    }
+    final index = _messages.indexWhere((message) => message.id == messageId);
+    if (index < 0 || !_messages[index].mine) {
+      throw const FormatException('Suppression interdite.');
+    }
+    final current = _messages[index];
+    final deleted = ChatMessage(
+      id: current.id,
+      body: '',
+      createdAt: current.createdAt,
+      mine: true,
+      read: current.read,
+      readReceiptsAvailable: current.readReceiptsAvailable,
+      replyPreview: current.replyPreview,
+      deleted: true,
+    );
+    _messages[index] = deleted;
+    return deleted;
   }
 
   @override
@@ -733,6 +761,7 @@ class DemoApi implements AuthApi {
           reactions: message.reactions,
           myReaction: message.myReaction,
           replyPreview: message.replyPreview,
+          deleted: message.deleted,
         );
       }
     }

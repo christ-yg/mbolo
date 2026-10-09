@@ -240,6 +240,9 @@ def set_message_reaction(*, actor, conversation_id: UUID, message_id: UUID, emoj
     except Message.DoesNotExist as exc:
         raise ValidationError("Ce message est introuvable.") from exc
 
+    if message.deleted_at is not None:
+        raise ValidationError("Un message supprimé ne peut plus recevoir de réaction.")
+
     reaction = MessageReaction.objects.filter(message=message, user=actor).first()
     if not emoji:
         if reaction is not None:
@@ -252,6 +255,39 @@ def set_message_reaction(*, actor, conversation_id: UUID, message_id: UUID, emoj
         user=actor,
         defaults={"emoji": emoji},
     )
+    return message
+
+
+@transaction.atomic
+def delete_message_for_everyone(*, actor, conversation_id: UUID, message_id: UUID):
+    """Masque définitivement le contenu d'un message appartenant à l'acteur."""
+    conversation = get_conversation_for_actor(
+        actor=actor,
+        conversation_id=conversation_id,
+    )
+    try:
+        message = (
+            Message.objects.select_for_update()
+            .select_related("sender", "reply_to", "reply_to__sender__profile")
+            .get(id=message_id, conversation=conversation)
+        )
+    except Message.DoesNotExist as exc:
+        raise ValidationError("Ce message est introuvable.") from exc
+
+    if message.sender_id != actor.id:
+        raise ValidationError("Seul l'expéditeur peut supprimer ce message.")
+    if message.deleted_at is not None:
+        return message
+
+    image_name = message.image.name if message.image else None
+    image_storage = message.image.storage if message.image else None
+    message.body = ""
+    message.image = None
+    message.deleted_at = timezone.now()
+    message.save(update_fields=("body", "image", "deleted_at"))
+    message.reactions.all().delete()
+    if image_name and image_storage:
+        transaction.on_commit(lambda: image_storage.delete(image_name))
     return message
 
 

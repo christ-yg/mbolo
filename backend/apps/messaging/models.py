@@ -213,6 +213,11 @@ class Message(models.Model):
         blank=True,
     )
 
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         db_table = "messaging_message"
         ordering = ("created_at",)
@@ -271,7 +276,7 @@ class Message(models.Model):
 
         normalized_body = (self.body or "").strip()
 
-        if not normalized_body and not self.image:
+        if self.deleted_at is None and not normalized_body and not self.image:
             raise ValidationError(
                 {
                     "body": (

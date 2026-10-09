@@ -592,12 +592,14 @@ class ChatReplyPreview {
     required this.body,
     required this.hasImage,
     required this.senderName,
+    this.deleted = false,
   });
 
   final String id;
   final String body;
   final bool hasImage;
   final String senderName;
+  final bool deleted;
 
   factory ChatReplyPreview.fromJson(Map<String, dynamic> data) {
     if (data['id'] is! String || data['sender_name'] is! String) {
@@ -608,6 +610,7 @@ class ChatReplyPreview {
       body: data['body'] is String ? data['body'] as String : '',
       hasImage: data['has_image'] == true,
       senderName: data['sender_name'] as String,
+      deleted: data['is_deleted'] == true,
     );
   }
 }
@@ -625,6 +628,7 @@ class ChatMessage {
     this.reactions = const <MessageReactionSummary>[],
     this.myReaction,
     this.replyPreview,
+    this.deleted = false,
   });
 
   final String id;
@@ -638,6 +642,7 @@ class ChatMessage {
   final List<MessageReactionSummary> reactions;
   final String? myReaction;
   final ChatReplyPreview? replyPreview;
+  final bool deleted;
 
   factory ChatMessage.fromJson(Map<String, dynamic> data) {
     final id = data['id'];
@@ -649,7 +654,9 @@ class ChatMessage {
     if (id is! String ||
         id.isEmpty ||
         body is! String ||
-        (body.trim().isEmpty && (imageUrl is! String || imageUrl.isEmpty)) ||
+        (data['is_deleted'] != true &&
+            body.trim().isEmpty &&
+            (imageUrl is! String || imageUrl.isEmpty)) ||
         createdAt == null) {
       throw const FormatException('Message incomplet.');
     }
@@ -673,6 +680,7 @@ class ChatMessage {
       replyPreview: rawReply is Map<String, dynamic>
           ? ChatReplyPreview.fromJson(rawReply)
           : null,
+      deleted: data['is_deleted'] == true,
     );
   }
 }
@@ -943,6 +951,7 @@ abstract class AuthApi {
     String messageId,
     String emoji,
   );
+  Future<ChatMessage> deleteMessage(String conversationId, String messageId);
   Future<void> markConversationRead(String conversationId);
   Future<bool> getTypingStatus(String conversationId);
   Future<void> setTypingStatus(String conversationId, bool isTyping);

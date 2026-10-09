@@ -54,6 +54,15 @@ void main() {
     expect(reply.replyPreview, isNotNull);
     expect(reply.replyPreview!.body, initial.single.body);
 
+    final deleted = await api.deleteMessage(conversations.single.id, sent.id);
+    expect(deleted.deleted, isTrue);
+    expect(deleted.body, isEmpty);
+
+    await expectLater(
+      api.deleteMessage(conversations.single.id, initial.single.id),
+      throwsA(isA<FormatException>()),
+    );
+
     expect(await api.getTypingStatus(conversations.single.id), isFalse);
     await api.setTypingStatus(conversations.single.id, true);
   });

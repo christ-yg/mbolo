@@ -109,6 +109,19 @@ class MboloApi implements AuthApi {
     return objectData(response.data);
   }
 
+  Future<Map<String, dynamic>> _deleteObject(String path) async {
+    final csrf = await client.get<dynamic>('csrf/');
+    final token = objectData(csrf.data)['csrfToken'];
+    if (token is! String || token.isEmpty) {
+      throw const FormatException('Protection CSRF indisponible.');
+    }
+    final response = await client.delete<dynamic>(
+      path,
+      options: Options(headers: {'X-CSRFToken': token}),
+    );
+    return objectData(response.data);
+  }
+
   @override
   Future<Account> register({
     required String email,
@@ -667,6 +680,18 @@ class MboloApi implements AuthApi {
       await _postObject(
         'conversations/$conversationId/messages/$messageId/reaction/',
         {'emoji': emoji},
+      ),
+    );
+  }
+
+  @override
+  Future<ChatMessage> deleteMessage(
+    String conversationId,
+    String messageId,
+  ) async {
+    return ChatMessage.fromJson(
+      await _deleteObject(
+        'conversations/$conversationId/messages/$messageId/',
       ),
     );
   }

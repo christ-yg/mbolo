@@ -11,6 +11,7 @@ from .views import (
     UnreadMessageCountView,
     ConversationTypingView,
     MessageReactionView,
+    MessageDetailView,
 )
 
 
@@ -54,6 +55,11 @@ urlpatterns = [
         "conversations/<uuid:conversation_id>/messages/<uuid:message_id>/reaction/",
         MessageReactionView.as_view(),
         name="message-reaction",
+    ),
+    path(
+        "conversations/<uuid:conversation_id>/messages/<uuid:message_id>/",
+        MessageDetailView.as_view(),
+        name="message-detail",
     ),
     path(
         "messages/unread-count/",
