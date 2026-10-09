@@ -30,6 +30,7 @@ from .services import (
     send_message,
     set_message_reaction,
     delete_message_for_everyone,
+    edit_message,
 )
 from .typing import (
     get_other_typing_status,
@@ -362,6 +363,40 @@ class MessagingServiceTests(TestCase):
                 actor=self.user_two,
                 conversation_id=conversation.id,
                 message_id=message.id,
+            )
+
+    def test_sender_can_edit_recent_message(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Ancien texte.",
+        )
+
+        edited = edit_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            body="  Nouveau texte.  ",
+        )
+
+        self.assertEqual(edited.body, "Nouveau texte.")
+        self.assertIsNotNone(edited.edited_at)
+
+    def test_recipient_cannot_edit_sender_message(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Texte protégé.",
+        )
+
+        with self.assertRaises(ValidationError):
+            edit_message(
+                actor=self.user_two,
+                conversation_id=conversation.id,
+                message_id=message.id,
+                body="Tentative interdite.",
             )
 
     def test_reply_from_another_conversation_is_rejected(self):

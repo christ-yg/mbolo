@@ -709,6 +709,7 @@ class DemoApi implements AuthApi {
       myReaction: emoji.isEmpty ? null : emoji,
       replyPreview: current.replyPreview,
       deleted: current.deleted,
+      edited: current.edited,
     );
     _messages[index] = updated;
     return updated;
@@ -742,6 +743,39 @@ class DemoApi implements AuthApi {
   }
 
   @override
+  Future<ChatMessage> editMessage(
+    String conversationId,
+    String messageId,
+    String body,
+  ) async {
+    final trimmed = body.trim();
+    if (conversationId != 'demo-conversation-1' || trimmed.isEmpty) {
+      throw const FormatException('Modification incorrecte.');
+    }
+    final index = _messages.indexWhere((message) => message.id == messageId);
+    if (index < 0 || !_messages[index].mine || _messages[index].deleted) {
+      throw const FormatException('Modification interdite.');
+    }
+    final current = _messages[index];
+    final edited = ChatMessage(
+      id: current.id,
+      body: trimmed,
+      createdAt: current.createdAt,
+      mine: true,
+      read: current.read,
+      readReceiptsAvailable: current.readReceiptsAvailable,
+      imageUrl: current.imageUrl,
+      imageBytes: current.imageBytes,
+      reactions: current.reactions,
+      myReaction: current.myReaction,
+      replyPreview: current.replyPreview,
+      edited: true,
+    );
+    _messages[index] = edited;
+    return edited;
+  }
+
+  @override
   Future<void> markConversationRead(String conversationId) async {
     if (conversationId != 'demo-conversation-1') {
       throw const FormatException('Conversation absente.');
@@ -762,6 +796,7 @@ class DemoApi implements AuthApi {
           myReaction: message.myReaction,
           replyPreview: message.replyPreview,
           deleted: message.deleted,
+          edited: message.edited,
         );
       }
     }

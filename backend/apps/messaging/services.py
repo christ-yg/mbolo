@@ -6,6 +6,7 @@ des vues HTTP.
 """
 
 from dataclasses import dataclass
+from datetime import timedelta
 from uuid import UUID
 
 from django.core.exceptions import ValidationError
@@ -288,6 +289,40 @@ def delete_message_for_everyone(*, actor, conversation_id: UUID, message_id: UUI
     message.reactions.all().delete()
     if image_name and image_storage:
         transaction.on_commit(lambda: image_storage.delete(image_name))
+    return message
+
+
+@transaction.atomic
+def edit_message(*, actor, conversation_id: UUID, message_id: UUID, body: str):
+    """Modifie le texte d'un message récent appartenant à l'acteur."""
+    conversation = get_conversation_for_actor(
+        actor=actor,
+        conversation_id=conversation_id,
+    )
+    try:
+        message = Message.objects.select_for_update().get(
+            id=message_id,
+            conversation=conversation,
+        )
+    except Message.DoesNotExist as exc:
+        raise ValidationError("Ce message est introuvable.") from exc
+
+    if message.sender_id != actor.id:
+        raise ValidationError("Seul l'expéditeur peut modifier ce message.")
+    if message.deleted_at is not None:
+        raise ValidationError("Un message supprimé ne peut pas être modifié.")
+    if timezone.now() - message.created_at > timedelta(minutes=15):
+        raise ValidationError("Le délai de modification de 15 minutes est dépassé.")
+
+    normalized_body = (body or "").strip()
+    if not normalized_body:
+        raise ValidationError({"body": ["Le texte du message est requis."]})
+    if len(normalized_body) > Message.MAX_BODY_LENGTH:
+        raise ValidationError({"body": ["Le message est trop long."]})
+
+    message.body = normalized_body
+    message.edited_at = timezone.now()
+    message.save(update_fields=("body", "edited_at"))
     return message
 
 

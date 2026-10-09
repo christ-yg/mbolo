@@ -1493,6 +1493,7 @@ class _ConversationPageState extends State<ConversationPage>
       myReaction: emoji.isEmpty ? null : emoji,
       replyPreview: message.replyPreview,
       deleted: message.deleted,
+      edited: message.edited,
     );
     setState(() {
       _messages = _messages
@@ -1574,6 +1575,62 @@ class _ConversationPageState extends State<ConversationPage>
         _error = null;
       });
       HapticFeedback.mediumImpact();
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    }
+  }
+
+  Future<void> _editMessage(ChatMessage message) async {
+    if (!message.mine || message.deleted || message.body.isEmpty) return;
+    final controller = TextEditingController(text: message.body);
+    final updatedBody = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.edit_rounded),
+        title: const Text('Modifier le message'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 1,
+          maxLines: 5,
+          maxLength: 2000,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Nouveau texte',
+            hintText: 'Écris ton message…',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) Navigator.of(dialogContext).pop(value);
+            },
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (updatedBody == null || updatedBody == message.body || !mounted) return;
+    try {
+      final edited = await widget.api.editMessage(
+        widget.conversation.id,
+        message.id,
+        updatedBody,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages = _messages
+            .map((item) => item.id == edited.id ? edited : item)
+            .toList(growable: false);
+        _error = null;
+      });
+      HapticFeedback.selectionClick();
     } catch (error) {
       if (mounted) setState(() => _error = friendlyError(error));
     }
@@ -1704,6 +1761,7 @@ class _ConversationPageState extends State<ConversationPage>
                                           _replyingTo = message;
                                         }),
                                         onDelete: () => _deleteMessage(message),
+                                        onEdit: () => _editMessage(message),
                                       ),
                                     ],
                                   );
@@ -2108,6 +2166,7 @@ class _AnimatedMessageBubble extends StatelessWidget {
     required this.onReact,
     required this.onReply,
     required this.onDelete,
+    required this.onEdit,
   });
 
   final ChatMessage message;
@@ -2116,6 +2175,7 @@ class _AnimatedMessageBubble extends StatelessWidget {
   final Future<void> Function(String emoji) onReact;
   final VoidCallback onReply;
   final Future<void> Function() onDelete;
+  final Future<void> Function() onEdit;
 
   Future<void> _showActions(BuildContext context) async {
     HapticFeedback.selectionClick();
@@ -2173,6 +2233,16 @@ class _AnimatedMessageBubble extends StatelessWidget {
                   ),
                   onTap: () => Navigator.of(sheetContext).pop('reply'),
                 ),
+              if (message.mine && !message.deleted && message.body.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.edit_rounded),
+                  title: const Text('Modifier'),
+                  subtitle: const Text('Disponible pendant 15 minutes'),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  onTap: () => Navigator.of(sheetContext).pop('edit'),
+                ),
               if (message.mine && !message.deleted)
                 ListTile(
                   leading: Icon(
@@ -2206,6 +2276,10 @@ class _AnimatedMessageBubble extends StatelessWidget {
     }
     if (action == 'delete') {
       await onDelete();
+      return;
+    }
+    if (action == 'edit') {
+      await onEdit();
       return;
     }
     if (action != 'copy') {
@@ -2376,6 +2450,18 @@ class _AnimatedMessageBubble extends StatelessWidget {
                         color: message.read
                             ? const Color(0xFF9FE7FF)
                             : Colors.white70,
+                      ),
+                    ],
+                    if (message.edited && !message.deleted) ...[
+                      const SizedBox(width: 5),
+                      Text(
+                        'modifié',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: mine
+                                  ? Colors.white70
+                                  : scheme.onSurfaceVariant,
+                              fontStyle: FontStyle.italic,
+                            ),
                       ),
                     ],
                   ],

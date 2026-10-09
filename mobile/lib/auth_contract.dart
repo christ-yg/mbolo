@@ -629,6 +629,7 @@ class ChatMessage {
     this.myReaction,
     this.replyPreview,
     this.deleted = false,
+    this.edited = false,
   });
 
   final String id;
@@ -643,6 +644,7 @@ class ChatMessage {
   final String? myReaction;
   final ChatReplyPreview? replyPreview;
   final bool deleted;
+  final bool edited;
 
   factory ChatMessage.fromJson(Map<String, dynamic> data) {
     final id = data['id'];
@@ -681,6 +683,7 @@ class ChatMessage {
           ? ChatReplyPreview.fromJson(rawReply)
           : null,
       deleted: data['is_deleted'] == true,
+      edited: data['is_edited'] == true,
     );
   }
 }
@@ -952,6 +955,11 @@ abstract class AuthApi {
     String emoji,
   );
   Future<ChatMessage> deleteMessage(String conversationId, String messageId);
+  Future<ChatMessage> editMessage(
+    String conversationId,
+    String messageId,
+    String body,
+  );
   Future<void> markConversationRead(String conversationId);
   Future<bool> getTypingStatus(String conversationId);
   Future<void> setTypingStatus(String conversationId, bool isTyping);

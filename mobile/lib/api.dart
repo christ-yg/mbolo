@@ -697,6 +697,24 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<ChatMessage> editMessage(
+    String conversationId,
+    String messageId,
+    String body,
+  ) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty || trimmed.length > 2000) {
+      throw const FormatException('Le texte du message est incorrect.');
+    }
+    return ChatMessage.fromJson(
+      await _patchObject(
+        'conversations/$conversationId/messages/$messageId/',
+        {'body': trimmed},
+      ),
+    );
+  }
+
+  @override
   Future<void> markConversationRead(String conversationId) async {
     await _post('conversations/$conversationId/read/', {});
   }

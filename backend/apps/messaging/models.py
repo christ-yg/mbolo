@@ -218,6 +218,11 @@ class Message(models.Model):
         blank=True,
     )
 
+    edited_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         db_table = "messaging_message"
         ordering = ("created_at",)

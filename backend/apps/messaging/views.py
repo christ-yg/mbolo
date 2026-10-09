@@ -35,6 +35,7 @@ from .serializers import (
     ConversationSerializer,
     MarkConversationReadSerializer,
     MessageCreateSerializer,
+    MessageEditSerializer,
     MessageSerializer,
     MessageReactionInputSerializer,
     UnreadCountSerializer,
@@ -50,6 +51,7 @@ from .services import (
     send_message,
     set_message_reaction,
     delete_message_for_everyone,
+    edit_message,
 )
 from .typing import (
     get_other_typing_status,
@@ -572,6 +574,25 @@ class MessageReactionView(APIView):
 
 class MessageDetailView(APIView):
     permission_classes = (IsAuthenticated,)
+
+    def patch(self, request: Request, conversation_id, message_id) -> Response:
+        input_serializer = MessageEditSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        try:
+            message = edit_message(
+                actor=request.user,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                body=input_serializer.validated_data["body"],
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+        output = MessageSerializer(message, context={"request": request})
+        broadcast_conversation_event(
+            conversation_id=conversation_id,
+            event={"event": "message.edited", "message": output.data},
+        )
+        return Response(output.data, status=status.HTTP_200_OK)
 
     def delete(self, request: Request, conversation_id, message_id) -> Response:
         try:

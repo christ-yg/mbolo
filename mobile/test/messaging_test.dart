@@ -27,6 +27,14 @@ void main() {
     expect(sent.body, 'Ravi de faire ta connaissance !');
     expect(sent.mine, isTrue);
 
+    final edited = await api.editMessage(
+      conversations.single.id,
+      sent.id,
+      'Message corrigé',
+    );
+    expect(edited.body, 'Message corrigé');
+    expect(edited.edited, isTrue);
+
     final history = await api.getMessages(conversations.single.id);
     expect(history, hasLength(2));
 

@@ -59,6 +59,15 @@ class MessageCreateSerializer(
         return attrs
 
 
+class MessageEditSerializer(serializers.Serializer):
+    body = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=Message.MAX_BODY_LENGTH,
+    )
+
+
 class MessageSerializer(
     serializers.ModelSerializer
 ):
@@ -87,6 +96,7 @@ class MessageSerializer(
             "my_reaction",
             "reply_preview",
             "is_deleted",
+            "is_edited",
             "created_at",
             "read_at",
             "is_read",
@@ -97,9 +107,13 @@ class MessageSerializer(
         read_only_fields = fields
 
     is_deleted = serializers.SerializerMethodField()
+    is_edited = serializers.SerializerMethodField()
 
     def get_is_deleted(self, message: Message) -> bool:
         return message.deleted_at is not None
+
+    def get_is_edited(self, message: Message) -> bool:
+        return message.edited_at is not None
 
     def get_image_url(self, message: Message) -> str | None:
         if not message.image:
