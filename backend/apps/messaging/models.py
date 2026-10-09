@@ -17,6 +17,12 @@ from django.db import models
 from apps.interactions.models import Match
 
 
+def message_image_upload_path(instance: "Message", original_filename: str) -> str:
+    """Ignore le nom client et isole l'image dans sa conversation."""
+    del original_filename
+    return f"messages/{instance.conversation_id}/{uuid.uuid4().hex}.webp"
+
+
 class Conversation(models.Model):
     """
     Conversation privée associée à un match.
@@ -143,6 +149,48 @@ class Conversation(models.Model):
         )
 
 
+class ConversationPreference(models.Model):
+    """Préférences privées d'un membre pour une conversation."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name="preferences",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="conversation_preferences",
+    )
+    pinned = models.BooleanField(default=False)
+    muted = models.BooleanField(default=False)
+    archived = models.BooleanField(default=False)
+    marked_unread = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "messaging_conversation_preference"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("conversation", "user"),
+                name="unique_conversation_preference_per_user",
+            )
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        if self.conversation_id and self.user_id:
+            if not self.conversation.includes_user(self.user):
+                raise ValidationError(
+                    {"user": "Ce compte ne participe pas à la conversation."}
+                )
+
+    def save(self, *args, **kwargs) -> None:
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
 class Message(models.Model):
     """
     Message texte envoyé dans une conversation privée.
@@ -179,6 +227,23 @@ class Message(models.Model):
 
     body = models.TextField(
         max_length=MAX_BODY_LENGTH,
+        blank=True,
+        default="",
+    )
+
+    image = models.ImageField(
+        upload_to=message_image_upload_path,
+        max_length=500,
+        null=True,
+        blank=True,
+    )
+
+    reply_to = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="replies",
+        null=True,
+        blank=True,
     )
 
     created_at = models.DateTimeField(
@@ -186,6 +251,16 @@ class Message(models.Model):
     )
 
     read_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    edited_at = models.DateTimeField(
         null=True,
         blank=True,
     )
@@ -248,11 +323,11 @@ class Message(models.Model):
 
         normalized_body = (self.body or "").strip()
 
-        if not normalized_body:
+        if self.deleted_at is None and not normalized_body and not self.image:
             raise ValidationError(
                 {
                     "body": (
-                        "Le message ne peut pas être vide."
+                        "Ajoutez un texte ou une image."
                     )
                 }
             )
@@ -268,6 +343,15 @@ class Message(models.Model):
             )
 
         self.body = normalized_body
+
+        if (
+            self.reply_to_id is not None
+            and self.conversation_id is not None
+            and self.reply_to.conversation_id != self.conversation_id
+        ):
+            raise ValidationError(
+                {"reply_to": "Le message cité appartient à une autre conversation."}
+            )
 
         if (
             self.conversation_id is not None
@@ -308,3 +392,46 @@ class Message(models.Model):
             *args,
             **kwargs,
         )
+
+
+class MessageReaction(models.Model):
+    """Une réaction unique par membre et par message."""
+
+    ALLOWED_EMOJIS = ("❤️", "🔥", "😂", "😍", "👍")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name="reactions",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="message_reactions",
+    )
+    emoji = models.CharField(max_length=8)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "messaging_message_reaction"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("message", "user"),
+                name="unique_message_reaction_per_user",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=("message", "emoji"), name="msg_reaction_idx"),
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        if self.emoji not in self.ALLOWED_EMOJIS:
+            raise ValidationError({"emoji": "Cette réaction n'est pas autorisée."})
+        if self.message_id and not self.message.conversation.includes_user(self.user):
+            raise ValidationError({"user": "Ce compte ne participe pas à la conversation."})
+
+    def save(self, *args, **kwargs) -> None:
+        self.full_clean()
+        super().save(*args, **kwargs)

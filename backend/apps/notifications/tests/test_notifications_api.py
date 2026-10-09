@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 from apps.accounts.models import User
 
 from ..models import Notification
-from ..services import create_message_notification
+from ..services import create_message_notification, create_reaction_notification
 
 
 class NotificationApiTests(APITestCase):
@@ -163,6 +163,28 @@ class NotificationApiTests(APITestCase):
         self.assertTrue(first.created)
         self.assertFalse(second.created)
         self.assertEqual(first.notification.id, second.notification.id)
+
+    def test_reaction_notification_is_updated_without_duplicate(self):
+        first = create_reaction_notification(
+            recipient=self.user,
+            actor=self.other_user,
+            actor_display_name="Grâce",
+            conversation_id="11111111-1111-1111-1111-111111111111",
+            message_id="22222222-2222-2222-2222-222222222222",
+            emoji="❤️",
+        )
+        second = create_reaction_notification(
+            recipient=self.user,
+            actor=self.other_user,
+            actor_display_name="Grâce",
+            conversation_id="11111111-1111-1111-1111-111111111111",
+            message_id="22222222-2222-2222-2222-222222222222",
+            emoji="🔥",
+        )
+
+        self.assertEqual(first.notification.id, second.notification.id)
+        second.notification.refresh_from_db()
+        self.assertEqual(second.notification.body, "🔥")
         self.assertEqual(
             Notification.objects.filter(recipient=self.user).count(),
             1,

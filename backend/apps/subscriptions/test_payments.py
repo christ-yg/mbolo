@@ -27,6 +27,7 @@ class PremiumPaymentFlowTests(APITestCase):
             {
                 "plan": SubscriptionPlan.PLUS,
                 "method": "airtel_money",
+                "phone_number": "+241 07 12 34 56",
                 "amount_xaf": 1,
             },
             format="json",
@@ -37,6 +38,33 @@ class PremiumPaymentFlowTests(APITestCase):
             response.data["data"]["status"],
             PaymentStatus.PENDING,
         )
+        self.assertEqual(
+            response.data["data"]["customer_phone_masked"],
+            "+241••••3456",
+        )
+
+    def test_mobile_money_phone_is_required_and_never_returned_in_clear(self):
+        invalid = self.client.post(
+            reverse("subscriptions:premium-payment-checkout"),
+            {"plan": SubscriptionPlan.PLUS, "method": "moov_money"},
+            format="json",
+        )
+        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+
+        payload = {
+            "plan": SubscriptionPlan.PLUS,
+            "method": "moov_money",
+            "phone_number": "06234567",
+        }
+        first = self.client.post(
+            reverse("subscriptions:premium-payment-checkout"), payload, format="json"
+        )
+        second = self.client.post(
+            reverse("subscriptions:premium-payment-checkout"), payload, format="json"
+        )
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(first.data["data"]["id"], second.data["data"]["id"])
+        self.assertNotIn("06234567", str(first.data))
 
     def test_test_confirmation_activates_subscription(self):
         checkout = self.client.post(
@@ -71,6 +99,7 @@ class PremiumPaymentFlowTests(APITestCase):
             {
                 "plan": SubscriptionPlan.PLUS,
                 "method": "moov_money",
+                "phone_number": "06234567",
             },
             format="json",
         )

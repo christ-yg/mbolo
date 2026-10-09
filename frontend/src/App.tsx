@@ -14,12 +14,15 @@
 import { RouterProvider } from "react-router-dom";
 
 import { AuthProvider } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import { appRouter } from "./routes/AppRouter";
 
 export default function App() {
   return (
-    <AuthProvider>
-      <RouterProvider router={appRouter} />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <RouterProvider router={appRouter} />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

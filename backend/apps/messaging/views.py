@@ -19,10 +19,13 @@ from apps.accounts.realtime import broadcast_account_event
 from apps.notifications.serializers import NotificationSerializer
 from apps.notifications.services import (
     create_message_notification,
+    create_reaction_notification,
+    broadcast_notification_created,
     get_unread_notification_count,
 )
+from apps.safety.report_throttles import ReportCreateThrottle
 
-from .models import Conversation, Message
+from .models import Conversation, ConversationPreference, Message
 from .realtime import broadcast_conversation_event
 from .pagination import (
     ConversationPagination,
@@ -30,10 +33,14 @@ from .pagination import (
 )
 from .serializers import (
     ConversationCreateSerializer,
+    ConversationPreferenceSerializer,
     ConversationSerializer,
     MarkConversationReadSerializer,
     MessageCreateSerializer,
+    MessageEditSerializer,
+    MessageReportSerializer,
     MessageSerializer,
+    MessageReactionInputSerializer,
     UnreadCountSerializer,
     OtherTypingStatusSerializer,
     TypingStatusInputSerializer,
@@ -45,6 +52,11 @@ from .services import (
     get_total_unread_count,
     mark_conversation_as_read,
     send_message,
+    set_message_reaction,
+    delete_message_for_everyone,
+    edit_message,
+    report_message,
+    update_conversation_preferences,
 )
 from .typing import (
     get_other_typing_status,
@@ -101,6 +113,7 @@ class ConversationListCreateView(APIView):
                     "match__profile_two",
                     "match__profile_two__user",
                 )
+                .prefetch_related("preferences")
                 .filter(
                     Q(match__profile_one=profile)
                     | Q(match__profile_two=profile),
@@ -198,6 +211,7 @@ class ConversationMessageListCreateView(
         IsAuthenticated,
     )
 
+
     def get(
         self,
         request: Request,
@@ -224,7 +238,11 @@ class ConversationMessageListCreateView(
             )
             .select_related(
                 "sender",
+                "reply_to",
+                "reply_to__sender",
+                "reply_to__sender__profile",
             )
+            .prefetch_related("reactions")
             .order_by("created_at")
         )
 
@@ -272,10 +290,10 @@ class ConversationMessageListCreateView(
                 actor=request.user,
                 conversation_id=conversation_id,
                 body=(
-                    input_serializer.validated_data[
-                        "body"
-                    ]
+                    input_serializer.validated_data.get("body", "")
                 ),
+                image=input_serializer.validated_data.get("image"),
+                reply_to_id=input_serializer.validated_data.get("reply_to_id"),
             )
         except DjangoValidationError as exc:
             return validation_error_response(exc)
@@ -315,42 +333,43 @@ class ConversationMessageListCreateView(
             actor=recipient_user,
         )
 
-        durable_notification_result = (
-            create_message_notification(
+        recipient_muted = ConversationPreference.objects.filter(
+            conversation=message.conversation,
+            user=recipient_user,
+            muted=True,
+        ).exists()
+
+        if not recipient_muted:
+            durable_notification_result = create_message_notification(
                 recipient=recipient_user,
                 sender_display_name=(
                     request.user.profile.display_name
                 ),
                 conversation_id=message.conversation_id,
                 message_id=message.id,
-                body_preview=message.body[:160],
+                body_preview=message.body[:160] if message.body else "Photo",
             )
-        )
 
-        notification_unread_count = (
-            get_unread_notification_count(
+            notification_unread_count = get_unread_notification_count(
                 actor=recipient_user,
             )
-        )
 
-        broadcast_account_event(
-            user_id=recipient_user.id,
-            event={
-                "event": "message.notification",
-                "conversation_id": str(message.conversation_id),
-                "message_id": str(message.id),
-                "sender_display_name": request.user.profile.display_name,
-                "body_preview": message.body[:160],
-                "created_at": message.created_at.isoformat(),
-                "unread_count": recipient_unread_count,
-                "notification_unread_count": (
-                    notification_unread_count
-                ),
-                "notification": NotificationSerializer(
-                    durable_notification_result.notification
-                ).data,
-            },
-        )
+            broadcast_account_event(
+                user_id=recipient_user.id,
+                event={
+                    "event": "message.notification",
+                    "conversation_id": str(message.conversation_id),
+                    "message_id": str(message.id),
+                    "sender_display_name": request.user.profile.display_name,
+                    "body_preview": message.body[:160],
+                    "created_at": message.created_at.isoformat(),
+                    "unread_count": recipient_unread_count,
+                    "notification_unread_count": notification_unread_count,
+                    "notification": NotificationSerializer(
+                        durable_notification_result.notification
+                    ).data,
+                },
+            )
 
         broadcast_account_event(
             user_id=request.user.id,
@@ -364,6 +383,28 @@ class ConversationMessageListCreateView(
             output_serializer.data,
             status=status.HTTP_201_CREATED,
         )
+class ConversationPreferenceView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def patch(self, request: Request, conversation_id) -> Response:
+        input_serializer = ConversationPreferenceSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        try:
+            conversation = update_conversation_preferences(
+                actor=request.user,
+                conversation_id=conversation_id,
+                pinned=input_serializer.validated_data.get("pinned"),
+                muted=input_serializer.validated_data.get("muted"),
+                archived=input_serializer.validated_data.get("archived"),
+                marked_unread=input_serializer.validated_data.get("marked_unread"),
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+        output = ConversationSerializer(
+            conversation,
+            context={"request": request},
+        )
+        return Response(output.data, status=status.HTTP_200_OK)
 
 
 class ConversationMarkReadView(APIView):
@@ -512,7 +553,6 @@ class ConversationTypingView(APIView):
             return validation_error_response(exc)
 
         serializer = TypingStatusSerializer(result)
-
         broadcast_conversation_event(
             conversation_id=result["conversation_id"],
             event={
@@ -521,5 +561,125 @@ class ConversationTypingView(APIView):
                 "is_typing": result["is_typing"],
             },
         )
-
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class MessageReactionView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request: Request, conversation_id, message_id) -> Response:
+        input_serializer = MessageReactionInputSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        try:
+            message = set_message_reaction(
+                actor=request.user,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                emoji=input_serializer.validated_data["emoji"],
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+        output = MessageSerializer(message, context={"request": request})
+        broadcast_conversation_event(
+            conversation_id=conversation_id,
+            event={"event": "message.reaction", "message": output.data},
+        )
+        emoji = input_serializer.validated_data["emoji"]
+        if emoji and message.sender_id != request.user.id:
+            result = create_reaction_notification(
+                recipient=message.sender,
+                actor=request.user,
+                actor_display_name=request.user.profile.display_name,
+                conversation_id=conversation_id,
+                message_id=message.id,
+                emoji=emoji,
+            )
+            broadcast_notification_created(
+                notification=result.notification,
+                event_name="message.reaction.notification",
+                extra_payload={"conversation_id": str(conversation_id)},
+            )
+        return Response(output.data, status=status.HTTP_200_OK)
+
+
+class MessageDetailView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def patch(self, request: Request, conversation_id, message_id) -> Response:
+        input_serializer = MessageEditSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        try:
+            message = edit_message(
+                actor=request.user,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                body=input_serializer.validated_data["body"],
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+        output = MessageSerializer(message, context={"request": request})
+        broadcast_conversation_event(
+            conversation_id=conversation_id,
+            event={"event": "message.edited", "message": output.data},
+        )
+        return Response(output.data, status=status.HTTP_200_OK)
+
+    def delete(self, request: Request, conversation_id, message_id) -> Response:
+        try:
+            message = delete_message_for_everyone(
+                actor=request.user,
+                conversation_id=conversation_id,
+                message_id=message_id,
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+        output = MessageSerializer(message, context={"request": request})
+        broadcast_conversation_event(
+            conversation_id=conversation_id,
+            event={"event": "message.deleted", "message": output.data},
+        )
+        log_security_event(
+            request=request,
+            event="message.delete",
+            outcome="success",
+            reason="sender_deleted",
+            user=request.user,
+            email=request.user.email,
+        )
+        return Response(output.data, status=status.HTTP_200_OK)
+
+
+class MessageReportView(APIView):
+    permission_classes = (IsAuthenticated,)
+    throttle_classes = (ReportCreateThrottle,)
+
+    def post(self, request: Request, conversation_id, message_id) -> Response:
+        input_serializer = MessageReportSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        try:
+            report = report_message(
+                actor=request.user,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                reason=input_serializer.validated_data["reason"],
+                description=input_serializer.validated_data.get("description", ""),
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+        log_security_event(
+            request=request,
+            event="message.report",
+            outcome="success",
+            reason="report_created",
+            user=request.user,
+            email=request.user.email,
+        )
+        return Response(
+            {
+                "created": True,
+                "message": "Le message a été transmis à la modération.",
+                "report_id": str(report.id),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+# End of messaging API views.

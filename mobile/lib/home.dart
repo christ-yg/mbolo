@@ -1,0 +1,3415 @@
+import 'dart:async';
+import 'dart:math' show min;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'auth_contract.dart';
+import 'design_system.dart';
+import 'messages.dart';
+import 'notifications.dart';
+import 'premium.dart';
+import 'safety_actions.dart';
+import 'security.dart';
+import 'showcase.dart';
+
+class MboloHome extends StatefulWidget {
+  const MboloHome({
+    super.key,
+    required this.account,
+    required this.api,
+    required this.onLogout,
+    required this.onAccountClosed,
+    required this.themeMode,
+    required this.onThemeChanged,
+  });
+
+  final Account account;
+  final AuthApi api;
+  final Future<void> Function() onLogout;
+  final Future<void> Function() onAccountClosed;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeChanged;
+
+  @override
+  State<MboloHome> createState() => _MboloHomeState();
+}
+
+class _MboloHomeState extends State<MboloHome> with WidgetsBindingObserver {
+  int _tab = 0;
+  int _messagesInitialSection = 0;
+  List<DiscoveryProfile> _profiles = <DiscoveryProfile>[];
+  bool _discoveryLoading = true;
+  bool _deciding = false;
+  int _notificationUnread = 0;
+  int _messageUnread = 0;
+  bool _activityRefreshing = false;
+  Timer? _activityPoll;
+  SuperLikeState? _superLikeState;
+  RewindState? _rewindState;
+  MemberProfile? _onboardingProfile;
+  List<ProfilePhoto> _onboardingPhotos = <ProfilePhoto>[];
+  DiscoveryPreferences? _onboardingPreferences;
+  bool _onboardingLoading = true;
+  String? _discoveryError;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadDiscovery();
+    _loadActivityCounts();
+    _startActivityPolling();
+    _loadPremiumActions();
+    _loadOnboardingProgress();
+  }
+
+  @override
+  void dispose() {
+    _activityPoll?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startActivityPolling();
+      unawaited(_loadActivityCounts());
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _activityPoll?.cancel();
+      _activityPoll = null;
+    }
+  }
+
+  void _startActivityPolling() {
+    _activityPoll?.cancel();
+    _activityPoll = Timer.periodic(
+      const Duration(seconds: 12),
+      (_) => unawaited(_loadActivityCounts()),
+    );
+  }
+
+  Future<void> _loadOnboardingProgress() async {
+    try {
+      final profile = await widget.api.getProfile();
+      final photos = await widget.api.getPhotos();
+      final preferences = await widget.api.getPreferences();
+      if (!mounted) return;
+      setState(() {
+        _onboardingProfile = profile;
+        _onboardingPhotos = photos;
+        _onboardingPreferences = preferences;
+      });
+    } catch (_) {
+      // Le guide reste non bloquant si une ressource est indisponible.
+    } finally {
+      if (mounted) setState(() => _onboardingLoading = false);
+    }
+  }
+
+  bool get _profileComplete {
+    final profile = _onboardingProfile;
+    return profile != null &&
+        profile.displayName.trim().isNotEmpty &&
+        profile.birthDate.isNotEmpty &&
+        profile.gender.isNotEmpty &&
+        profile.city.isNotEmpty &&
+        profile.biography.trim().isNotEmpty &&
+        profile.datingIntent.isNotEmpty;
+  }
+
+  int get _onboardingCompleted {
+    var completed = widget.account.verified ? 1 : 0;
+    if (_profileComplete) completed++;
+    if (_onboardingPhotos.isNotEmpty) completed++;
+    if (_onboardingPreferences?.preferredGenders.isNotEmpty == true) completed++;
+    return completed;
+  }
+
+  Future<void> _loadPremiumActions() async {
+    try {
+      final superLike = await widget.api.getSuperLikeState();
+      final rewind = await widget.api.getRewindState();
+      if (!mounted) return;
+      setState(() {
+        _superLikeState = superLike;
+        _rewindState = rewind;
+      });
+    } catch (_) {
+      // Discovery remains usable when premium counters cannot refresh.
+    }
+  }
+
+  Future<void> _loadActivityCounts() async {
+    if (_activityRefreshing) return;
+    _activityRefreshing = true;
+    try {
+      final counts = await Future.wait<int>([
+        widget.api.getNotificationUnreadCount(),
+        widget.api.getMessageUnreadCount(),
+      ]);
+      if (mounted) {
+        setState(() {
+          _notificationUnread = counts[0];
+          _messageUnread = counts[1];
+        });
+      }
+    } catch (_) {
+      // Navigation remains available when activity counters cannot refresh.
+    } finally {
+      _activityRefreshing = false;
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => NotificationsPage(
+          api: widget.api,
+          onOpenTarget: _openNotificationTarget,
+        ),
+      ),
+    );
+    await _loadActivityCounts();
+  }
+
+  Future<void> _openNotificationTarget(String targetPath) async {
+    if (!mounted) return;
+    if (targetPath.startsWith('/messages/')) {
+      final conversationId = targetPath
+          .substring('/messages/'.length)
+          .split('/')
+          .first;
+      if (conversationId.isEmpty) return;
+      setState(() {
+        _tab = 1;
+        _messagesInitialSection = 0;
+      });
+      try {
+        final conversations = await widget.api.getConversations();
+        ConversationSummary? conversation;
+        for (final item in conversations) {
+          if (item.id == conversationId) {
+            conversation = item;
+            break;
+          }
+        }
+        if (!mounted) return;
+        final selectedConversation = conversation;
+        if (selectedConversation == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Conversation indisponible.')),
+          );
+          return;
+        }
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (context) => ConversationPage(
+              api: widget.api,
+              conversation: selectedConversation,
+            ),
+          ),
+        );
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(friendlyError(error))),
+          );
+        }
+      }
+    } else if (targetPath == '/messages' || targetPath == '/matches') {
+      setState(() {
+        _tab = 1;
+        _messagesInitialSection = targetPath == '/matches' ? 1 : 0;
+      });
+    } else if (targetPath == '/discovery') {
+      setState(() => _tab = 0);
+    } else if (targetPath == '/security' || targetPath == '/reports') {
+      setState(() => _tab = 2);
+    } else if (targetPath.startsWith('/profile')) {
+      setState(() => _tab = 3);
+    }
+    await _loadActivityCounts();
+  }
+
+  Future<void> _loadDiscovery() async {
+    setState(() {
+      _discoveryLoading = true;
+      _discoveryError = null;
+    });
+    try {
+      final profiles = await widget.api.getDiscovery();
+      if (!mounted) return;
+      setState(() => _profiles = profiles);
+    } catch (error) {
+      if (mounted) setState(() => _discoveryError = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _discoveryLoading = false);
+    }
+  }
+
+  Future<void> _next({required bool liked, bool superLike = false}) async {
+    if (_deciding || _profiles.isEmpty) return;
+    if (superLike) {
+      await HapticFeedback.mediumImpact();
+    } else {
+      await HapticFeedback.lightImpact();
+    }
+    final current = _profiles.first;
+    setState(() => _deciding = true);
+    try {
+      final result = await widget.api.decideProfile(
+        profileId: current.id,
+        decision: liked ? 'like' : 'pass',
+        superLike: superLike,
+      );
+      if (!mounted) return;
+      setState(() {
+        _profiles = _profiles.skip(1).toList(growable: false);
+      });
+      if (result.matched) {
+        await _showMatchCelebration(current);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.matched
+                ? 'Une nouvelle connexion avec ${current.displayName}.'
+                : superLike
+                ? 'Super Like envoyé à ${current.displayName} ⭐'
+                : liked
+                ? 'Intérêt envoyé avec respect.'
+                : 'Profil passé.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deciding = false);
+      await _loadPremiumActions();
+    }
+  }
+
+  Future<void> _showMatchCelebration(DiscoveryProfile profile) async {
+    await HapticFeedback.heavyImpact();
+    if (!mounted) return;
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Fermer la célébration du match',
+      barrierColor: const Color(0xD90D080C),
+      transitionDuration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : MboloMotion.emphasized,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return _MatchCelebrationDialog(
+          profile: profile,
+          onMessage: () {
+            Navigator.of(dialogContext).pop();
+            setState(() => _tab = 1);
+          },
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: .86, end: 1).animate(curved),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _rewind() async {
+    if (_deciding || _rewindState?.available != true) return;
+    await HapticFeedback.selectionClick();
+    setState(() => _deciding = true);
+    try {
+      final profile = await widget.api.rewindLastPass();
+      if (!mounted) return;
+      setState(() {
+        _profiles = <DiscoveryProfile>[
+          profile,
+          ..._profiles.where((item) => item.id != profile.id),
+        ];
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${profile.displayName} est de retour.')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deciding = false);
+      await _loadPremiumActions();
+    }
+  }
+
+  Future<void> _openProfileEditor() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => _ProfileEditorPage(api: widget.api),
+      ),
+    );
+    await _loadOnboardingProgress();
+  }
+
+  Future<void> _openPreferences() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => _PreferencesPage(api: widget.api),
+      ),
+    );
+    await _loadOnboardingProgress();
+    await _loadDiscovery();
+  }
+
+  Future<void> _openPhotos() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => _PhotosPage(api: widget.api),
+      ),
+    );
+    await _loadOnboardingProgress();
+  }
+
+  Future<void> _openPremium() async {
+    await Navigator.of(context).push<void>(MaterialPageRoute<void>(builder: (context) => PremiumPage(api: widget.api)));
+    await _loadPremiumActions();
+  }
+
+  Future<void> _openShowcase() async {
+    await Navigator.of(context).push<void>(
+      PageRouteBuilder<void>(
+        pageBuilder: (context, animation, secondaryAnimation) => const MboloShowcasePage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          child: ScaleTransition(scale: Tween<double>(begin: 0.98, end: 1).animate(animation), child: child),
+        ),
+      ),
+    );
+  }
+
+  Widget _discoveryPage() {
+    if (_discoveryLoading) {
+      return const _DiscoverySkeleton();
+    }
+    if (_discoveryError != null) {
+      return _DiscoveryStateCard(
+        icon: Icons.cloud_off_rounded,
+        eyebrow: 'CONNEXION INTERROMPUE',
+        title: 'Impossible de charger les profils',
+        message: _discoveryError!,
+        primaryLabel: 'Réessayer',
+        primaryIcon: Icons.refresh_rounded,
+        onPrimary: _loadDiscovery,
+      );
+    }
+    if (_profiles.isEmpty) {
+      return _DiscoveryStateCard(
+        icon: Icons.favorite_rounded,
+        eyebrow: 'TU ES À JOUR',
+        title: 'Toutes les belles découvertes ont été vues',
+        message:
+            'De nouveaux profils arrivent régulièrement. Reviens bientôt ou actualise maintenant.',
+        primaryLabel: 'Actualiser',
+        primaryIcon: Icons.auto_awesome_rounded,
+        onPrimary: _loadDiscovery,
+        secondaryLabel: _rewindState?.available == true
+            ? 'Revenir au dernier profil'
+            : null,
+        onSecondary:
+            _rewindState?.available == true && !_deciding ? _rewind : null,
+      );
+    }
+    return _DiscoverPage(
+      profile: _profiles.first,
+      api: widget.api,
+      onNext: _next,
+      onRewind: _rewind,
+      superLikeState: _superLikeState,
+      rewindState: _rewindState,
+      onSafetyComplete: () => setState(() {
+        _profiles = _profiles.skip(1).toList(growable: false);
+      }),
+      working: _deciding,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = <Widget>[
+      _discoveryPage(),
+      MessagesPage(
+        api: widget.api,
+        initialSection: _messagesInitialSection,
+      ),
+      SecurityPage(
+        api: widget.api,
+        initialAccount: widget.account,
+        onAccountClosed: widget.onAccountClosed,
+      ),
+      _ProfilePage(
+        account: widget.account,
+        onboardingCompleted: _onboardingCompleted,
+        onboardingLoading: _onboardingLoading,
+        profileComplete: _profileComplete,
+        hasPhoto: _onboardingPhotos.isNotEmpty,
+        hasPreferences:
+            _onboardingPreferences?.preferredGenders.isNotEmpty == true,
+        onLogout: widget.onLogout,
+        onEditProfile: _openProfileEditor,
+        onEditPhotos: _openPhotos,
+        onEditPreferences: _openPreferences,
+        onPremium: _openPremium,
+        onShowcase: _openShowcase,
+      ),
+    ];
+    void selectTab(int value) {
+      if (value == _tab) return;
+      HapticFeedback.selectionClick();
+      setState(() {
+        _tab = value;
+        if (value == 1) _messagesInitialSection = 0;
+      });
+      if (value == 1) unawaited(_loadActivityCounts());
+    }
+
+    Widget messageIcon(IconData icon) => Badge(
+          isLabelVisible: _messageUnread > 0,
+          label: Text(_messageUnread > 99 ? '99+' : '$_messageUnread'),
+          child: Icon(icon),
+        );
+
+    final pageBody = SafeArea(
+      child: AnimatedSwitcher(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : MboloMotion.emphasized,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.025, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        ),
+        child: KeyedSubtree(key: ValueKey<int>(_tab), child: pages[_tab]),
+      ),
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const _MboloWordmark(),
+        actions: [
+          PopupMenuButton<ThemeMode>(
+            tooltip: 'Apparence',
+            initialValue: widget.themeMode,
+            onSelected: widget.onThemeChanged,
+            icon: Icon(widget.themeMode == ThemeMode.dark ? Icons.dark_mode_rounded : Icons.brightness_6_rounded),
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: ThemeMode.system, child: ListTile(leading: Icon(Icons.settings_brightness), title: Text('Système'))),
+              PopupMenuItem(value: ThemeMode.light, child: ListTile(leading: Icon(Icons.light_mode), title: Text('Clair'))),
+              PopupMenuItem(value: ThemeMode.dark, child: ListTile(leading: Icon(Icons.dark_mode), title: Text('Sombre'))),
+            ],
+          ),
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              _openNotifications();
+            },
+            icon: Badge(
+              isLabelVisible: _notificationUnread > 0,
+              label: Text(
+                _notificationUnread > 99 ? '99+' : '$_notificationUnread',
+              ),
+              child: const Icon(Icons.notifications_none_rounded),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Sécurité',
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              setState(() => _tab = 2);
+            },
+            icon: const Icon(Icons.shield_outlined),
+          ),
+        ],
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 900) return pageBody;
+          return Row(
+            children: [
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+                  child: NavigationRail(
+                    selectedIndex: _tab,
+                    onDestinationSelected: selectTab,
+                    extended: constraints.maxWidth >= 1180,
+                    minExtendedWidth: 210,
+                    groupAlignment: -.72,
+                    leading: Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                    destinations: [
+                      const NavigationRailDestination(
+                        icon: Icon(Icons.favorite_outline),
+                        selectedIcon: Icon(Icons.favorite),
+                        label: Text('Découvrir'),
+                      ),
+                      NavigationRailDestination(
+                        icon: messageIcon(Icons.chat_bubble_outline),
+                        selectedIcon: messageIcon(Icons.chat_bubble),
+                        label: const Text('Messages'),
+                      ),
+                      const NavigationRailDestination(
+                        icon: Icon(Icons.shield_outlined),
+                        selectedIcon: Icon(Icons.shield),
+                        label: Text('Sécurité'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.person_outline),
+                        selectedIcon: Icon(Icons.person),
+                        label: Text('Profil'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              VerticalDivider(
+                width: 1,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+              Expanded(child: pageBody),
+            ],
+          );
+        },
+      ),
+      bottomNavigationBar: MediaQuery.sizeOf(context).width >= 900
+          ? null
+          : DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x18000000),
+                    blurRadius: 24,
+                    offset: Offset(0, -8),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: NavigationBar(
+                  selectedIndex: _tab,
+                  onDestinationSelected: selectTab,
+                  destinations: [
+                    const NavigationDestination(
+                      icon: Icon(Icons.favorite_outline),
+                      selectedIcon: Icon(Icons.favorite),
+                      label: 'Découvrir',
+                    ),
+                    NavigationDestination(
+                      icon: messageIcon(Icons.chat_bubble_outline),
+                      selectedIcon: messageIcon(Icons.chat_bubble),
+                      label: 'Messages',
+                    ),
+                    const NavigationDestination(
+                      icon: Icon(Icons.shield_outlined),
+                      selectedIcon: Icon(Icons.shield),
+                      label: 'Sécurité',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.person_outline),
+                      selectedIcon: Icon(Icons.person),
+                      label: 'Profil',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+class _MatchCelebrationDialog extends StatelessWidget {
+  const _MatchCelebrationDialog({
+    required this.profile,
+    required this.onMessage,
+  });
+
+  final DiscoveryProfile profile;
+  final VoidCallback onMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final photo = profile.photos.isEmpty
+        ? null
+        : profile.photos.firstWhere(
+            (item) => item.primary,
+            orElse: () => profile.photos.first,
+          );
+    return SafeArea(
+      child: Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: min(MediaQuery.sizeOf(context).width - 32, 440),
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF4B1733), Color(0xFF160C13)],
+              ),
+              borderRadius: BorderRadius.circular(MboloRadius.hero),
+              border: Border.all(color: const Color(0x66ECCB96)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x99000000),
+                  blurRadius: 70,
+                  offset: Offset(0, 28),
+                ),
+              ],
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Positioned(
+                  top: -14,
+                  left: 4,
+                  child: _MatchSparkle(icon: Icons.auto_awesome, size: 24),
+                ),
+                const Positioned(
+                  top: 34,
+                  right: 2,
+                  child: _MatchSparkle(icon: Icons.favorite, size: 20),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'C’EST UN MATCH',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: MboloColors.champagne,
+                            letterSpacing: 2.2,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      width: 132,
+                      height: 132,
+                      padding: const EdgeInsets.all(5),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            MboloColors.champagne,
+                            MboloColors.romanceBright,
+                          ],
+                        ),
+                      ),
+                      child: ClipOval(
+                        child: photo != null && photo.imageUrl.isNotEmpty
+                            ? Image.network(
+                                photo.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const _ProfilePhotoFallback(),
+                              )
+                            : const _ProfilePhotoFallback(),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Toi et ${profile.displayName}\nvous vous plaisez.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            color: MboloColors.ivory,
+                            fontWeight: FontWeight.w800,
+                            height: 1.08,
+                          ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Une conversation respectueuse peut commencer.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: const Color(0xFFD8C0CB),
+                          ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: onMessage,
+                        icon: const Icon(Icons.chat_bubble_rounded),
+                        label: const Text('Envoyer un message'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: MboloColors.romanceBright,
+                          foregroundColor: MboloColors.blackPlum,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(
+                        'Continuer à découvrir',
+                        style: TextStyle(color: scheme.onPrimaryContainer),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MatchSparkle extends StatelessWidget {
+  const _MatchSparkle({required this.icon, required this.size});
+
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: .65, end: 1),
+      duration: reduceMotion ? Duration.zero : MboloMotion.emphasized,
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) => Transform.scale(
+        scale: value,
+        child: Opacity(opacity: value.clamp(0, 1), child: child),
+      ),
+      child: Icon(icon, size: size, color: MboloColors.champagne),
+    );
+  }
+}
+
+class _DiscoveryStateCard extends StatelessWidget {
+  const _DiscoveryStateCard({
+    required this.icon,
+    required this.eyebrow,
+    required this.title,
+    required this.message,
+    required this.primaryLabel,
+    required this.primaryIcon,
+    required this.onPrimary,
+    this.secondaryLabel,
+    this.onSecondary,
+  });
+
+  final IconData icon;
+  final String eyebrow;
+  final String title;
+  final String message;
+  final String primaryLabel;
+  final IconData primaryIcon;
+  final VoidCallback onPrimary;
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(22),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 620),
+          curve: Curves.easeOutBack,
+          builder: (context, value, child) => Opacity(
+            opacity: value.clamp(0, 1),
+            child: Transform.scale(scale: 0.94 + (value * 0.06), child: child),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 460),
+            padding: const EdgeInsets.all(26),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  scheme.surface,
+                  scheme.primaryContainer.withValues(alpha: 0.62),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: scheme.primary.withValues(alpha: 0.18),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.primary.withValues(alpha: 0.12),
+                  blurRadius: 36,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 74,
+                  height: 74,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE05D7D), Color(0xFF8B1744)],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x358B1744),
+                        blurRadius: 22,
+                        offset: Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 36),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  eyebrow,
+                  style: TextStyle(
+                    color: scheme.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.7,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                      ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: scheme.onSurfaceVariant, height: 1.45),
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: onPrimary,
+                    icon: Icon(primaryIcon),
+                    label: Text(primaryLabel),
+                  ),
+                ),
+                if (secondaryLabel != null) ...[
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: onSecondary,
+                    icon: const Icon(Icons.replay_rounded),
+                    label: Text(secondaryLabel!),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DiscoverySkeleton extends StatefulWidget {
+  const _DiscoverySkeleton();
+
+  @override
+  State<_DiscoverySkeleton> createState() => _DiscoverySkeletonState();
+}
+
+class _DiscoverySkeletonState extends State<_DiscoverySkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1250),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final color = Color.lerp(
+          scheme.surfaceContainerHighest.withValues(alpha: 0.52),
+          scheme.primary.withValues(alpha: 0.18),
+          _controller.value,
+        )!;
+        Widget block({required double height, double? width, double radius = 18}) =>
+            Container(
+              width: width,
+              height: height,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(radius),
+              ),
+            );
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
+          children: [
+            block(height: 390, radius: 30),
+            const SizedBox(height: 18),
+            block(height: 28, width: 220),
+            const SizedBox(height: 10),
+            block(height: 18),
+            const SizedBox(height: 8),
+            block(height: 18, width: 270),
+            const SizedBox(height: 22),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                block(height: 58, width: 58, radius: 29),
+                block(height: 70, width: 70, radius: 35),
+                block(height: 58, width: 58, radius: 29),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MboloWordmark extends StatelessWidget {
+  const _MboloWordmark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFFF6B6B), Color(0xFFB51F50)],
+            ),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.favorite, color: Colors.white, size: 21),
+        ),
+        const SizedBox(width: 10),
+        const Text(
+          'MBOLO',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 2.2,
+            fontSize: 21,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DiscoverPage extends StatelessWidget {
+  const _DiscoverPage({
+    required this.profile,
+    required this.api,
+    required this.onNext,
+    required this.onRewind,
+    required this.superLikeState,
+    required this.rewindState,
+    required this.onSafetyComplete,
+    required this.working,
+  });
+
+  final DiscoveryProfile profile;
+  final AuthApi api;
+  final Future<void> Function({required bool liked, bool superLike}) onNext;
+  final Future<void> Function() onRewind;
+  final SuperLikeState? superLikeState;
+  final RewindState? rewindState;
+  final VoidCallback onSafetyComplete;
+  final bool working;
+
+  String _label(String value) {
+    if (value.isEmpty) return 'Non précisé';
+    final spaced = value.replaceAll('_', ' ');
+    return '${spaced[0].toUpperCase()}${spaced.substring(1)}';
+  }
+
+  Future<void> _showProfileDetails(
+    BuildContext context,
+    ProfilePhoto? photo,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.82,
+        minChildSize: 0.55,
+        maxChildSize: 0.94,
+        builder: (context, controller) => ListView(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(22, 4, 22, 32),
+          children: [
+            _ProfileDetailGallery(
+              profile: profile,
+              initialPhoto: photo,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${profile.displayName}, ${profile.age}',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ),
+                if (profile.verified)
+                  const Icon(Icons.verified, color: Color(0xFF9D3451)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              [_label(profile.city), profile.distanceLabel]
+                  .where((value) => value.isNotEmpty)
+                  .join(' • '),
+            ),
+            const SizedBox(height: 18),
+            _ProfileDetailMetric(
+              icon: Icons.favorite_outline_rounded,
+              label: _label(profile.datingIntent),
+            ),
+            if (profile.compatibilityScore > 0)
+              _ProfileDetailMetric(
+                icon: Icons.auto_awesome_rounded,
+                label: '${profile.compatibilityScore}% de compatibilité',
+              ),
+            const SizedBox(height: 14),
+            Card(
+              color: Theme.of(context).colorScheme.primaryContainer
+                  .withValues(alpha: 0.38),
+              child: ExpansionTile(
+                leading: const Icon(Icons.verified_user_outlined),
+                title: const Text(
+                  'Signaux de confiance',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  profile.verified
+                      ? 'Profil vérifié'
+                      : 'Protection MBOLO active',
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                children: [
+                  _TrustSignal(
+                    icon: profile.verified
+                        ? Icons.verified_rounded
+                        : Icons.hourglass_top_rounded,
+                    title: profile.verified
+                        ? 'Identité vérifiée'
+                        : 'Vérification en attente',
+                    description: profile.verified
+                        ? 'Contrôle approuvé par MBOLO'
+                        : 'Les données privées restent masquées',
+                  ),
+                  const _TrustSignal(
+                    icon: Icons.location_off_outlined,
+                    title: 'Localisation protégée',
+                    description: 'Aucune position GPS exacte n’est exposée',
+                  ),
+                  _TrustSignal(
+                    icon: Icons.favorite_outline_rounded,
+                    title: profile.commonInterestLabels.isEmpty
+                        ? 'Découverte respectueuse'
+                        : '${profile.commonInterestLabels.length} intérêt${profile.commonInterestLabels.length > 1 ? 's' : ''} en commun',
+                    description:
+                        'La conversation commence après intérêt mutuel',
+                  ),
+                ],
+              ),
+            ),
+            if (profile.biography.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Text(
+                'À propos',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(profile.biography),
+            ],
+            if (profile.interestLabels.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Text(
+                'Centres d’intérêt',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: profile.interestLabels
+                    .map((label) => Chip(label: Text(label)))
+                    .toList(growable: false),
+              ),
+            ],
+            const SizedBox(height: 26),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primaryContainer,
+                    Theme.of(context)
+                        .colorScheme
+                        .secondaryContainer
+                        .withValues(alpha: 0.72),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Quelle est ton impression ?',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: working
+                              ? null
+                              : () {
+                                  Navigator.of(context).pop();
+                                  onNext(liked: false);
+                                },
+                          icon: const Icon(Icons.close_rounded),
+                          label: const Text('Passer'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: working
+                              ? null
+                              : () {
+                                  Navigator.of(context).pop();
+                                  onNext(liked: true);
+                                },
+                          icon: const Icon(Icons.favorite_rounded),
+                          label: const Text('J’aime'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = profile.photos.isEmpty
+        ? null
+        : profile.photos.firstWhere(
+            (item) => item.primary,
+            orElse: () => profile.photos.first,
+          );
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+      children: [
+        Text(
+          'Une belle rencontre\ncommence ici ✨',
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                height: 1.08,
+              ),
+        ),
+        const SizedBox(height: 8),
+        const Text('Sélection personnalisée • Profils protégés'),
+        const SizedBox(height: 18),
+        _SwipeableProfileCard(
+          key: ValueKey<String>('discovery-card-${profile.id}'),
+          enabled: !working,
+          onTap: () => _showProfileDetails(context, photo),
+          onSwipe: (liked) => onNext(liked: liked),
+          child: Card(
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                key: ValueKey<String>('discovery-photo-${profile.id}'),
+                height: 390,
+                child: photo != null && photo.imageUrl.isNotEmpty
+                    ? Image.network(
+                        photo.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const _ProfilePhotoFallback(),
+                      )
+                    : const _ProfilePhotoFallback(),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${profile.displayName}, ${profile.age}',
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ),
+                        if (profile.verified)
+                          const Icon(
+                            Icons.verified,
+                            color: Color(0xFF9D3451),
+                          ),
+                        IconButton(
+                          tooltip: 'Actions de sécurité',
+                          onPressed: working
+                              ? null
+                              : () async {
+                                  final changed =
+                                      await showProfileSafetyActions(
+                                    context: context,
+                                    api: api,
+                                    profile: profile,
+                                  );
+                                  if (changed) onSafetyComplete();
+                                },
+                          icon: const Icon(Icons.more_vert),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      [
+                        _label(profile.city),
+                        if (profile.distanceLabel.isNotEmpty)
+                          profile.distanceLabel,
+                      ].join(' • '),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(_label(profile.datingIntent)),
+                    if (profile.biography.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(profile.biography),
+                    ],
+                    if (profile.interestLabels.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: profile.interestLabels
+                            .map((label) => Chip(label: Text(label)))
+                            .toList(growable: false),
+                      ),
+                    ],
+                    if (profile.compatibilityScore > 0) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        '${profile.compatibilityScore}% de centres d’intérêt compatibles',
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.swipe_rounded, size: 18),
+            SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                'Glisse à gauche ou à droite • Touche pour découvrir',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        if (superLikeState != null || rewindState != null) ...[
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (superLikeState != null)
+                Chip(
+                  avatar: const Icon(Icons.star_rounded, size: 18),
+                  label: Text(
+                    superLikeState!.entitled
+                        ? '${superLikeState!.remainingToday}/${superLikeState!.dailyLimit} Super Likes'
+                        : 'Super Like · Premium',
+                  ),
+                ),
+              if (rewindState != null && !rewindState!.entitled)
+                const Chip(
+                  avatar: Icon(Icons.replay_rounded, size: 18),
+                  label: Text('Rewind · Premium'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 12,
+          children: [
+            SizedBox(
+              width: 72,
+              child: Column(
+                children: [
+                  IconButton.filledTonal(
+                    tooltip: rewindState?.entitled == true
+                        ? 'Revenir au profil précédent'
+                        : 'Rewind · MBOLO Plus',
+                    onPressed: working || rewindState?.available != true
+                        ? null
+                        : onRewind,
+                    icon: const Icon(Icons.replay_rounded),
+                  ),
+                  const Text('Rewind', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 72,
+              child: Column(
+                children: [
+                  IconButton.outlined(
+                    tooltip: 'Passer ce profil',
+                    onPressed: working ? null : () => onNext(liked: false),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                  const Text('Passer', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 72,
+              child: Column(
+                children: [
+                  IconButton.filledTonal(
+                    tooltip: superLikeState?.entitled == true
+                        ? 'Envoyer un Super Like'
+                        : 'Super Like · MBOLO Plus',
+                    onPressed: working ||
+                            superLikeState?.entitled != true ||
+                            superLikeState!.remainingToday < 1
+                        ? null
+                        : () => onNext(liked: true, superLike: true),
+                    icon: const Icon(Icons.star_rounded),
+                  ),
+                  const Text('Super Like', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 72,
+              child: Column(
+                children: [
+                  IconButton.filled(
+                    tooltip: 'Ça me plaît',
+                    onPressed: working ? null : () => onNext(liked: true),
+                    icon: const Icon(Icons.favorite),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFFB51F50),
+                    ),
+                  ),
+                  const Text('Ça me plaît', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (working) ...[
+          const SizedBox(height: 12),
+          const LinearProgressIndicator(),
+        ],
+      ],
+    );
+  }
+}
+
+class _SwipeableProfileCard extends StatefulWidget {
+  const _SwipeableProfileCard({
+    super.key,
+    required this.child,
+    required this.onSwipe,
+    required this.onTap,
+    required this.enabled,
+  });
+
+  final Widget child;
+  final Future<void> Function(bool liked) onSwipe;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  State<_SwipeableProfileCard> createState() =>
+      _SwipeableProfileCardState();
+}
+
+class _SwipeableProfileCardState extends State<_SwipeableProfileCard> {
+  double _drag = 0;
+  bool _committing = false;
+
+  Future<void> _finish(DragEndDetails details) async {
+    final velocity = details.primaryVelocity ?? 0;
+    final accepted = _drag.abs() >= 85 || velocity.abs() >= 650;
+    final liked = _drag > 0 || (_drag == 0 && velocity > 0);
+    if (!accepted || !widget.enabled) {
+      if (mounted) setState(() => _drag = 0);
+      return;
+    }
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final width = MediaQuery.sizeOf(context).width;
+    setState(() {
+      _committing = true;
+      _drag = (liked ? 1 : -1) * width * 1.25;
+    });
+    await HapticFeedback.mediumImpact();
+    if (!reduceMotion) await Future<void>.delayed(MboloMotion.fast);
+    await widget.onSwipe(liked);
+    if (mounted) {
+      setState(() {
+        _committing = false;
+        _drag = 0;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final progress = (_drag.abs() / (width * 0.36)).clamp(0.0, 1.0);
+    final liked = _drag >= 0;
+    return GestureDetector(
+      onTap: widget.enabled && !_committing ? widget.onTap : null,
+      onHorizontalDragUpdate: widget.enabled && !_committing
+          ? (details) => setState(
+                () => _drag = (_drag + details.delta.dx).clamp(-140.0, 140.0),
+              )
+          : null,
+      onHorizontalDragEnd: widget.enabled && !_committing ? _finish : null,
+      child: AnimatedContainer(
+        duration: _committing
+            ? MboloMotion.fast
+            : _drag == 0
+                ? MboloMotion.standard
+                : Duration.zero,
+        curve: _committing ? Curves.easeInCubic : Curves.easeOutCubic,
+        transformAlignment: Alignment.center,
+        transform: Matrix4.identity()
+          ..translateByDouble(_drag, _drag.abs() * 0.025, 0, 1)
+          ..rotateZ(_drag / width * 0.075),
+        child: Transform.scale(
+          scale: 1 - (progress * 0.025),
+          child: AnimatedOpacity(
+            duration: _committing ? MboloMotion.fast : Duration.zero,
+            opacity: _committing ? 0 : 1,
+            child: Stack(
+            children: [
+              widget.child,
+              if (_drag.abs() > 8)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: progress * 0.24,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(28),
+                          gradient: LinearGradient(
+                            begin: liked ? Alignment.centerLeft : Alignment.centerRight,
+                            end: liked ? Alignment.centerRight : Alignment.centerLeft,
+                            colors: [
+                              liked
+                                  ? const Color(0xFFB51F50)
+                                  : const Color(0xFF20242A),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            if (_drag.abs() > 8)
+              Positioned(
+                top: 28,
+                left: liked ? 24 : null,
+                right: liked ? null : 24,
+                child: Opacity(
+                  opacity: progress,
+                  child: Transform.rotate(
+                    angle: liked ? -0.08 : 0.08,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: liked
+                            ? const Color(0xFFB51F50)
+                            : const Color(0xFF20242A),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        liked ? 'J’AIME' : 'PASSER',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.4,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileDetailMetric extends StatelessWidget {
+  const _ProfileDetailMetric({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrustSignal extends StatelessWidget {
+  const _TrustSignal({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 21, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(description, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileDetailGallery extends StatefulWidget {
+  const _ProfileDetailGallery({
+    required this.profile,
+    required this.initialPhoto,
+  });
+
+  final DiscoveryProfile profile;
+  final ProfilePhoto? initialPhoto;
+
+  @override
+  State<_ProfileDetailGallery> createState() =>
+      _ProfileDetailGalleryState();
+}
+
+class _ProfileDetailGalleryState extends State<_ProfileDetailGallery> {
+  late final List<ProfilePhoto> _photos = widget.profile.photos.isEmpty
+      ? widget.initialPhoto == null
+          ? const <ProfilePhoto>[]
+          : <ProfilePhoto>[widget.initialPhoto!]
+      : widget.profile.photos;
+  int _index = 0;
+
+  Future<void> _openFullscreen() async {
+    if (_photos.isEmpty) return;
+    await HapticFeedback.selectionClick();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4,
+                child: Center(
+                  child: Image.network(
+                    _photos[_index].imageUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const _ProfilePhotoFallback(),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 18,
+              right: 16,
+              child: SafeArea(
+                child: IconButton.filledTonal(
+                  tooltip: 'Fermer la photo',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 18,
+              bottom: 24,
+              child: SafeArea(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.64),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 7,
+                    ),
+                    child: Text(
+                      '${_index + 1}/${_photos.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: SizedBox(
+        height: 320,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (_photos.isEmpty)
+              const _ProfilePhotoFallback()
+            else
+              PageView.builder(
+                itemCount: _photos.length,
+                onPageChanged: (value) => setState(() => _index = value),
+                itemBuilder: (context, index) => GestureDetector(
+                  onTap: _openFullscreen,
+                  child: Image.network(
+                    _photos[index].imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const _ProfilePhotoFallback(),
+                  ),
+                ),
+              ),
+            if (_photos.isNotEmpty)
+              Positioned(
+                top: 14,
+                right: 14,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.58),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      '${_index + 1}/${_photos.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (_photos.isNotEmpty)
+              const Positioned(
+                right: 14,
+                bottom: 14,
+                child: CircleAvatar(
+                  backgroundColor: Color(0x99000000),
+                  child: Icon(Icons.zoom_out_map_rounded, color: Colors.white),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfilePhotoFallback extends StatelessWidget {
+  const _ProfilePhotoFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF6CAD6), Color(0xFF9D3451)],
+        ),
+      ),
+      child: const Center(
+        child: Icon(Icons.person, size: 150, color: Colors.white70),
+      ),
+    );
+  }
+}
+
+class _ProfilePage extends StatelessWidget {
+  const _ProfilePage({
+    required this.account,
+    required this.onboardingCompleted,
+    required this.onboardingLoading,
+    required this.profileComplete,
+    required this.hasPhoto,
+    required this.hasPreferences,
+    required this.onLogout,
+    required this.onEditProfile,
+    required this.onEditPhotos,
+    required this.onEditPreferences,
+    required this.onPremium,
+    required this.onShowcase,
+  });
+  final Account account;
+  final int onboardingCompleted;
+  final bool onboardingLoading;
+  final bool profileComplete;
+  final bool hasPhoto;
+  final bool hasPreferences;
+  final Future<void> Function() onLogout;
+  final VoidCallback onEditProfile;
+  final VoidCallback onEditPhotos;
+  final VoidCallback onEditPreferences;
+  final VoidCallback onPremium;
+  final VoidCallback onShowcase;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).height < 720;
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+      children: [
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: 1),
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 650),
+          curve: Curves.easeOutBack,
+          builder: (context, value, child) => Transform.scale(
+            scale: 0.96 + (0.04 * value),
+            child: Opacity(opacity: value.clamp(0, 1), child: child),
+          ),
+          child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFB51F50), Color(0xFF6F1735)],
+            ),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x3DB51F50),
+                blurRadius: 28,
+                offset: Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white70, width: 2),
+                ),
+                child: const CircleAvatar(
+                  radius: 48,
+                  backgroundColor: Color(0xFFFFD8E3),
+                  child: Icon(Icons.person, size: 55, color: Color(0xFF6F1735)),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Mon profil',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 27,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(account.email, style: const TextStyle(color: Colors.white70)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  account.verified ? '✓ E-mail confirmé' : 'E-mail à confirmer',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          ),
+        ),
+        if (!compact) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _ProfileTrustMetric(
+                  icon: account.verified
+                      ? Icons.verified_rounded
+                      : Icons.mark_email_unread_outlined,
+                  label: account.verified ? 'Profil vérifié' : 'À vérifier',
+                  accent: account.verified,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: _ProfileTrustMetric(
+                  icon: Icons.lock_rounded,
+                  label: 'Données protégées',
+                  accent: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 18),
+        _OnboardingProgressCard(
+          completed: onboardingCompleted,
+          loading: onboardingLoading,
+          emailVerified: account.verified,
+          profileComplete: profileComplete,
+          hasPhoto: hasPhoto,
+          hasPreferences: hasPreferences,
+          onEditProfile: onEditProfile,
+          onEditPhotos: onEditPhotos,
+          onEditPreferences: onEditPreferences,
+        ),
+        const SizedBox(height: 26),
+        Text(
+          'Mon espace',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.workspace_premium, color: Color(0xFFB51F50)),
+                title: const Text('MBOLO Premium', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Plus, Prestige, Boost et avantages'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onPremium,
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Compléter mon profil'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onEditProfile,
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Mes photos'),
+                subtitle: const Text('Jusqu’à 6 photos avec modération'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onEditPhotos,
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.tune),
+                title: const Text('Préférences de rencontre'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onEditPreferences,
+              ),
+              const Divider(height: 1),
+              const ListTile(
+                leading: Icon(Icons.privacy_tip_outlined),
+                title: Text('Confidentialité'),
+                trailing: Icon(Icons.chevron_right),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Color(0xFFB51F50),
+                ),
+                title: const Text(
+                  'Visite guidée MBOLO',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text(
+                  'Découvrir la vision et les avantages',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onShowcase,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        OutlinedButton.icon(
+          onPressed: onLogout,
+          icon: const Icon(Icons.logout),
+          label: const Text('Se déconnecter'),
+        ),
+      ],
+    );
+  }
+}
+
+class _OnboardingProgressCard extends StatelessWidget {
+  const _OnboardingProgressCard({
+    required this.completed,
+    required this.loading,
+    required this.emailVerified,
+    required this.profileComplete,
+    required this.hasPhoto,
+    required this.hasPreferences,
+    required this.onEditProfile,
+    required this.onEditPhotos,
+    required this.onEditPreferences,
+  });
+
+  final int completed;
+  final bool loading;
+  final bool emailVerified;
+  final bool profileComplete;
+  final bool hasPhoto;
+  final bool hasPreferences;
+  final VoidCallback onEditProfile;
+  final VoidCallback onEditPhotos;
+  final VoidCallback onEditPreferences;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final progress = completed / 4;
+    final finished = completed == 4;
+    return Semantics(
+      label: loading
+          ? 'Calcul de la complétion du profil'
+          : 'Profil complété à ${(progress * 100).round()} pour cent',
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: finished
+                          ? const Color(0xFF247A58).withValues(alpha: 0.14)
+                          : scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Icon(
+                      finished ? Icons.verified_rounded : Icons.route_rounded,
+                      color: finished ? const Color(0xFF247A58) : scheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          finished ? 'Ton profil est prêt' : 'Prépare tes rencontres',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                        Text(
+                          loading ? 'Vérification en cours…' : '$completed étape${completed > 1 ? 's' : ''} sur 4',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    loading ? '…' : '${(progress * 100).round()}%',
+                    style: TextStyle(
+                      color: scheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 15),
+              LinearProgressIndicator(
+                value: loading ? null : progress,
+                minHeight: 7,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _OnboardingStep(label: 'E-mail', done: emailVerified),
+                  _OnboardingStep(
+                    label: 'Profil',
+                    done: profileComplete,
+                    onTap: profileComplete ? null : onEditProfile,
+                  ),
+                  _OnboardingStep(
+                    label: 'Photo',
+                    done: hasPhoto,
+                    onTap: hasPhoto ? null : onEditPhotos,
+                  ),
+                  _OnboardingStep(
+                    label: 'Préférences',
+                    done: hasPreferences,
+                    onTap: hasPreferences ? null : onEditPreferences,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingStep extends StatelessWidget {
+  const _OnboardingStep({required this.label, required this.done, this.onTap});
+
+  final String label;
+  final bool done;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: Icon(
+        done ? Icons.check_circle_rounded : Icons.arrow_forward_rounded,
+        size: 18,
+      ),
+      label: Text(label),
+      onPressed: onTap,
+      backgroundColor: done
+          ? const Color(0xFF247A58).withValues(alpha: 0.12)
+          : null,
+    );
+  }
+}
+
+class _ProfileTrustMetric extends StatelessWidget {
+  const _ProfileTrustMetric({
+    required this.icon,
+    required this.label,
+    required this.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 14),
+      decoration: BoxDecoration(
+        color: accent ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: accent
+              ? scheme.primary.withValues(alpha: 0.2)
+              : scheme.outlineVariant,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: accent ? scheme.primary : scheme.outline),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _PhotosPage extends StatefulWidget {
+  const _PhotosPage({required this.api});
+
+  final AuthApi api;
+
+  @override
+  State<_PhotosPage> createState() => _PhotosPageState();
+}
+
+class _PhotosPageState extends State<_PhotosPage> {
+  final ImagePicker _picker = ImagePicker();
+  List<ProfilePhoto> _photos = <ProfilePhoto>[];
+  bool _loading = true;
+  bool _working = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final photos = await widget.api.getPhotos();
+      if (!mounted) return;
+      setState(() {
+        _photos = photos;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  int _nextPosition() {
+    for (var position = 0; position < 6; position += 1) {
+      if (!_photos.any((photo) => photo.position == position)) return position;
+    }
+    return _photos.length;
+  }
+
+  Future<void> _pickPhoto() async {
+    if (_working || _photos.length >= 6) return;
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 2048,
+      maxHeight: 2048,
+      requestFullMetadata: false,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _working = true;
+      _error = null;
+    });
+    try {
+      final bytes = await picked.readAsBytes();
+      if (bytes.length > 10 * 1024 * 1024) {
+        throw const FormatException('La photo dépasse 10 Mo.');
+      }
+      await widget.api.uploadPhoto(
+        bytes: bytes,
+        filename: picked.name,
+        position: _nextPosition(),
+        primary: _photos.isEmpty,
+      );
+      await _load();
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _makePrimary(ProfilePhoto photo) async {
+    if (_working || photo.primary) return;
+    setState(() => _working = true);
+    try {
+      await widget.api.updatePhoto(id: photo.id, primary: true);
+      await _load();
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _delete(ProfilePhoto photo) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Supprimer cette photo ?'),
+        content: const Text(
+          'La suppression est définitive. Tu pourras ajouter une autre photo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _working = true);
+    try {
+      await widget.api.deletePhoto(photo.id);
+      await _load();
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Widget _photoImage(ProfilePhoto photo) {
+    if (photo.previewBytes != null) {
+      return Image.memory(
+        photo.previewBytes!,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+      );
+    }
+    if (photo.imageUrl.isNotEmpty) {
+      return Image.network(
+        photo.imageUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) => const Center(
+          child: Icon(Icons.broken_image_outlined, size: 48),
+        ),
+      );
+    }
+    return const Center(child: Icon(Icons.image_outlined, size: 48));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mes photos')),
+      floatingActionButton: _photos.length >= 6
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _working ? null : _pickPhoto,
+              icon: const Icon(Icons.add_a_photo_outlined),
+              label: const Text('Ajouter'),
+            ),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+                  children: [
+                    _EditorHero(
+                      icon: Icons.photo_library_rounded,
+                      title: 'Ta galerie MBOLO',
+                      subtitle:
+                          'Des photos authentiques augmentent la confiance et la qualité des rencontres.',
+                      progressLabel: '${_photos.length}/6',
+                      progress: _photos.length / 6,
+                    ),
+                    const SizedBox(height: 20),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.verified_user_outlined,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Jusqu’à 6 photos. Les fichiers sont nettoyés et modérés avant leur affichage public.',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (_photos.isEmpty)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Column(
+                            children: [
+                              Icon(Icons.add_photo_alternate_outlined, size: 52),
+                              SizedBox(height: 12),
+                              Text(
+                                'Ajoute une première photo claire de ton visage.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _photos.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.72,
+                            ),
+                        itemBuilder: (context, index) {
+                          final photo = _photos[index];
+                          return Card(
+                            clipBehavior: Clip.antiAlias,
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      _photoImage(photo),
+                                      if (photo.primary)
+                                        const Positioned(
+                                          top: 8,
+                                          left: 8,
+                                          child: Chip(
+                                            avatar: Icon(Icons.star, size: 16),
+                                            label: Text('Principale'),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(8, 6, 4, 4),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          photo.moderationStatusLabel,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Définir comme principale',
+                                        onPressed: _working || photo.primary
+                                            ? null
+                                            : () => _makePrimary(photo),
+                                        icon: Icon(
+                                          photo.primary
+                                              ? Icons.star
+                                              : Icons.star_border,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Supprimer',
+                                        onPressed: _working
+                                            ? null
+                                            : () => _delete(photo),
+                                        icon: const Icon(Icons.delete_outline),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    if (_working)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 16),
+                        child: LinearProgressIndicator(),
+                      ),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _ProfileEditorPage extends StatefulWidget {
+  const _ProfileEditorPage({required this.api});
+
+  final AuthApi api;
+
+  @override
+  State<_ProfileEditorPage> createState() => _ProfileEditorPageState();
+}
+
+class _ProfileEditorPageState extends State<_ProfileEditorPage> {
+  static const _cities = <String, String>{
+    'libreville': 'Libreville',
+    'port_gentil': 'Port-Gentil',
+    'franceville': 'Franceville',
+    'oyem': 'Oyem',
+    'moanda': 'Moanda',
+    'lambarene': 'Lambaréné',
+    'mouila': 'Mouila',
+    'tchibanga': 'Tchibanga',
+    'koulamoutou': 'Koulamoutou',
+    'makokou': 'Makokou',
+    'bitam': 'Bitam',
+    'other': 'Autre ville',
+  };
+  static const _genders = <String, String>{
+    'man': 'Homme',
+    'woman': 'Femme',
+    'non_binary': 'Non binaire',
+    'prefer_not_to_say': 'Je préfère ne pas préciser',
+  };
+  static const _intents = <String, String>{
+    'serious_relationship': 'Relation sérieuse',
+    'friendship': 'Amitié',
+    'discussion': 'Discussion',
+    'marriage': 'Mariage',
+    'not_sure': 'Je ne sais pas encore',
+  };
+  static const _interestOptions = <String, String>{
+    'music': 'Musique',
+    'football': 'Football',
+    'fitness': 'Fitness',
+    'martial_arts': 'Arts martiaux',
+    'technology': 'Technologie',
+    'cybersecurity': 'Cybersécurité',
+    'travel': 'Voyages',
+    'cooking': 'Cuisine',
+    'cinema': 'Cinéma',
+    'reading': 'Lecture',
+    'entrepreneurship': 'Entrepreneuriat',
+    'personal_growth': 'Développement personnel',
+    'dance': 'Danse',
+    'art': 'Art',
+    'nature': 'Nature',
+    'family': 'Famille',
+  };
+
+  final _form = GlobalKey<FormState>();
+  final _displayName = TextEditingController();
+  final _biography = TextEditingController();
+  DateTime? _birthDate;
+  String? _city;
+  String? _gender;
+  String? _datingIntent;
+  Set<String> _interests = <String>{};
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final profile = await widget.api.getProfile();
+      if (!mounted) return;
+      _displayName.text = profile.displayName;
+      _birthDate = DateTime.tryParse(profile.birthDate);
+      _gender = profile.gender.isEmpty ? null : profile.gender;
+      _city = profile.city.isEmpty ? null : profile.city;
+      _biography.text = profile.biography;
+      _datingIntent =
+          profile.datingIntent.isEmpty ? null : profile.datingIntent;
+      _interests = profile.interests.toSet();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = friendlyError(error));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _displayName.dispose();
+    _biography.dispose();
+    super.dispose();
+  }
+
+  String _isoDate(DateTime value) {
+    final year = value.year.toString().padLeft(4, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    final day = value.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+
+  String _displayDate(DateTime value) {
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    return '$day/$month/${value.year}';
+  }
+
+  Future<void> _selectBirthDate() async {
+    final now = DateTime.now();
+    final adultLimit = DateTime(now.year - 18, now.month, now.day);
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _birthDate ?? DateTime(adultLimit.year - 7),
+      firstDate: DateTime(1920),
+      lastDate: adultLimit,
+      helpText: 'Date de naissance',
+      cancelText: 'Annuler',
+      confirmText: 'Confirmer',
+    );
+    if (selected != null && mounted) {
+      setState(() => _birthDate = selected);
+    }
+  }
+
+  void _toggleInterest(String value) {
+    setState(() {
+      if (_interests.contains(value)) {
+        _interests.remove(value);
+      } else if (_interests.length < 8) {
+        _interests.add(value);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Choisis au maximum 8 centres d’intérêt.')),
+        );
+      }
+    });
+  }
+
+  Future<void> _continue() async {
+    if (_saving || !(_form.currentState?.validate() ?? false)) return;
+    if (_birthDate == null) {
+      setState(() => _error = 'Indique ta date de naissance.');
+      return;
+    }
+    if (_interests.length < 3) {
+      setState(() => _error = 'Choisis au moins 3 centres d’intérêt.');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.api.updateProfile(
+        displayName: _displayName.text,
+        birthDate: _isoDate(_birthDate!),
+        gender: _gender!,
+        city: _city!,
+        biography: _biography.text,
+        datingIntent: _datingIntent!,
+        interests: _interests.toList(growable: false),
+      );
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Profil complet enregistré en sécurité.')),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Compléter mon profil')),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : Form(
+                key: _form,
+                child: ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    const _EditorHero(
+                      icon: Icons.person_rounded,
+                      title: 'Présente-toi avec authenticité',
+                      subtitle:
+                          'Chaque détail aide MBOLO à proposer des connexions plus pertinentes.',
+                    ),
+                    const SizedBox(height: 24),
+                    TextFormField(
+                      controller: _displayName,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(labelText: 'Nom public'),
+                      validator: (value) => (value ?? '').trim().length < 2
+                          ? 'Entre au moins 2 caractères.'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: _saving ? null : _selectBirthDate,
+                      icon: const Icon(Icons.cake_outlined),
+                      label: Text(
+                        _birthDate == null
+                            ? 'Choisir ma date de naissance'
+                            : 'Né(e) le ${_displayDate(_birthDate!)}',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _gender,
+                      decoration: const InputDecoration(labelText: 'Genre'),
+                      items: _genders.entries
+                          .map(
+                            (entry) => DropdownMenuItem(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(() => _gender = value),
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Indique ton genre.'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _city,
+                      decoration: const InputDecoration(labelText: 'Ville'),
+                      items: _cities.entries
+                          .map(
+                            (entry) => DropdownMenuItem(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(() => _city = value),
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Indique ta ville.'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _datingIntent,
+                      decoration: const InputDecoration(
+                        labelText: 'Ce que je recherche',
+                      ),
+                      items: _intents.entries
+                          .map(
+                            (entry) => DropdownMenuItem(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(() => _datingIntent = value),
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Indique ce que tu recherches.'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _biography,
+                      minLines: 4,
+                      maxLines: 6,
+                      maxLength: 500,
+                      decoration: const InputDecoration(
+                        labelText: 'À propos de toi',
+                        alignLabelWithHint: true,
+                      ),
+                      validator: (value) => (value ?? '').trim().length < 20
+                          ? 'Écris au moins 20 caractères.'
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Centres d’intérêt (${_interests.length}/8)',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    const Text('Choisis-en au moins 3.'),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: _interestOptions.entries
+                          .map(
+                            (entry) => FilterChip(
+                              label: Text(entry.value),
+                              selected: _interests.contains(entry.key),
+                              onSelected: _saving
+                                  ? null
+                                  : (_) => _toggleInterest(entry.key),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: _saving ? null : _continue,
+                      child: Text(
+                        _saving ? 'Enregistrement…' : 'Enregistrer le profil',
+                      ),
+                    ),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _PreferencesPage extends StatefulWidget {
+  const _PreferencesPage({required this.api});
+
+  final AuthApi api;
+
+  @override
+  State<_PreferencesPage> createState() => _PreferencesPageState();
+}
+
+class _PreferencesPageState extends State<_PreferencesPage> {
+  static const _genderOptions = <String, String>{
+    'woman': 'Femmes',
+    'man': 'Hommes',
+    'non_binary': 'Personnes non binaires',
+    'prefer_not_to_say': 'Genre non précisé',
+  };
+
+  RangeValues _ages = const RangeValues(18, 45);
+  Set<String> _preferredGenders = <String>{};
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+  bool _advancedFiltersAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final preferences = await widget.api.getPreferences();
+      if (!mounted) return;
+      setState(() {
+        _ages = RangeValues(
+          preferences.minimumAge.toDouble(),
+          preferences.maximumAge.toDouble(),
+        );
+        _preferredGenders = preferences.preferredGenders.toSet();
+        _advancedFiltersAvailable = preferences.advancedFiltersAvailable;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _toggleGender(String value) {
+    setState(() {
+      if (_preferredGenders.contains(value)) {
+        _preferredGenders.remove(value);
+      } else {
+        _preferredGenders.add(value);
+      }
+    });
+  }
+
+  Future<void> _continue() async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.api.updatePreferences(
+        minimumAge: _ages.start.round(),
+        maximumAge: _ages.end.round(),
+        preferredGenders: _preferredGenders.toList(growable: false),
+      );
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Préférences enregistrées en sécurité.')),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Préférences de rencontre')),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const _EditorHero(
+                    icon: Icons.tune_rounded,
+                    title: 'Choisis qui tu souhaites découvrir',
+                    subtitle:
+                        'Tes préférences restent privées et peuvent être modifiées à tout moment.',
+                  ),
+                  const SizedBox(height: 24),
+                  _PreferenceSummary(
+                    minimumAge: _ages.start.round(),
+                    maximumAge: _ages.end.round(),
+                    selectedGenderCount: _preferredGenders.length,
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Tranche d’âge',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  Semantics(
+                    label:
+                        'Âges recherchés, de ${_ages.start.round()} à ${_ages.end.round()} ans',
+                    child: RangeSlider(
+                      values: _ages,
+                      min: 18,
+                      max: 99,
+                      divisions: 81,
+                      labels: RangeLabels(
+                        '${_ages.start.round()} ans',
+                        '${_ages.end.round()} ans',
+                      ),
+                      onChanged: _saving
+                          ? null
+                          : (values) => setState(() => _ages = values),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Je souhaite voir',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _genderOptions.entries
+                        .map(
+                          (entry) => FilterChip(
+                            label: Text(entry.value),
+                            selected: _preferredGenders.contains(entry.key),
+                            avatar: Icon(
+                              _preferredGenders.contains(entry.key)
+                                  ? Icons.check_rounded
+                                  : Icons.add_rounded,
+                              size: 18,
+                            ),
+                            onSelected: _saving
+                                ? null
+                                : (_) => _toggleGender(entry.key),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                  const SizedBox(height: 24),
+                  Card(
+                    child: ListTile(
+                      leading: Icon(
+                        _advancedFiltersAvailable
+                            ? Icons.workspace_premium
+                            : Icons.lock_outline,
+                      ),
+                      title: const Text('Filtres avancés'),
+                      subtitle: Text(
+                        _advancedFiltersAvailable
+                            ? 'Disponibles avec ton abonnement actif.'
+                            : 'Villes, intentions, distance et profils vérifiés seront proposés avec MBOLO Plus.',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: _saving ? null : _continue,
+                    child: Text(
+                      _saving
+                          ? 'Enregistrement…'
+                          : 'Enregistrer mes préférences',
+                    ),
+                  ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _PreferenceSummary extends StatelessWidget {
+  const _PreferenceSummary({
+    required this.minimumAge,
+    required this.maximumAge,
+    required this.selectedGenderCount,
+  });
+
+  final int minimumAge;
+  final int maximumAge;
+  final int selectedGenderCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      label:
+          'Résumé des préférences. De $minimumAge à $maximumAge ans. $selectedGenderCount catégorie sélectionnée.',
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _PreferenceMetric(
+                icon: Icons.cake_outlined,
+                value: '$minimumAge–$maximumAge',
+                label: 'ans recherchés',
+              ),
+            ),
+            Container(width: 1, height: 48, color: scheme.outlineVariant),
+            Expanded(
+              child: _PreferenceMetric(
+                icon: Icons.favorite_outline_rounded,
+                value: '$selectedGenderCount',
+                label: 'choix sélectionné${selectedGenderCount > 1 ? 's' : ''}',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PreferenceMetric extends StatelessWidget {
+  const _PreferenceMetric({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Icon(icon, color: scheme.primary),
+        const SizedBox(height: 7),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+      ],
+    );
+  }
+}
+
+class _EditorHero extends StatelessWidget {
+  const _EditorHero({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.progressLabel,
+    this.progress,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String? progressLabel;
+  final double? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).height < 720;
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 640),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 18 * (1 - value)),
+          child: child,
+        ),
+      ),
+      child: Container(
+        padding: EdgeInsets.all(compact ? 16 : 22),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF32101F), Color(0xFF861843), Color(0xFFD95975)],
+          ),
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x368B1744),
+              blurRadius: 32,
+              offset: Offset(0, 14),
+            ),
+          ],
+        ),
+        child: compact
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.14),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(icon, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              subtitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFFFFEAF0),
+                                height: 1.25,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (progressLabel != null) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          progressLabel!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (progress != null) ...[
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: progress!.clamp(0, 1),
+                        minHeight: 6,
+                        backgroundColor: Colors.white24,
+                        color: const Color(0xFFFFD6A3),
+                      ),
+                    ),
+                  ],
+                ],
+              )
+            : Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.24),
+                    ),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 27),
+                ),
+                const Spacer(),
+                if (progressLabel != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      progressLabel!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.6,
+                  ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: Color(0xFFFFEAF0),
+                height: 1.4,
+              ),
+            ),
+            if (progress != null) ...[
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: progress!.clamp(0, 1),
+                  minHeight: 7,
+                  backgroundColor: Colors.white24,
+                  color: const Color(0xFFFFD6A3),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,60 @@
+name: MBOLO Mobile
+on:
+  pull_request:
+    branches: [main]
+    paths: ['mobile/**', '.github/workflows/mobile.yml']
+  push:
+    branches: [main, agent/mobile-1-100]
+    paths: ['mobile/**', '.github/workflows/mobile.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install pinned Flutter SDK
+        shell: bash
+        run: |
+          git clone --depth 1 --branch 3.47.5 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse --short=10 HEAD)" = 6a19cca564
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Resolve dependencies
+        working-directory: mobile
+        run: flutter pub get
+      - name: Analyze
+        working-directory: mobile
+        run: flutter analyze
+      - name: Verify store compliance guard
+        working-directory: mobile
+        run: bash tool/check_store_compliance.sh
+      - name: Test API contract and widgets
+        working-directory: mobile
+        run: flutter test
+      - name: Build browser preview (shared Flutter screens, fake account)
+        working-directory: mobile
+        run: flutter build web --target lib/main_preview.dart
+      - name: Prepare hardened Android project
+        working-directory: mobile
+        run: bash tool/prepare_android.sh
+      - name: Build installable Android demo APK
+        working-directory: mobile
+        run: flutter build apk --release --target lib/main_preview.dart
+      - name: Validate production Android App Bundle
+        working-directory: mobile
+        run: >-
+          flutter build appbundle --release --target lib/main.dart
+          --dart-define=MBOLO_API_ORIGIN=https://api.mbolo.ga
+          --dart-define=MBOLO_STORE_BILLING_REQUIRED=true
+      - name: Publish Android demo APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mbolo-android-demo-${{ github.sha }}
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14

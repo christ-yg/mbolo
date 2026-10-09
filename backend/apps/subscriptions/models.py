@@ -111,6 +111,10 @@ class PaymentTransaction(models.Model):
     provider_reference = models.CharField(
         max_length=128, blank=True, default="", db_index=True
     )
+    customer_phone_masked = models.CharField(max_length=32, blank=True, default="")
+    customer_phone_hash = models.CharField(
+        max_length=64, blank=True, default="", db_index=True
+    )
     idempotency_key = models.UUIDField(default=uuid4, unique=True, editable=False)
     verified_at = models.DateTimeField(null=True, blank=True)
     failure_code = models.CharField(max_length=64, blank=True, default="")

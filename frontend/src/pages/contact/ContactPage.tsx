@@ -24,6 +24,13 @@ const supportPaths = [
     to: "/sanction-appeal",
     action: "Contester une sanction",
   },
+  {
+    number: "04",
+    title: "Suppression du compte",
+    description: "Le parcours public explique comment supprimer définitivement ton compte et les données associées.",
+    to: "/account-deletion",
+    action: "Supprimer un compte",
+  },
 ] as const;
 
 export function ContactPage() {

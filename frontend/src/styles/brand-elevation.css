@@ -1,0 +1,1239 @@
+/* ============================================================
+   MBOLO — DIRECTION ARTISTIQUE 2026
+
+   Cette couche finale harmonise les anciennes pages sans modifier leur
+   structure. Elle garantit une typographie, des couleurs et des mouvements
+   cohérents dans les deux thèmes.
+   ============================================================ */
+
+:root {
+  --mbolo-font-sans:
+    "Segoe UI Variable Text", "Avenir Next", Avenir, "Segoe UI", Inter,
+    ui-sans-serif, system-ui, sans-serif;
+  --mbolo-font-display:
+    "Segoe UI Variable Display", "Avenir Next", Avenir, "Segoe UI", Inter,
+    ui-sans-serif, system-ui, sans-serif;
+  --mbolo-gold: #b8782e;
+  --mbolo-gold-soft: #f7ead5;
+  --mbolo-ink: #24151f;
+  --mbolo-aurora: rgb(194 52 107 / 14%);
+}
+
+:root[data-theme="dark"] {
+  --color-background: #0d080c;
+  --color-surface: #1a1117;
+  --color-surface-soft: #24161f;
+  --color-text: #fff8fb;
+  --color-text-muted: #d6c2cc;
+  --color-primary: #ff76a8;
+  --color-primary-dark: #ff9abd;
+  --color-primary-light: #6d3049;
+  --color-secondary: #f3c17c;
+  --color-border: rgb(255 190 214 / 17%);
+  --mbolo-bg: #0d080c;
+  --mbolo-bg-soft: #140c12;
+  --mbolo-surface: rgb(27 17 24 / 96%);
+  --mbolo-surface-strong: #21151d;
+  --mbolo-text: #fff8fb;
+  --mbolo-muted: #d6c2cc;
+  --mbolo-primary: #ff76a8;
+  --mbolo-primary-dark: #ff9abd;
+  --mbolo-primary-soft: #3d2030;
+  --mbolo-gold: #f3c17c;
+  --mbolo-gold-soft: #342719;
+  --mbolo-border: rgb(255 190 214 / 14%);
+  --mbolo-border-strong: rgb(255 151 190 / 32%);
+  --mbolo-aurora: rgb(220 42 107 / 24%);
+  --mbolo-shadow-sm: 0 14px 38px rgb(0 0 0 / 32%);
+  --mbolo-shadow-md: 0 30px 86px rgb(0 0 0 / 48%);
+}
+
+html,
+body,
+button,
+input,
+textarea,
+select {
+  font-family: var(--mbolo-font-sans) !important;
+  font-optical-sizing: auto;
+}
+
+body {
+  font-weight: 430;
+  letter-spacing: -0.006em;
+}
+
+:is(h1, h2, h3, h4, h5, h6),
+:is([class*="title"], [class*="heading"]) {
+  font-family: var(--mbolo-font-display) !important;
+  font-variation-settings: "wght" 720;
+}
+
+h1,
+h2 {
+  font-weight: 760 !important;
+  letter-spacing: -0.052em !important;
+}
+
+h3,
+h4 {
+  font-weight: 720;
+  letter-spacing: -0.025em;
+}
+
+:is(p, li, label, input, textarea, select) {
+  letter-spacing: -0.008em;
+}
+
+:is(button, .public-header__nav-link, [role="button"]) {
+  font-weight: 720;
+  letter-spacing: -0.012em;
+}
+
+body::before {
+  position: fixed;
+  z-index: -1;
+  inset: -25vmax;
+  background:
+    radial-gradient(circle at 18% 16%, var(--mbolo-aurora), transparent 25%),
+    radial-gradient(circle at 82% 12%, rgb(184 120 46 / 9%), transparent 23%);
+  content: "";
+  pointer-events: none;
+  animation: mbolo-ambient-drift 18s ease-in-out infinite alternate;
+}
+
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(
+      circle at 12% -5%,
+      rgb(194 38 101 / 27%),
+      transparent 31rem
+    ),
+    radial-gradient(circle at 93% 10%, rgb(102 48 91 / 24%), transparent 34rem),
+    linear-gradient(155deg, #0b070a, #130b11 58%, #0d080c);
+}
+
+:root[data-theme="dark"] .public-header {
+  border-bottom-color: var(--mbolo-border);
+  background: rgb(13 8 12 / 82%);
+  box-shadow: 0 12px 42px rgb(0 0 0 / 30%);
+}
+
+:root[data-theme="dark"] .public-header__nav-link {
+  color: #d8c3ce;
+}
+
+:root[data-theme="dark"] .public-header__nav-link:hover,
+:root[data-theme="dark"] .public-header__nav-link--active {
+  color: #fff8fb;
+  background: linear-gradient(
+    135deg,
+    rgb(255 118 168 / 19%),
+    rgb(243 193 124 / 8%)
+  );
+}
+
+:root[data-theme="dark"] .public-header__identity,
+:root[data-theme="dark"] .public-header__logout-button,
+:root[data-theme="dark"] .theme-toggle {
+  color: var(--mbolo-text);
+  background: rgb(35 21 30 / 88%);
+  border-color: var(--mbolo-border-strong);
+}
+
+:root[data-theme="dark"]
+  :is(
+    article[class$="card"],
+    section[class$="card"],
+    div[class$="card"],
+    article[class*="card--"],
+    section[class*="card--"],
+    div[class*="card--"],
+    article[class$="panel"],
+    section[class$="panel"],
+    div[class$="panel"]
+  ) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border);
+  background: linear-gradient(145deg, rgb(36 22 31 / 96%), rgb(24 15 21 / 97%));
+  box-shadow: var(--mbolo-shadow-sm);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .home-premium-hero,
+    .home-premium-safety,
+    .home-premium-final-cta,
+    .security-premium-hero,
+    .security-danger-zone,
+    .match-modal,
+    .product-tour
+  ) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border);
+  background: linear-gradient(135deg, #21131c, #120b10 70%);
+  box-shadow: var(--mbolo-shadow-md);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .home-premium-hero,
+    .home-premium-safety,
+    .security-premium-hero,
+    .security-danger-zone,
+    .match-modal,
+    .product-tour,
+    article,
+    section
+  )
+  :is(h1, h2, h3, h4, strong) {
+  color: var(--mbolo-text);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .home-premium-hero,
+    .home-premium-safety,
+    .security-premium-hero,
+    .security-danger-zone,
+    .match-modal,
+    .product-tour,
+    article,
+    section
+  )
+  :is(p, small) {
+  color: var(--mbolo-muted);
+}
+
+:root[data-theme="dark"] :is(input, textarea, select) {
+  border-color: var(--mbolo-border);
+  color: var(--mbolo-text);
+  background: #21151d;
+  caret-color: var(--mbolo-primary);
+}
+
+:root[data-theme="dark"] :is(input, textarea)::placeholder {
+  color: #a98f9c;
+}
+
+:root[data-theme="dark"] .public-footer {
+  border-color: var(--mbolo-border);
+  color: var(--mbolo-muted);
+  background: rgb(11 7 10 / 72%);
+}
+
+.route-stage {
+  isolation: isolate;
+}
+
+.mbolo-motion-reveal {
+  transform: translate3d(0, 28px, 0) scale(0.986);
+  filter: blur(6px) saturate(0.82);
+  transition:
+    opacity 760ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 820ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 620ms ease;
+  transition-delay: calc(var(--motion-order, 0) * 70ms);
+}
+
+.mbolo-motion-reveal.is-motion-visible {
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0) saturate(1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .route-stage [data-mbolo-interactive="true"] {
+    transition:
+      transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 260ms ease,
+      box-shadow 360ms ease;
+  }
+
+  .route-stage [data-mbolo-interactive="true"]:hover {
+    box-shadow: var(--mbolo-shadow-md);
+  }
+
+  .route-stage [data-mbolo-interactive="true"]::after {
+    background: radial-gradient(
+      circle at var(--surface-glow-x) var(--surface-glow-y),
+      rgb(255 255 255 / 18%),
+      transparent 39%
+    );
+  }
+}
+
+/* ============================================================
+   DÉCOUVRIR — CARTE SIGNATURE ET INTERACTIONS
+   ============================================================ */
+
+.discovery-profile-card {
+  animation: mbolo-profile-arrival 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: 50% 82%;
+}
+
+.discovery-profile-card__photo {
+  transition:
+    transform 900ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 500ms ease !important;
+}
+
+.discovery-profile-card__visual:hover .discovery-profile-card__photo {
+  transform: scale(1.035) !important;
+  filter: saturate(1.04) contrast(1.02);
+}
+
+.discovery-profile-card__visual::after {
+  background:
+    linear-gradient(180deg, rgb(18 7 13 / 4%) 28%, rgb(18 7 13 / 88%) 100%),
+    linear-gradient(120deg, rgb(163 47 97 / 6%), transparent 52%) !important;
+}
+
+.discovery-profile-card__visual-copy h2 {
+  font-size: clamp(2.7rem, 4.5vw, 4.7rem) !important;
+  font-weight: 780 !important;
+  letter-spacing: -0.052em !important;
+}
+
+.discovery-profile-card__metadata span,
+.discovery-profile-card__compatibility > div:last-child span {
+  transition:
+    color 220ms ease,
+    background-color 220ms ease,
+    border-color 220ms ease,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.discovery-profile-card__metadata span:hover,
+.discovery-profile-card__compatibility > div:last-child span:hover {
+  transform: translateY(-2px);
+}
+
+.discovery-action-button {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 280ms ease,
+    background-color 220ms ease !important;
+}
+
+.discovery-action-button::after {
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -45%;
+  width: 34%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(255 255 255 / 28%),
+    transparent
+  );
+  content: "";
+  pointer-events: none;
+  transform: rotate(18deg) translateX(-180%);
+  transition: transform 620ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.discovery-action-button:hover:not(:disabled)::after {
+  transform: rotate(18deg) translateX(560%);
+}
+
+.discovery-action-button:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.012) !important;
+}
+
+.discovery-action-button--like {
+  background: linear-gradient(135deg, #8d1f4e, #c23f76 58%, #9e2759) !important;
+  box-shadow: 0 14px 30px rgb(143 31 79 / 22%);
+}
+
+.discovery-action-button--super-like {
+  color: #744912 !important;
+  background: linear-gradient(135deg, #fff8e9, #f8e3bd) !important;
+  border-color: rgb(184 120 46 / 28%) !important;
+}
+
+:root[data-theme="dark"] .discovery-page {
+  --discovery-ink: var(--mbolo-text);
+  --discovery-muted: var(--mbolo-muted);
+  --discovery-line: var(--mbolo-border);
+  --discovery-accent: var(--mbolo-primary);
+  --discovery-accent-dark: var(--mbolo-primary-dark);
+  color: var(--mbolo-text);
+  background: transparent;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .discovery-page__summary,
+    .discovery-information-card,
+    .discovery-profile-card,
+    .discovery-state-card
+  ) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border);
+  background: linear-gradient(145deg, rgb(34 21 30 / 97%), rgb(21 13 19 / 98%));
+  box-shadow: var(--mbolo-shadow-md);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .discovery-profile-card__metadata span,
+    .discovery-profile-card__compatibility > div:last-child span
+  ) {
+  color: #ffd4e4;
+  border-color: var(--mbolo-border);
+  background: #2c1b25;
+}
+
+:root[data-theme="dark"] .discovery-profile-card__trust {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border);
+  background: linear-gradient(135deg, #2a1923, #1b171a);
+}
+
+:root[data-theme="dark"] .discovery-profile-card__trust summary {
+  color: var(--mbolo-text);
+}
+
+:root[data-theme="dark"] .discovery-profile-card__trust[open] summary {
+  border-bottom-color: var(--mbolo-border);
+}
+
+:root[data-theme="dark"] .discovery-profile-card__compatibility {
+  background: linear-gradient(135deg, #34202c, #21151d);
+}
+
+:root[data-theme="dark"] .discovery-profile-card__security-note,
+:root[data-theme="dark"] .discovery-information-card__session {
+  color: #a8ead0;
+  background: rgb(54 138 104 / 15%);
+}
+
+:root[data-theme="dark"] .profile-detail-link-button {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border-strong);
+  background: #24161f;
+}
+
+:root[data-theme="dark"] .discovery-action-button--pass {
+  color: #e4cbd7;
+  border-color: var(--mbolo-border);
+  background: #281821;
+}
+
+:root[data-theme="dark"] .discovery-action-button--super-like {
+  color: #f3c17c !important;
+  border-color: rgb(243 193 124 / 24%) !important;
+  background: linear-gradient(135deg, #342719, #261d17) !important;
+}
+
+@keyframes mbolo-profile-arrival {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0) scale(0.975) rotateX(1.5deg);
+    filter: blur(5px) saturate(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotateX(0);
+    filter: blur(0) saturate(1);
+  }
+}
+
+/* ============================================================
+   MATCHS — CONNEXIONS ÉDITORIALES
+   ============================================================ */
+
+.matches-hero {
+  border-color: var(--mbolo-border) !important;
+  background:
+    radial-gradient(circle at 88% 2%, rgb(194 52 112 / 16%), transparent 31%),
+    radial-gradient(circle at 96% 90%, rgb(184 120 46 / 13%), transparent 30%),
+    linear-gradient(135deg, rgb(255 255 255 / 98%), rgb(255 247 250 / 95%)) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+  animation: mbolo-hero-arrival 740ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.matches-hero__summary {
+  border-color: var(--mbolo-border) !important;
+  background: rgb(255 255 255 / 78%) !important;
+  box-shadow: var(--mbolo-shadow-sm) !important;
+  transition:
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 360ms ease;
+}
+
+.matches-hero__summary:hover {
+  transform: translateY(-4px) rotate(0.35deg);
+  box-shadow: var(--mbolo-shadow-md) !important;
+}
+
+.matches-hero__summary-icon {
+  background: linear-gradient(145deg, var(--mbolo-primary), #741638) !important;
+  box-shadow: 0 16px 34px rgb(169 31 86 / 25%) !important;
+  animation: mbolo-heart-breathe 3.8s ease-in-out infinite;
+}
+
+.matches-hero__summary strong,
+.matches-eyebrow {
+  color: var(--mbolo-primary) !important;
+}
+
+.matches-grid > * {
+  animation: mbolo-card-arrival 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.matches-grid > :nth-child(2) {
+  animation-delay: 90ms;
+}
+
+.matches-grid > :nth-child(3) {
+  animation-delay: 180ms;
+}
+
+.matches-grid > :nth-child(4) {
+  animation-delay: 270ms;
+}
+
+.match-card-with-detail,
+.match-premium-card {
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-surface-strong) !important;
+  box-shadow: var(--mbolo-shadow-sm) !important;
+  transition:
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 260ms ease,
+    box-shadow 420ms ease !important;
+}
+
+.match-card-with-detail:hover,
+.match-premium-card:hover {
+  transform: translateY(-7px) !important;
+  border-color: var(--mbolo-border-strong) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+}
+
+.match-card__photo,
+.match-premium-card__photo {
+  transition:
+    transform 900ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 450ms ease !important;
+}
+
+:is(.match-card-with-detail, .match-premium-card):hover
+  :is(.match-card__photo, .match-premium-card__photo) {
+  transform: scale(1.045) !important;
+  filter: saturate(1.04) contrast(1.025);
+}
+
+.match-card-with-detail__message {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #8d1f4e, #c23f76 58%, #9e2759) !important;
+  box-shadow: 0 13px 28px rgb(143 31 79 / 22%) !important;
+}
+
+.match-card-with-detail__message:hover {
+  transform: translateY(-2px) scale(1.01) !important;
+}
+
+.unmatch-dialog-backdrop {
+  animation: mbolo-backdrop-in 260ms ease both;
+}
+
+.unmatch-dialog {
+  animation: mbolo-dialog-in 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+:root[data-theme="dark"] .matches-hero {
+  color: var(--mbolo-text);
+  background:
+    radial-gradient(circle at 88% 2%, rgb(220 42 107 / 25%), transparent 32%),
+    radial-gradient(circle at 96% 90%, rgb(243 193 124 / 10%), transparent 31%),
+    linear-gradient(135deg, #21131c, #110a0f) !important;
+}
+
+:root[data-theme="dark"] .matches-hero__copy h1,
+:root[data-theme="dark"] .matches-section-heading h2 {
+  color: var(--mbolo-text);
+}
+
+:root[data-theme="dark"] .matches-hero__description,
+:root[data-theme="dark"] .matches-hero__summary > span,
+:root[data-theme="dark"] .match-card__biography {
+  color: var(--mbolo-muted);
+}
+
+:root[data-theme="dark"] .matches-hero__trust-list span,
+:root[data-theme="dark"] .matches-hero__summary,
+:root[data-theme="dark"] .match-card-with-detail,
+:root[data-theme="dark"] .match-premium-card,
+:root[data-theme="dark"] .matches-state-card,
+:root[data-theme="dark"] .unmatch-dialog {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border) !important;
+  background: linear-gradient(145deg, #24161f, #171016) !important;
+}
+
+:root[data-theme="dark"] .match-card__metadata span {
+  color: #ffd4e4;
+  border-color: var(--mbolo-border);
+  background: #34202c;
+}
+
+:root[data-theme="dark"] .match-card-with-detail__actions {
+  border-color: var(--mbolo-border);
+  background: rgb(18 11 16 / 74%);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .match-card-with-detail__actions .profile-detail-link-button,
+    .match-card-with-detail__unmatch,
+    .matches-pagination button,
+    .unmatch-dialog__actions button:first-child
+  ) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border);
+  background: #2a1923;
+}
+
+/* ============================================================
+   PROFIL PUBLIC — GALERIE ET CONFIANCE
+   ============================================================ */
+
+.profile-detail-page {
+  color: var(--mbolo-text) !important;
+  background:
+    radial-gradient(circle at 8% 10%, rgb(225 147 184 / 16%), transparent 29%),
+    radial-gradient(circle at 94% 72%, rgb(184 120 46 / 9%), transparent 26%),
+    linear-gradient(180deg, var(--mbolo-bg), var(--mbolo-bg-soft)) !important;
+}
+
+.profile-detail-media {
+  animation: mbolo-media-arrival 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.profile-detail-card {
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-surface) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+  animation: mbolo-card-arrival 720ms 100ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.profile-detail-media__main {
+  border-color: var(--mbolo-border) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+}
+
+.profile-detail-media__main > img {
+  transition:
+    transform 900ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 420ms ease;
+}
+
+.profile-detail-media__main:hover > img {
+  transform: scale(1.025);
+  filter: saturate(1.035) contrast(1.02);
+}
+
+.profile-detail-thumbnail {
+  border-color: transparent !important;
+  background: var(--mbolo-primary-soft) !important;
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms ease,
+    box-shadow 320ms ease !important;
+}
+
+.profile-detail-thumbnail:hover {
+  transform: translateY(-4px) scale(1.025) !important;
+}
+
+.profile-detail-thumbnail--active {
+  border-color: var(--mbolo-primary) !important;
+  box-shadow:
+    0 0 0 3px var(--mbolo-bg),
+    0 0 0 5px var(--mbolo-primary) !important;
+}
+
+.profile-detail-card__title h1 {
+  color: var(--mbolo-text);
+  font-size: clamp(2.8rem, 5vw, 4.7rem) !important;
+  font-weight: 780 !important;
+}
+
+.profile-detail-eyebrow {
+  color: var(--mbolo-primary) !important;
+}
+
+.profile-detail-card__trust {
+  border-color: var(--mbolo-border) !important;
+  background: linear-gradient(
+    135deg,
+    var(--mbolo-primary-soft),
+    rgb(255 255 255 / 45%)
+  ) !important;
+}
+
+.profile-detail-card__actions button {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 300ms ease !important;
+}
+
+.profile-detail-card__actions button:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.012) !important;
+}
+
+.profile-detail-card__like,
+.profile-detail-card__match {
+  background: linear-gradient(135deg, #8d1f4e, #c23f76 58%, #9e2759) !important;
+  box-shadow: 0 14px 30px rgb(143 31 79 / 24%) !important;
+}
+
+.profile-detail-safety-menu__panel,
+.profile-safety-dialog {
+  animation: mbolo-dialog-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+:root[data-theme="dark"] .profile-detail-page {
+  background:
+    radial-gradient(circle at 8% 10%, rgb(202 45 106 / 18%), transparent 30%),
+    radial-gradient(circle at 94% 72%, rgb(243 193 124 / 8%), transparent 27%),
+    linear-gradient(180deg, #0d080c, #140c12) !important;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .profile-detail-card,
+    .profile-detail-state,
+    .profile-detail-safety-menu__panel,
+    .profile-safety-dialog
+  ) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border) !important;
+  background: linear-gradient(145deg, #24161f, #171016) !important;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .profile-detail-page__back,
+    .profile-detail-safety-menu__trigger,
+    .profile-detail-state button,
+    .profile-detail-card__pass,
+    .profile-safety-dialog__actions button
+  ) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border);
+  background: #2a1923;
+}
+
+:root[data-theme="dark"] .profile-detail-card__trust {
+  color: var(--mbolo-text);
+  background: linear-gradient(135deg, #34202c, #21151d) !important;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .profile-detail-card__trust strong,
+    .profile-detail-card__facts dd,
+    .profile-safety-dialog label
+  ) {
+  color: var(--mbolo-text);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .profile-detail-card__summary,
+    .profile-detail-card__trust p,
+    .profile-detail-card__facts dt,
+    .profile-detail-card__bio > p:last-child,
+    .profile-detail-card__privacy,
+    .profile-detail-state > p,
+    .profile-safety-dialog > p
+  ) {
+  color: var(--mbolo-muted) !important;
+}
+
+:root[data-theme="dark"] .profile-detail-card__facts > div {
+  border-color: var(--mbolo-border);
+}
+
+:root[data-theme="dark"]
+  :is(.profile-safety-dialog select, .profile-safety-dialog textarea) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border);
+  background: #21151d;
+}
+
+@keyframes mbolo-hero-arrival {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes mbolo-card-arrival {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 26px, 0) scale(0.98);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes mbolo-media-arrival {
+  from {
+    opacity: 0;
+    transform: translate3d(-22px, 0, 0) scale(0.985);
+    filter: blur(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes mbolo-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes mbolo-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mbolo-heart-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.055);
+  }
+}
+
+/* ============================================================
+   MESSAGERIE — CONVERSATIONS VIVANTES ET PRIVÉES
+   ============================================================ */
+
+.messages-page {
+  --messages-ink: var(--mbolo-text) !important;
+  --messages-copy: var(--mbolo-muted) !important;
+  --messages-muted: var(--mbolo-muted) !important;
+  --messages-line: var(--mbolo-border) !important;
+  --messages-primary: var(--mbolo-primary) !important;
+  --messages-deep: var(--mbolo-primary-dark) !important;
+  --messages-soft: var(--mbolo-primary-soft) !important;
+  color: var(--mbolo-text) !important;
+  background:
+    radial-gradient(circle at 10% 8%, var(--mbolo-aurora), transparent 29rem),
+    radial-gradient(circle at 92% 24%, rgb(184 120 46 / 8%), transparent 26rem),
+    linear-gradient(180deg, var(--mbolo-bg), var(--mbolo-bg-soft)) !important;
+}
+
+.messages-hero {
+  border-color: var(--mbolo-border) !important;
+  background: rgb(255 255 255 / 78%) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+  animation: mbolo-hero-arrival 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.messages-hero__summary {
+  border-color: var(--mbolo-border) !important;
+  background: rgb(255 255 255 / 80%) !important;
+  box-shadow: var(--mbolo-shadow-sm) !important;
+}
+
+.messages-hero__summary > div {
+  transition:
+    transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 220ms ease;
+}
+
+.messages-hero__summary > div:hover {
+  z-index: 1;
+  background: var(--mbolo-primary-soft);
+  transform: translateY(-4px);
+}
+
+.messages-workspace {
+  border-color: var(--mbolo-border) !important;
+  background: rgb(255 255 255 / 82%) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+}
+
+.messages-search {
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-bg-soft) !important;
+}
+
+.conversation-list-item {
+  animation: mbolo-card-arrival 540ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.conversation-list-item:nth-child(2) {
+  animation-delay: 65ms;
+}
+
+.conversation-list-item:nth-child(3) {
+  animation-delay: 130ms;
+}
+
+.conversation-list-item:nth-child(4) {
+  animation-delay: 195ms;
+}
+
+.conversation-list-item:nth-child(5) {
+  animation-delay: 260ms;
+}
+
+.conversation-card {
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-surface-strong) !important;
+  transition:
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 240ms ease,
+    box-shadow 360ms ease !important;
+}
+
+.conversation-card:hover {
+  transform: translateY(-5px) scale(1.004) !important;
+  border-color: var(--mbolo-border-strong) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+}
+
+.conversation-card--unread {
+  background:
+    linear-gradient(90deg, rgb(194 48 105 / 10%), transparent 46%),
+    var(--mbolo-surface-strong) !important;
+}
+
+.conversation-card__avatar {
+  box-shadow: 0 14px 30px rgb(75 22 48 / 18%);
+  transition:
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 420ms ease;
+}
+
+.conversation-card:hover .conversation-card__avatar {
+  transform: scale(1.035) rotate(-0.75deg);
+  box-shadow: 0 18px 38px rgb(75 22 48 / 24%);
+}
+
+.conversation-card__online-dot,
+.conversation-presence--online > span,
+.conversation-contact__presence--online i {
+  animation: mbolo-presence-pulse 2.8s ease-in-out infinite;
+}
+
+.conversation-card__action {
+  color: var(--mbolo-primary) !important;
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-bg-soft) !important;
+  transition:
+    transform 240ms ease,
+    color 220ms ease,
+    background-color 220ms ease;
+}
+
+.conversation-card:hover .conversation-card__action {
+  color: white !important;
+  background: var(--mbolo-primary) !important;
+  transform: translateX(2px);
+}
+
+.conversation-shell {
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-surface-strong) !important;
+  box-shadow: var(--mbolo-shadow-md) !important;
+  animation: mbolo-dialog-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.conversation-sidebar {
+  border-color: var(--mbolo-border) !important;
+  background: linear-gradient(
+    180deg,
+    var(--mbolo-bg-soft),
+    var(--mbolo-surface)
+  ) !important;
+}
+
+.conversation-sidebar__item {
+  transition:
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms ease,
+    background-color 220ms ease !important;
+}
+
+.conversation-sidebar__item:hover,
+.conversation-sidebar__item--active {
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-surface-strong) !important;
+  transform: translateX(3px) !important;
+}
+
+.conversation-panel,
+.conversation-messages {
+  background:
+    linear-gradient(rgb(255 255 255 / 84%), rgb(255 255 255 / 84%)),
+    radial-gradient(circle at 20% 10%, #f7dce8, transparent 35%) !important;
+}
+
+.conversation-header,
+.message-composer {
+  border-color: var(--mbolo-border) !important;
+  background: rgb(255 255 255 / 90%) !important;
+}
+
+.message-bubble {
+  animation: mbolo-message-arrival 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition:
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 260ms ease;
+}
+
+.message-bubble:hover {
+  transform: translateY(-2px);
+}
+
+.message-bubble--mine {
+  background: linear-gradient(135deg, #c23f76, #8d1f4e) !important;
+  box-shadow: 0 12px 28px rgb(143 31 79 / 20%);
+}
+
+.message-bubble--theirs {
+  color: var(--mbolo-text) !important;
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-surface-strong) !important;
+  box-shadow: var(--mbolo-shadow-sm);
+}
+
+.message-composer textarea {
+  color: var(--mbolo-text) !important;
+  border-color: var(--mbolo-border) !important;
+  background: var(--mbolo-bg-soft) !important;
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    background-color 220ms ease;
+}
+
+.message-composer textarea:focus {
+  border-color: var(--mbolo-primary) !important;
+  background: var(--mbolo-surface-strong) !important;
+  box-shadow: var(--mbolo-shadow-focus) !important;
+}
+
+.message-composer__controls > button {
+  background: linear-gradient(135deg, #c23f76, #8d1f4e) !important;
+  transition:
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 280ms ease;
+}
+
+.message-composer__controls > button:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.015);
+  box-shadow: 0 18px 36px rgb(143 31 79 / 26%);
+}
+
+:root[data-theme="dark"] .messages-page {
+  background:
+    radial-gradient(circle at 10% 8%, rgb(211 51 112 / 19%), transparent 30rem),
+    radial-gradient(
+      circle at 92% 24%,
+      rgb(243 193 124 / 7%),
+      transparent 27rem
+    ),
+    linear-gradient(180deg, #0d080c, #140c12) !important;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .messages-hero,
+    .messages-workspace,
+    .messages-hero__summary,
+    .messages-state-card,
+    .messages-empty-card,
+    .conversation-card,
+    .conversation-shell,
+    .conversation-state-card
+  ) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border) !important;
+  background: linear-gradient(145deg, #24161f, #171016) !important;
+}
+
+:root[data-theme="dark"] .conversation-card--unread {
+  background:
+    linear-gradient(90deg, rgb(255 118 168 / 15%), transparent 48%),
+    linear-gradient(145deg, #2b1924, #171016) !important;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .messages-hero__copy h1,
+    .messages-workspace__topbar h2,
+    .conversation-card__identity h3,
+    .conversation-contact__name-row h1,
+    .conversation-empty-state h2,
+    .conversation-state-card h1
+  ) {
+  color: var(--mbolo-text);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .messages-hero__copy > p,
+    .conversation-card__preview,
+    .conversation-card__metadata,
+    .conversation-contact__details,
+    .conversation-empty-state p,
+    .conversation-state-card p
+  ) {
+  color: var(--mbolo-muted) !important;
+}
+
+:root[data-theme="dark"] .messages-hero__trust span,
+:root[data-theme="dark"] .conversation-presence,
+:root[data-theme="dark"] .conversation-card__action,
+:root[data-theme="dark"] .conversation-sidebar__security,
+:root[data-theme="dark"] .conversation-messages__privacy-note,
+:root[data-theme="dark"] .conversation-typing-indicator {
+  color: var(--mbolo-muted);
+  border-color: var(--mbolo-border);
+  background: #2a1923 !important;
+}
+
+:root[data-theme="dark"] .conversation-sidebar {
+  background: linear-gradient(180deg, #21151d, #150d13) !important;
+}
+
+:root[data-theme="dark"] .conversation-panel,
+:root[data-theme="dark"] .conversation-messages {
+  background:
+    linear-gradient(rgb(18 11 16 / 90%), rgb(18 11 16 / 90%)),
+    radial-gradient(circle at 20% 10%, #5a243d, transparent 36%) !important;
+}
+
+:root[data-theme="dark"] .conversation-header,
+:root[data-theme="dark"] .message-composer {
+  background: rgb(24 15 21 / 94%) !important;
+}
+
+:root[data-theme="dark"] .message-bubble--theirs {
+  background: #2a1923 !important;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .conversation-header__profile-link,
+    .conversation-header__refresh-button,
+    .conversation-header__more-button
+  ) {
+  color: var(--mbolo-text);
+  border-color: var(--mbolo-border);
+  background: #2a1923;
+}
+
+@keyframes mbolo-message-arrival {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes mbolo-presence-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(38 156 104 / 0%);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(38 156 104 / 13%);
+  }
+}
+
+@keyframes mbolo-ambient-drift {
+  from {
+    transform: translate3d(-1.5%, -1%, 0) rotate(-1deg);
+  }
+  to {
+    transform: translate3d(1.5%, 1%, 0) rotate(1deg);
+  }
+}
+
+@media (max-width: 720px) {
+  body {
+    font-size: 0.98rem;
+  }
+
+  h1,
+  h2 {
+    letter-spacing: -0.042em !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    animation: none;
+  }
+
+  .discovery-profile-card {
+    animation: none;
+  }
+
+  :is(
+    .matches-hero,
+    .matches-grid > *,
+    .profile-detail-media,
+    .profile-detail-card,
+    .profile-detail-safety-menu__panel,
+    .profile-safety-dialog,
+    .unmatch-dialog,
+    .unmatch-dialog-backdrop,
+    .matches-hero__summary-icon
+  ) {
+    animation: none !important;
+  }
+
+  :is(
+    .messages-hero,
+    .conversation-list-item,
+    .conversation-shell,
+    .message-bubble,
+    .conversation-card__online-dot,
+    .conversation-presence--online > span,
+    .conversation-contact__presence--online i
+  ) {
+    animation: none !important;
+  }
+}

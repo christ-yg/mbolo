@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from datetime import timedelta
+import hashlib
+import hmac
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -362,6 +364,7 @@ def serialize_payment_transaction(transaction: PaymentTransaction) -> dict:
         "currency": "XAF",
         "provider": transaction.provider,
         "provider_reference": transaction.provider_reference,
+        "customer_phone_masked": transaction.customer_phone_masked,
         "created_at": transaction.created_at,
         "updated_at": transaction.updated_at,
         "verified_at": transaction.verified_at,
@@ -376,7 +379,9 @@ def serialize_payment_transaction(transaction: PaymentTransaction) -> dict:
 
 
 @transaction.atomic
-def create_payment_checkout(*, user, plan: str, method: str) -> PaymentTransaction:
+def create_payment_checkout(
+    *, user, plan: str, method: str, phone_number: str = ""
+) -> PaymentTransaction:
     """
     Crée une transaction locale avec un montant décidé exclusivement côté serveur.
 
@@ -395,6 +400,32 @@ def create_payment_checkout(*, user, plan: str, method: str) -> PaymentTransacti
         raise ValueError("Moyen de paiement invalide.")
 
     amount = get_plan_amount_xaf(plan)
+    phone_hash = ""
+    phone_masked = ""
+    if method in {PaymentMethod.AIRTEL_MONEY, PaymentMethod.MOOV_MONEY}:
+        if not phone_number.startswith("+241"):
+            raise ValueError("Numéro Mobile Money invalide.")
+        phone_hash = hmac.new(
+            settings.SECRET_KEY.encode(),
+            phone_number.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        phone_masked = f"+241••••{phone_number[-4:]}"
+
+        reusable = (
+            PaymentTransaction.objects.select_for_update()
+            .filter(
+                user=user,
+                plan=plan,
+                method=method,
+                status__in=(PaymentStatus.CREATED, PaymentStatus.PENDING),
+                customer_phone_hash=phone_hash,
+                created_at__gte=timezone.now() - timedelta(minutes=15),
+            )
+            .first()
+        )
+        if reusable is not None:
+            return reusable
     provider = (
         "mbolo_test"
         if is_payment_test_mode_enabled()
@@ -412,6 +443,8 @@ def create_payment_checkout(*, user, plan: str, method: str) -> PaymentTransacti
         status=PaymentStatus.PENDING,
         amount_xaf=amount,
         provider=provider,
+        customer_phone_masked=phone_masked,
+        customer_phone_hash=phone_hash,
     )
     transaction_obj.provider_reference = f"{provider}:{transaction_obj.id}"
     transaction_obj.save(
