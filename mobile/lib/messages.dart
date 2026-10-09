@@ -205,6 +205,28 @@ class _MessagesPageState extends State<MessagesPage>
     }
   }
 
+  Future<void> _showProfilePreview(
+    DiscoveryProfile profile, {
+    required VoidCallback onMessage,
+  }) async {
+    await HapticFeedback.selectionClick();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (sheetContext) => _ProfilePreviewSheet(
+        profile: profile,
+        onMessage: () {
+          Navigator.of(sheetContext).pop();
+          onMessage();
+        },
+      ),
+    );
+  }
+
   String _time(DateTime value) {
     final local = value.toLocal();
     return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
@@ -383,6 +405,10 @@ class _MessagesPageState extends State<MessagesPage>
                     photo: photo,
                     time: last == null ? null : _time(last.createdAt),
                     onTap: () => _open(conversation),
+                    onProfileTap: () => _showProfilePreview(
+                      conversation.otherProfile,
+                      onMessage: () => _open(conversation),
+                    ),
                   ),
                 ),
               );
@@ -414,6 +440,10 @@ class _MessagesPageState extends State<MessagesPage>
                 match: match,
                 photo: photo,
                 onTap: () => _openMatch(match),
+                onProfileTap: () => _showProfilePreview(
+                  profile,
+                  onMessage: () => _openMatch(match),
+                ),
               ),
             );
           }),
@@ -574,12 +604,14 @@ class _PremiumConversationCard extends StatelessWidget {
     required this.photo,
     required this.time,
     required this.onTap,
+    required this.onProfileTap,
   });
 
   final ConversationSummary conversation;
   final ProfilePhoto? photo;
   final String? time;
   final VoidCallback onTap;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -596,7 +628,14 @@ class _PremiumConversationCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(26),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: onTap,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
+          onLongPress: () {
+            HapticFeedback.mediumImpact();
+            onProfileTap();
+          },
           child: Container(
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
@@ -697,11 +736,13 @@ class _PremiumMatchCard extends StatelessWidget {
     required this.match,
     required this.photo,
     required this.onTap,
+    required this.onProfileTap,
   });
 
   final MatchSummary match;
   final ProfilePhoto? photo;
   final VoidCallback onTap;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -714,7 +755,10 @@ class _PremiumMatchCard extends StatelessWidget {
         side: BorderSide(color: scheme.outlineVariant),
       ),
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
         child: SizedBox(
           height: 126,
           child: Row(
@@ -774,6 +818,12 @@ class _PremiumMatchCard extends StatelessWidget {
                           Text('Nouveau match',
                               style: Theme.of(context).textTheme.labelMedium),
                           const Spacer(),
+                          IconButton(
+                            tooltip: 'Voir le profil',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: onProfileTap,
+                            icon: const Icon(Icons.person_search_rounded),
+                          ),
                           Icon(Icons.chat_bubble_rounded,
                               size: 20, color: scheme.primary),
                         ],
@@ -862,6 +912,149 @@ class _PremiumPhotoFallback extends StatelessWidget {
         ),
       ),
       child: Icon(Icons.person_rounded, size: 48, color: scheme.primary),
+    );
+  }
+}
+
+class _ProfilePreviewSheet extends StatelessWidget {
+  const _ProfilePreviewSheet({
+    required this.profile,
+    required this.onMessage,
+  });
+
+  final DiscoveryProfile profile;
+  final VoidCallback onMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final photo = profile.photos.isEmpty ? null : profile.photos.first;
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return FractionallySizedBox(
+      heightFactor: .86,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
+        children: [
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: reduceMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) => Opacity(
+              opacity: value,
+              child: Transform.scale(
+                scale: .97 + (.03 * value),
+                child: child,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: SizedBox(
+                height: 280,
+                child: photo != null && photo.imageUrl.isNotEmpty
+                    ? Image.network(
+                        photo.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const _PremiumPhotoFallback(),
+                      )
+                    : const _PremiumPhotoFallback(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${profile.displayName}, ${profile.age}',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ),
+              if (profile.verified)
+                Icon(Icons.verified_rounded, color: scheme.primary, size: 25),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Row(
+            children: [
+              Icon(Icons.location_on_outlined,
+                  size: 18, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  [profile.city, profile.distanceLabel]
+                      .where((value) => value.isNotEmpty)
+                      .join(' · '),
+                  style: TextStyle(color: scheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (profile.compatibilityScore > 0)
+                Chip(
+                  avatar: const Icon(Icons.auto_awesome_rounded, size: 17),
+                  label: Text('${profile.compatibilityScore}% compatible'),
+                ),
+              if (profile.datingIntent.isNotEmpty)
+                Chip(
+                  avatar: const Icon(Icons.favorite_outline_rounded, size: 17),
+                  label: Text(profile.datingIntent),
+                ),
+            ],
+          ),
+          if (profile.biography.isNotEmpty) ...[
+            const SizedBox(height: 22),
+            Text(
+              'À propos',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              profile.biography,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    height: 1.5,
+                  ),
+            ),
+          ],
+          if (profile.interestLabels.isNotEmpty) ...[
+            const SizedBox(height: 22),
+            Text(
+              'Centres d’intérêt',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: profile.interestLabels
+                  .map((interest) => Chip(label: Text(interest)))
+                  .toList(growable: false),
+            ),
+          ],
+          const SizedBox(height: 26),
+          FilledButton.icon(
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              onMessage();
+            },
+            icon: const Icon(Icons.chat_bubble_rounded),
+            label: const Text('Envoyer un message'),
+          ),
+        ],
+      ),
     );
   }
 }
