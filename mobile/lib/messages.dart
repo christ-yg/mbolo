@@ -1257,6 +1257,7 @@ class ConversationPage extends StatefulWidget {
 class _ConversationPageState extends State<ConversationPage>
     with WidgetsBindingObserver {
   final TextEditingController _composer = TextEditingController();
+  final TextEditingController _messageSearch = TextEditingController();
   final ScrollController _scroll = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
   List<ChatMessage> _messages = <ChatMessage>[];
@@ -1276,6 +1277,8 @@ class _ConversationPageState extends State<ConversationPage>
   String? _pendingImageName;
   bool _pickingImage = false;
   ChatMessage? _replyingTo;
+  bool _searching = false;
+  String _messageQuery = '';
   late bool _pinned = widget.conversation.pinned;
   late bool _muted = widget.conversation.muted;
   late bool _archived = widget.conversation.archived;
@@ -1285,6 +1288,7 @@ class _ConversationPageState extends State<ConversationPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _composer.addListener(_onComposerChanged);
+    _messageSearch.addListener(_onMessageSearchChanged);
     _scroll.addListener(_onScroll);
     _load();
     _pollTyping();
@@ -1304,11 +1308,41 @@ class _ConversationPageState extends State<ConversationPage>
       unawaited(_publishTyping(false));
     }
     _composer.removeListener(_onComposerChanged);
+    _messageSearch.removeListener(_onMessageSearchChanged);
     _scroll.removeListener(_onScroll);
     _composer.dispose();
+    _messageSearch.dispose();
     _scroll.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _onMessageSearchChanged() {
+    final query = _messageSearch.text.trim().toLowerCase();
+    if (query != _messageQuery && mounted) {
+      setState(() => _messageQuery = query);
+    }
+  }
+
+  List<ChatMessage> get _displayedMessages {
+    if (!_searching || _messageQuery.isEmpty) return _messages;
+    return _messages.where((message) {
+      if (message.deleted) return false;
+      final reply = message.replyPreview;
+      final searchable = '${message.body} ${reply?.body ?? ''} '
+          '${reply?.senderName ?? ''}'.toLowerCase();
+      return searchable.contains(_messageQuery);
+    }).toList(growable: false);
+  }
+
+  void _toggleMessageSearch() {
+    setState(() {
+      _searching = !_searching;
+      if (!_searching) {
+        _messageSearch.clear();
+        _messageQuery = '';
+      }
+    });
   }
 
   @override
@@ -1921,6 +1955,13 @@ class _ConversationPageState extends State<ConversationPage>
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: _searching ? 'Fermer la recherche' : 'Rechercher',
+            onPressed: _toggleMessageSearch,
+            icon: Icon(
+              _searching ? Icons.search_off_rounded : Icons.search_rounded,
+            ),
+          ),
           PopupMenuButton<String>(
             tooltip: 'Options de conversation',
             onSelected: _handleConversationAction,
@@ -1982,6 +2023,38 @@ class _ConversationPageState extends State<ConversationPage>
       body: SafeArea(
         child: Column(
           children: [
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: _searching
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+                      child: SearchBar(
+                        controller: _messageSearch,
+                        autofocus: true,
+                        hintText: 'Rechercher dans la conversation',
+                        leading: const Icon(Icons.search_rounded),
+                        trailing: [
+                          if (_messageQuery.isNotEmpty)
+                            IconButton(
+                              tooltip: 'Effacer',
+                              onPressed: _messageSearch.clear,
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: Text(
+                              _messageQuery.isEmpty
+                                  ? '${_messages.length}'
+                                  : '${_displayedMessages.length} résultat${_displayedMessages.length == 1 ? '' : 's'}',
+                              style: Theme.of(context).textTheme.labelMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
             Expanded(
               child: Stack(
                 children: [
@@ -1994,15 +2067,25 @@ class _ConversationPageState extends State<ConversationPage>
                                   'Envoie un premier message respectueux.',
                                 ),
                               )
-                            : ListView.builder(
+                            : _searching &&
+                                    _messageQuery.isNotEmpty &&
+                                    _displayedMessages.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                      'Aucun message ne correspond à cette recherche.',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  )
+                                : ListView.builder(
                                 controller: _scroll,
                                 padding: const EdgeInsets.all(16),
-                                itemCount: _messages.length,
+                                itemCount: _displayedMessages.length,
                                 itemBuilder: (context, index) {
-                                  final message = _messages[index];
+                                  final messages = _displayedMessages;
+                                  final message = messages[index];
                                   final showDate = index == 0 ||
                                       !_sameDay(
-                                        _messages[index - 1].createdAt,
+                                        messages[index - 1].createdAt,
                                         message.createdAt,
                                       );
                                   return Column(
@@ -2024,6 +2107,7 @@ class _ConversationPageState extends State<ConversationPage>
                                         onDelete: () => _deleteMessage(message),
                                         onEdit: () => _editMessage(message),
                                         onReport: () => _reportMessage(message),
+                                        searchQuery: _messageQuery,
                                       ),
                                     ],
                                   );
@@ -2430,6 +2514,7 @@ class _AnimatedMessageBubble extends StatelessWidget {
     required this.onDelete,
     required this.onEdit,
     required this.onReport,
+    required this.searchQuery,
   });
 
   final ChatMessage message;
@@ -2440,6 +2525,7 @@ class _AnimatedMessageBubble extends StatelessWidget {
   final Future<void> Function() onDelete;
   final Future<void> Function() onEdit;
   final Future<void> Function() onReport;
+  final String searchQuery;
 
   Future<void> _showActions(BuildContext context) async {
     HapticFeedback.selectionClick();
@@ -2709,11 +2795,13 @@ class _AnimatedMessageBubble extends StatelessWidget {
                     ],
                   )
                 else
-                  Text(
-                    message.body,
-                    style: TextStyle(
-                      color: mine ? Colors.white : scheme.onSurface,
-                    ),
+                  _HighlightedMessageText(
+                    text: message.body,
+                    query: searchQuery,
+                    color: mine ? Colors.white : scheme.onSurface,
+                    highlightColor: mine
+                        ? const Color(0xFFFFD166)
+                        : scheme.tertiaryContainer,
                   ),
                 const SizedBox(height: 4),
                 Row(
@@ -2813,6 +2901,63 @@ class _AnimatedMessageBubble extends StatelessWidget {
     );
   }
 }
+
+class _HighlightedMessageText extends StatelessWidget {
+  const _HighlightedMessageText({
+    required this.text,
+    required this.query,
+    required this.color,
+    required this.highlightColor,
+  });
+
+  final String text;
+  final String query;
+  final Color color;
+  final Color highlightColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty || text.isEmpty) {
+      return Text(text, style: TextStyle(color: color));
+    }
+    final normalizedText = text.toLowerCase();
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    while (cursor < text.length) {
+      final match = normalizedText.indexOf(normalizedQuery, cursor);
+      if (match < 0) {
+        spans.add(TextSpan(text: text.substring(cursor)));
+        break;
+      }
+      if (match > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, match)));
+      }
+      final end = match + normalizedQuery.length;
+      spans.add(
+        TextSpan(
+          text: text.substring(match, end),
+          style: TextStyle(
+            backgroundColor: highlightColor,
+            color: ThemeData.estimateBrightnessForColor(highlightColor) ==
+                    Brightness.dark
+                ? Colors.white
+                : const Color(0xFF24151C),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
+      cursor = end;
+    }
+    return Text.rich(
+      TextSpan(
+        style: TextStyle(color: color),
+        children: spans,
+      ),
+    );
+  }
+}
+
 
 class _MessageImage extends StatelessWidget {
   const _MessageImage({
