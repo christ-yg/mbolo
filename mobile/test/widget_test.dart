@@ -379,11 +379,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
-      find.text('Ça me plaît'),
+      find.byTooltip('Ça me plaît'),
       280,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text('Ça me plaît'));
+    await tester.tap(find.byTooltip('Ça me plaît'));
     await tester.pumpAndSettle();
 
     expect(find.text('C’EST UN MATCH'), findsOneWidget);
