@@ -24,11 +24,14 @@ sed -i '' -E 's/IPHONEOS_DEPLOYMENT_TARGET = [^;]+;/IPHONEOS_DEPLOYMENT_TARGET =
 
 /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName MBOLO' "$plist" 2>/dev/null || \
   /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string MBOLO' "$plist"
-/usr/libexec/PlistBuddy -c 'Set :NSPhotoLibraryUsageDescription MBOLO utilise les photos que vous choisissez pour compléter votre profil.' "$plist" 2>/dev/null || \
-  /usr/libexec/PlistBuddy -c 'Add :NSPhotoLibraryUsageDescription string MBOLO utilise les photos que vous choisissez pour compléter votre profil.' "$plist"
+/usr/libexec/PlistBuddy -c 'Set :NSPhotoLibraryUsageDescription MBOLO accède uniquement aux photos que vous choisissez pour votre profil ou vos messages.' "$plist" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c 'Add :NSPhotoLibraryUsageDescription string MBOLO accède uniquement aux photos que vous choisissez pour votre profil ou vos messages.' "$plist"
+/usr/libexec/PlistBuddy -c 'Set :NSCameraUsageDescription MBOLO utilise la caméra uniquement lorsque vous choisissez de prendre une photo à partager.' "$plist" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string MBOLO utilise la caméra uniquement lorsque vous choisissez de prendre une photo à partager.' "$plist"
 
 grep -q 'PRODUCT_BUNDLE_IDENTIFIER = ga.mbolo.app;' "$project"
 grep -q 'IPHONEOS_DEPLOYMENT_TARGET = 13.0;' "$project"
 /usr/libexec/PlistBuddy -c 'Print :NSPhotoLibraryUsageDescription' "$plist" >/dev/null
+/usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$plist" >/dev/null
 
 echo "Projet iOS MBOLO prêt pour la configuration de signature dans Xcode."

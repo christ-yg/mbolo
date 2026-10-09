@@ -15,6 +15,10 @@ if ! grep -q 'android.permission.INTERNET' "$manifest"; then
   sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET" />' "$manifest"
 fi
 
+if ! grep -q 'android.permission.CAMERA' "$manifest"; then
+  sed -i '/<manifest/a\    <uses-permission android:name="android.permission.CAMERA" />' "$manifest"
+fi
+
 sed -i 's/android:label="mbolo_mobile"/android:label="MBOLO"/' "$manifest"
 
 # The store identity must never depend on Flutter's generated project name.
@@ -30,6 +34,7 @@ if ! grep -q 'android:usesCleartextTraffic="false"' "$manifest"; then
 fi
 
 grep -q 'android.permission.INTERNET' "$manifest"
+grep -q 'android.permission.CAMERA' "$manifest"
 grep -q 'android:label="MBOLO"' "$manifest"
 grep -q 'android:usesCleartextTraffic="false"' "$manifest"
 grep -q 'namespace = "ga.mbolo.app"' "$gradle"

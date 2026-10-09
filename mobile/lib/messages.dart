@@ -1528,12 +1528,55 @@ class _ConversationPageState extends State<ConversationPage>
     }
   }
 
-  Future<void> _pickMessageImage() async {
+  Future<void> _chooseMessageImage() async {
+    if (_sending || _pickingImage) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
+                child: Text(
+                  'Ajouter une photo',
+                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Prendre une photo'),
+                subtitle: const Text('La caméra ne s’ouvre qu’après ton choix.'),
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choisir dans la galerie'),
+                subtitle: const Text('Sélectionne uniquement la photo à partager.'),
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (source != null && mounted) await _pickMessageImage(source);
+  }
+
+  Future<void> _pickMessageImage(ImageSource source) async {
     if (_sending || _pickingImage) return;
     setState(() => _pickingImage = true);
     try {
       final picked = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         imageQuality: 85,
         maxWidth: 1600,
         maxHeight: 1600,
@@ -2251,7 +2294,7 @@ class _ConversationPageState extends State<ConversationPage>
                           tooltip: 'Ajouter une photo',
                           onPressed: _sending || _pickingImage
                               ? null
-                              : _pickMessageImage,
+                              : _chooseMessageImage,
                           icon: _pickingImage
                               ? const SizedBox.square(
                                   dimension: 20,
