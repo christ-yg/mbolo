@@ -30,6 +30,22 @@ void main() {
     final history = await api.getMessages(conversations.single.id);
     expect(history, hasLength(2));
 
+    final reacted = await api.reactToMessage(
+      conversations.single.id,
+      sent.id,
+      '❤️',
+    );
+    expect(reacted.myReaction, '❤️');
+    expect(reacted.reactions.single.count, 1);
+
+    final cleared = await api.reactToMessage(
+      conversations.single.id,
+      sent.id,
+      '',
+    );
+    expect(cleared.myReaction, isNull);
+    expect(cleared.reactions, isEmpty);
+
     expect(await api.getTypingStatus(conversations.single.id), isFalse);
     await api.setTypingStatus(conversations.single.id, true);
   });

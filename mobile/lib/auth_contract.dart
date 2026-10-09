@@ -570,6 +570,22 @@ class SafetyActionResult {
   }
 }
 
+class MessageReactionSummary {
+  const MessageReactionSummary(this.emoji, this.count);
+
+  final String emoji;
+  final int count;
+
+  factory MessageReactionSummary.fromJson(Map<String, dynamic> data) {
+    final emoji = data['emoji'];
+    final count = data['count'];
+    if (emoji is! String || emoji.isEmpty || count is! int || count < 1) {
+      throw const FormatException('Réaction incorrecte.');
+    }
+    return MessageReactionSummary(emoji, count);
+  }
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -580,6 +596,8 @@ class ChatMessage {
     required this.readReceiptsAvailable,
     this.imageUrl,
     this.imageBytes,
+    this.reactions = const <MessageReactionSummary>[],
+    this.myReaction,
   });
 
   final String id;
@@ -590,12 +608,15 @@ class ChatMessage {
   final bool readReceiptsAvailable;
   final String? imageUrl;
   final Uint8List? imageBytes;
+  final List<MessageReactionSummary> reactions;
+  final String? myReaction;
 
   factory ChatMessage.fromJson(Map<String, dynamic> data) {
     final id = data['id'];
     final body = data['body'];
     final createdAt = DateTime.tryParse(data['created_at']?.toString() ?? '');
     final imageUrl = data['image_url'];
+    final rawReactions = data['reactions'];
     if (id is! String ||
         id.isEmpty ||
         body is! String ||
@@ -611,6 +632,15 @@ class ChatMessage {
       read: data['is_read'] == true,
       readReceiptsAvailable: data['read_receipts_available'] == true,
       imageUrl: imageUrl is String && imageUrl.isNotEmpty ? imageUrl : null,
+      reactions: rawReactions is List
+          ? rawReactions
+              .whereType<Map<String, dynamic>>()
+              .map(MessageReactionSummary.fromJson)
+              .toList(growable: false)
+          : const <MessageReactionSummary>[],
+      myReaction: data['my_reaction'] is String
+          ? data['my_reaction'] as String
+          : null,
     );
   }
 }
@@ -875,6 +905,11 @@ abstract class AuthApi {
     Uint8List? imageBytes,
     String? imageFilename,
   });
+  Future<ChatMessage> reactToMessage(
+    String conversationId,
+    String messageId,
+    String emoji,
+  );
   Future<void> markConversationRead(String conversationId);
   Future<bool> getTypingStatus(String conversationId);
   Future<void> setTypingStatus(String conversationId, bool isTyping);

@@ -653,6 +653,20 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<ChatMessage> reactToMessage(
+    String conversationId,
+    String messageId,
+    String emoji,
+  ) async {
+    return ChatMessage.fromJson(
+      await _postObject(
+        'conversations/$conversationId/messages/$messageId/reaction/',
+        {'emoji': emoji},
+      ),
+    );
+  }
+
+  @override
   Future<void> markConversationRead(String conversationId) async {
     await _post('conversations/$conversationId/read/', {});
   }

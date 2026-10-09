@@ -34,6 +34,7 @@ from .serializers import (
     MarkConversationReadSerializer,
     MessageCreateSerializer,
     MessageSerializer,
+    MessageReactionInputSerializer,
     UnreadCountSerializer,
     OtherTypingStatusSerializer,
     TypingStatusInputSerializer,
@@ -45,6 +46,7 @@ from .services import (
     get_total_unread_count,
     mark_conversation_as_read,
     send_message,
+    set_message_reaction,
 )
 from .typing import (
     get_other_typing_status,
@@ -225,6 +227,7 @@ class ConversationMessageListCreateView(
             .select_related(
                 "sender",
             )
+            .prefetch_related("reactions")
             .order_by("created_at")
         )
 
@@ -511,7 +514,6 @@ class ConversationTypingView(APIView):
             return validation_error_response(exc)
 
         serializer = TypingStatusSerializer(result)
-
         broadcast_conversation_event(
             conversation_id=result["conversation_id"],
             event={
@@ -520,5 +522,27 @@ class ConversationTypingView(APIView):
                 "is_typing": result["is_typing"],
             },
         )
-
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class MessageReactionView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request: Request, conversation_id, message_id) -> Response:
+        input_serializer = MessageReactionInputSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        try:
+            message = set_message_reaction(
+                actor=request.user,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                emoji=input_serializer.validated_data["emoji"],
+            )
+        except DjangoValidationError as exc:
+            return validation_error_response(exc)
+        output = MessageSerializer(message, context={"request": request})
+        broadcast_conversation_event(
+            conversation_id=conversation_id,
+            event={"event": "message.reaction", "message": output.data},
+        )
+        return Response(output.data, status=status.HTTP_200_OK)

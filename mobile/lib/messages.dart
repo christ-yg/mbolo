@@ -1460,6 +1460,26 @@ class _ConversationPageState extends State<ConversationPage>
     }
   }
 
+  Future<void> _react(ChatMessage message, String emoji) async {
+    try {
+      final updated = await widget.api.reactToMessage(
+        widget.conversation.id,
+        message.id,
+        emoji,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages = _messages
+            .map((item) => item.id == updated.id ? updated : item)
+            .toList(growable: false);
+        _error = null;
+      });
+      HapticFeedback.selectionClick();
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    }
+  }
+
   Future<void> _openSafetyActions() async {
     final changed = await showProfileSafetyActions(
       context: context,
@@ -1589,6 +1609,8 @@ class _ConversationPageState extends State<ConversationPage>
                                         message: message,
                                         time: _time(message.createdAt),
                                         order: index,
+                                        onReact: (emoji) =>
+                                            _react(message, emoji),
                                       ),
                                     ],
                                   );
@@ -1925,15 +1947,17 @@ class _AnimatedMessageBubble extends StatelessWidget {
     required this.message,
     required this.time,
     required this.order,
+    required this.onReact,
   });
 
   final ChatMessage message;
   final String time;
   final int order;
+  final Future<void> Function(String emoji) onReact;
 
   Future<void> _showActions(BuildContext context) async {
     HapticFeedback.selectionClick();
-    final shouldCopy = await showModalBottomSheet<bool>(
+    final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
@@ -1952,16 +1976,32 @@ class _AnimatedMessageBubble extends StatelessWidget {
                       ),
                 ),
               ),
-              ListTile(
-                leading: const Icon(Icons.content_copy_rounded),
-                title: const Text('Copier le message'),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    for (final emoji in const ['❤️', '🔥', '😂', '😍', '👍'])
+                      IconButton.filledTonal(
+                          tooltip: 'Réagir $emoji',
+                          onPressed: () =>
+                              Navigator.of(sheetContext).pop(emoji),
+                          icon: Text(emoji, style: const TextStyle(fontSize: 23)),
+                        ),
+                  ],
                 ),
-                onTap: () => Navigator.of(sheetContext).pop(true),
               ),
+              if (message.body.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.content_copy_rounded),
+                  title: const Text('Copier le message'),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  onTap: () => Navigator.of(sheetContext).pop('copy'),
+                ),
               TextButton(
-                onPressed: () => Navigator.of(sheetContext).pop(false),
+                onPressed: () => Navigator.of(sheetContext).pop(),
                 child: const Text('Fermer'),
               ),
             ],
@@ -1969,7 +2009,11 @@ class _AnimatedMessageBubble extends StatelessWidget {
         ),
       ),
     );
-    if (shouldCopy != true || !context.mounted) return;
+    if (action == null || !context.mounted) return;
+    if (action != 'copy') {
+      await onReact(action == message.myReaction ? '' : action);
+      return;
+    }
     await Clipboard.setData(ClipboardData(text: message.body));
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2070,6 +2114,46 @@ class _AnimatedMessageBubble extends StatelessWidget {
                     ],
                   ],
                 ),
+                if (message.reactions.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 5,
+                    runSpacing: 4,
+                    children: message.reactions
+                        .map(
+                          (reaction) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: reaction.emoji == message.myReaction
+                                  ? scheme.primaryContainer
+                                  : (mine
+                                      ? Colors.white.withValues(alpha: .16)
+                                      : scheme.surface),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '${reaction.emoji} ${reaction.count}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: reaction.emoji == message.myReaction
+                                        ? scheme.onPrimaryContainer
+                                        : (mine
+                                            ? Colors.white
+                                            : scheme.onSurface),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ],
               ],
             ),
           ),

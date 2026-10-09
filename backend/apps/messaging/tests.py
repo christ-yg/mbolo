@@ -28,6 +28,7 @@ from .services import (
     get_total_unread_count,
     mark_conversation_as_read,
     send_message,
+    set_message_reaction,
 )
 from .typing import (
     get_other_typing_status,
@@ -274,6 +275,38 @@ class MessagingServiceTests(TestCase):
                 conversation_id=conversation.id,
                 body="   ",
             )
+
+    def test_participant_can_add_replace_and_remove_reaction(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Bonjour.",
+        )
+
+        set_message_reaction(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            emoji="❤️",
+        )
+        self.assertEqual(message.reactions.get().emoji, "❤️")
+
+        set_message_reaction(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            emoji="🔥",
+        )
+        self.assertEqual(message.reactions.get().emoji, "🔥")
+
+        set_message_reaction(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            emoji="",
+        )
+        self.assertFalse(message.reactions.exists())
 
     def test_message_sender_must_belong_to_conversation(self):
         conversation = Conversation.objects.create(

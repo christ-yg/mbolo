@@ -323,3 +323,46 @@ class Message(models.Model):
             *args,
             **kwargs,
         )
+
+
+class MessageReaction(models.Model):
+    """Une réaction unique par membre et par message."""
+
+    ALLOWED_EMOJIS = ("❤️", "🔥", "😂", "😍", "👍")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name="reactions",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="message_reactions",
+    )
+    emoji = models.CharField(max_length=8)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "messaging_message_reaction"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("message", "user"),
+                name="unique_message_reaction_per_user",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=("message", "emoji"), name="msg_reaction_idx"),
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        if self.emoji not in self.ALLOWED_EMOJIS:
+            raise ValidationError({"emoji": "Cette réaction n'est pas autorisée."})
+        if self.message_id and not self.message.conversation.includes_user(self.user):
+            raise ValidationError({"user": "Ce compte ne participe pas à la conversation."})
+
+    def save(self, *args, **kwargs) -> None:
+        self.full_clean()
+        super().save(*args, **kwargs)

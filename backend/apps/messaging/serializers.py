@@ -10,7 +10,16 @@ from apps.profiles.serializers import (
 )
 from apps.subscriptions.services import get_subscription_state
 
-from .models import Conversation, Message
+from .models import Conversation, Message, MessageReaction
+
+
+class MessageReactionInputSerializer(serializers.Serializer):
+    emoji = serializers.ChoiceField(
+        choices=MessageReaction.ALLOWED_EMOJIS,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
 
 
 class ConversationCreateSerializer(
@@ -62,6 +71,8 @@ class MessageSerializer(
     )
     read_receipts_available = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
+    reactions = serializers.SerializerMethodField()
+    my_reaction = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -70,6 +81,8 @@ class MessageSerializer(
             "id",
             "body",
             "image_url",
+            "reactions",
+            "my_reaction",
             "created_at",
             "read_at",
             "is_read",
@@ -85,6 +98,20 @@ class MessageSerializer(
         request = self.context.get("request")
         url = message.image.url
         return request.build_absolute_uri(url) if request else url
+
+    def get_reactions(self, message: Message) -> list[dict[str, object]]:
+        counts: dict[str, int] = {}
+        for emoji in message.reactions.values_list("emoji", flat=True):
+            counts[emoji] = counts.get(emoji, 0) + 1
+        return [{"emoji": emoji, "count": count} for emoji, count in counts.items()]
+
+    def get_my_reaction(self, message: Message) -> str | None:
+        request = self.context["request"]
+        return (
+            message.reactions.filter(user=request.user)
+            .values_list("emoji", flat=True)
+            .first()
+        )
 
     def get_is_mine(
         self,

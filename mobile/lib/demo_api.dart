@@ -652,6 +652,45 @@ class DemoApi implements AuthApi {
   }
 
   @override
+  Future<ChatMessage> reactToMessage(
+    String conversationId,
+    String messageId,
+    String emoji,
+  ) async {
+    if (conversationId != 'demo-conversation-1') {
+      throw const FormatException('Conversation absente.');
+    }
+    final index = _messages.indexWhere((message) => message.id == messageId);
+    if (index < 0 || (emoji.isNotEmpty && !const ['❤️', '🔥', '😂', '😍', '👍'].contains(emoji))) {
+      throw const FormatException('Réaction incorrecte.');
+    }
+    final current = _messages[index];
+    final counts = <String, int>{
+      for (final reaction in current.reactions) reaction.emoji: reaction.count,
+    };
+    final previous = current.myReaction;
+    if (previous != null) counts[previous] = (counts[previous] ?? 1) - 1;
+    if (emoji.isNotEmpty) counts[emoji] = (counts[emoji] ?? 0) + 1;
+    final updated = ChatMessage(
+      id: current.id,
+      body: current.body,
+      createdAt: current.createdAt,
+      mine: current.mine,
+      read: current.read,
+      readReceiptsAvailable: current.readReceiptsAvailable,
+      imageUrl: current.imageUrl,
+      imageBytes: current.imageBytes,
+      reactions: counts.entries
+          .where((entry) => entry.value > 0)
+          .map((entry) => MessageReactionSummary(entry.key, entry.value))
+          .toList(growable: false),
+      myReaction: emoji.isEmpty ? null : emoji,
+    );
+    _messages[index] = updated;
+    return updated;
+  }
+
+  @override
   Future<void> markConversationRead(String conversationId) async {
     if (conversationId != 'demo-conversation-1') {
       throw const FormatException('Conversation absente.');
@@ -668,6 +707,8 @@ class DemoApi implements AuthApi {
           readReceiptsAvailable: message.readReceiptsAvailable,
           imageUrl: message.imageUrl,
           imageBytes: message.imageBytes,
+          reactions: message.reactions,
+          myReaction: message.myReaction,
         );
       }
     }

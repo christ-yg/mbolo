@@ -15,7 +15,7 @@ from django.utils import timezone
 from apps.interactions.models import Match
 from apps.photos.image_processing import process_profile_photo
 
-from .models import Conversation, Message
+from .models import Conversation, Message, MessageReaction
 
 
 @dataclass(frozen=True)
@@ -212,6 +212,33 @@ def send_message(
         updated_at=timezone.now(),
     )
 
+    return message
+
+
+@transaction.atomic
+def set_message_reaction(*, actor, conversation_id: UUID, message_id: UUID, emoji: str):
+    """Ajoute, remplace ou retire la réaction de l'acteur."""
+    conversation = get_conversation_for_actor(
+        actor=actor,
+        conversation_id=conversation_id,
+    )
+    try:
+        message = Message.objects.get(id=message_id, conversation=conversation)
+    except Message.DoesNotExist as exc:
+        raise ValidationError("Ce message est introuvable.") from exc
+
+    reaction = MessageReaction.objects.filter(message=message, user=actor).first()
+    if not emoji:
+        if reaction is not None:
+            reaction.delete()
+        return message
+    if emoji not in MessageReaction.ALLOWED_EMOJIS:
+        raise ValidationError({"emoji": ["Cette réaction n'est pas autorisée."]})
+    MessageReaction.objects.update_or_create(
+        message=message,
+        user=actor,
+        defaults={"emoji": emoji},
+    )
     return message
 
 
