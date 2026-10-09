@@ -606,7 +606,8 @@ class ConversationPage extends StatefulWidget {
   State<ConversationPage> createState() => _ConversationPageState();
 }
 
-class _ConversationPageState extends State<ConversationPage> {
+class _ConversationPageState extends State<ConversationPage>
+    with WidgetsBindingObserver {
   final TextEditingController _composer = TextEditingController();
   final ScrollController _scroll = ScrollController();
   List<ChatMessage> _messages = <ChatMessage>[];
@@ -615,13 +616,17 @@ class _ConversationPageState extends State<ConversationPage> {
   bool _otherTyping = false;
   bool _selfTyping = false;
   bool _nearBottom = true;
+  bool _refreshingMessages = false;
+  int _newMessageCount = 0;
   Timer? _typingDebounce;
   Timer? _typingPoll;
+  Timer? _messagePoll;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _composer.addListener(_onComposerChanged);
     _scroll.addListener(_onScroll);
     _load();
@@ -630,12 +635,14 @@ class _ConversationPageState extends State<ConversationPage> {
       const Duration(seconds: 3),
       (_) => _pollTyping(),
     );
+    _startMessagePolling();
   }
 
   @override
   void dispose() {
     _typingDebounce?.cancel();
     _typingPoll?.cancel();
+    _messagePoll?.cancel();
     if (_selfTyping) {
       unawaited(_publishTyping(false));
     }
@@ -643,7 +650,30 @@ class _ConversationPageState extends State<ConversationPage> {
     _scroll.removeListener(_onScroll);
     _composer.dispose();
     _scroll.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startMessagePolling();
+      unawaited(_syncMessages());
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _messagePoll?.cancel();
+      _messagePoll = null;
+    }
+  }
+
+  void _startMessagePolling() {
+    _messagePoll?.cancel();
+    _messagePoll = Timer.periodic(
+      const Duration(seconds: 4),
+      (_) => unawaited(_syncMessages()),
+    );
   }
 
   void _onScroll() {
@@ -651,7 +681,13 @@ class _ConversationPageState extends State<ConversationPage> {
     final nearBottom =
         _scroll.position.maxScrollExtent - _scroll.position.pixels < 96;
     if (nearBottom != _nearBottom && mounted) {
-      setState(() => _nearBottom = nearBottom);
+      setState(() {
+        _nearBottom = nearBottom;
+        if (nearBottom) _newMessageCount = 0;
+      });
+      if (nearBottom) {
+        unawaited(_markReadQuietly());
+      }
     }
   }
 
@@ -682,6 +718,14 @@ class _ConversationPageState extends State<ConversationPage> {
     }
   }
 
+  Future<void> _markReadQuietly() async {
+    try {
+      await widget.api.markConversationRead(widget.conversation.id);
+    } catch (_) {
+      // Read receipts are resynchronised during the next successful refresh.
+    }
+  }
+
   Future<void> _pollTyping() async {
     try {
       final typing = await widget.api.getTypingStatus(widget.conversation.id);
@@ -690,6 +734,34 @@ class _ConversationPageState extends State<ConversationPage> {
       }
     } catch (_) {
       // Typing presence is ephemeral and must never block the conversation.
+    }
+  }
+
+  Future<void> _syncMessages() async {
+    if (_refreshingMessages || _loading) return;
+    _refreshingMessages = true;
+    try {
+      final fresh = await widget.api.getMessages(widget.conversation.id);
+      if (!mounted) return;
+      final knownIds = _messages.map((message) => message.id).toSet();
+      final incoming = fresh
+          .where((message) => !knownIds.contains(message.id))
+          .length;
+      if (incoming == 0 && fresh.length == _messages.length) return;
+
+      final shouldFollow = _nearBottom;
+      setState(() {
+        _messages = fresh;
+        if (!shouldFollow) _newMessageCount += incoming;
+      });
+      if (shouldFollow) {
+        await widget.api.markConversationRead(widget.conversation.id);
+        _scrollToEnd(force: false);
+      }
+    } catch (_) {
+      // A background refresh is best-effort; explicit actions still report errors.
+    } finally {
+      _refreshingMessages = false;
     }
   }
 
@@ -736,7 +808,11 @@ class _ConversationPageState extends State<ConversationPage> {
       );
       if (!mounted) return;
       _composer.clear();
-      setState(() => _messages = <ChatMessage>[..._messages, message]);
+      setState(() {
+        if (!_messages.any((item) => item.id == message.id)) {
+          _messages = <ChatMessage>[..._messages, message];
+        }
+      });
       _scrollToEnd();
     } catch (error) {
       if (mounted) setState(() => _error = friendlyError(error));
@@ -852,15 +928,27 @@ class _ConversationPageState extends State<ConversationPage> {
                                 },
                               ),
                   ),
-                  if (!_nearBottom && !_loading)
+                  if ((!_nearBottom || _newMessageCount > 0) && !_loading)
                     Positioned(
                       right: 16,
                       bottom: 12,
-                      child: FloatingActionButton.small(
+                      child: FloatingActionButton.extended(
                         heroTag: 'conversation-scroll-bottom',
                         tooltip: 'Aller aux messages récents',
-                        onPressed: _scrollToEnd,
-                        child: const Icon(Icons.keyboard_arrow_down_rounded),
+                        onPressed: () {
+                          setState(() {
+                            _nearBottom = true;
+                            _newMessageCount = 0;
+                          });
+                          unawaited(_markReadQuietly());
+                          _scrollToEnd();
+                        },
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                        label: Text(
+                          _newMessageCount > 0
+                              ? '$_newMessageCount ${_newMessageCount > 1 ? 'nouveaux' : 'nouveau'}'
+                              : 'Messages récents',
+                        ),
                       ),
                     ),
                 ],
