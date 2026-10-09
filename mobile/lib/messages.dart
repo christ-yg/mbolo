@@ -1213,6 +1213,7 @@ class _ConversationPageState extends State<ConversationPage>
   Timer? _typingPoll;
   Timer? _messagePoll;
   String? _error;
+  String? _failedBody;
 
   @override
   void initState() {
@@ -1391,6 +1392,7 @@ class _ConversationPageState extends State<ConversationPage>
     setState(() {
       _sending = true;
       _error = null;
+      _failedBody = null;
     });
     try {
       final message = await widget.api.sendMessage(
@@ -1400,13 +1402,19 @@ class _ConversationPageState extends State<ConversationPage>
       if (!mounted) return;
       _composer.clear();
       setState(() {
+        _failedBody = null;
         if (!_messages.any((item) => item.id == message.id)) {
           _messages = <ChatMessage>[..._messages, message];
         }
       });
       _scrollToEnd();
     } catch (error) {
-      if (mounted) setState(() => _error = friendlyError(error));
+      if (mounted) {
+        setState(() {
+          _error = friendlyError(error);
+          _failedBody = body;
+        });
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -1425,6 +1433,21 @@ class _ConversationPageState extends State<ConversationPage>
   String _time(DateTime value) {
     final local = value.toLocal();
     return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  bool _sameDay(DateTime first, DateTime second) {
+    final a = first.toLocal();
+    final b = second.toLocal();
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  String _dateLabel(DateTime value) {
+    final date = value.toLocal();
+    final now = DateTime.now();
+    if (_sameDay(date, now)) return 'Aujourd’hui';
+    if (_sameDay(date, now.subtract(const Duration(days: 1)))) return 'Hier';
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
   @override
@@ -1510,11 +1533,24 @@ class _ConversationPageState extends State<ConversationPage>
                                 itemCount: _messages.length,
                                 itemBuilder: (context, index) {
                                   final message = _messages[index];
-                                  return _AnimatedMessageBubble(
+                                  final showDate = index == 0 ||
+                                      !_sameDay(
+                                        _messages[index - 1].createdAt,
+                                        message.createdAt,
+                                      );
+                                  return Column(
                                     key: ValueKey<String>(message.id),
-                                    message: message,
-                                    time: _time(message.createdAt),
-                                    order: index,
+                                    children: [
+                                      if (showDate)
+                                        _ConversationDateDivider(
+                                          label: _dateLabel(message.createdAt),
+                                        ),
+                                      _AnimatedMessageBubble(
+                                        message: message,
+                                        time: _time(message.createdAt),
+                                        order: index,
+                                      ),
+                                    ],
                                   );
                                 },
                               ),
@@ -1564,10 +1600,16 @@ class _ConversationPageState extends State<ConversationPage>
             ),
             if (_error != null)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+                child: _MessageSendError(
+                  message: _error!,
+                  canRetry: _failedBody != null,
+                  sending: _sending,
+                  onRetry: _send,
+                  onDismiss: () => setState(() {
+                    _error = null;
+                    _failedBody = null;
+                  }),
                 ),
               ),
             Container(
@@ -1629,6 +1671,96 @@ class _ConversationPageState extends State<ConversationPage>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConversationDateDivider extends StatelessWidget {
+  const _ConversationDateDivider({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 18),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: scheme.outlineVariant)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: .35,
+                  ),
+            ),
+          ),
+          Expanded(child: Divider(color: scheme.outlineVariant)),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessageSendError extends StatelessWidget {
+  const _MessageSendError({
+    required this.message,
+    required this.canRetry,
+    required this.sending,
+    required this.onRetry,
+    required this.onDismiss,
+  });
+
+  final String message;
+  final bool canRetry;
+  final bool sending;
+  final VoidCallback onRetry;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      liveRegion: true,
+      child: Material(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 9, 6, 9),
+          child: Row(
+            children: [
+              Icon(Icons.cloud_off_rounded, color: scheme.onErrorContainer),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onErrorContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              if (canRetry)
+                TextButton(
+                  onPressed: sending ? null : onRetry,
+                  child: const Text('Réessayer'),
+                ),
+              IconButton(
+                tooltip: 'Masquer l’erreur',
+                onPressed: onDismiss,
+                icon: const Icon(Icons.close_rounded),
+                color: scheme.onErrorContainer,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1709,6 +1841,53 @@ class _AnimatedMessageBubble extends StatelessWidget {
   final String time;
   final int order;
 
+  Future<void> _showActions(BuildContext context) async {
+    HapticFeedback.selectionClick();
+    final shouldCopy = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
+                child: Text(
+                  'Actions du message',
+                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.content_copy_rounded),
+                title: const Text('Copier le message'),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                onTap: () => Navigator.of(sheetContext).pop(true),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(sheetContext).pop(false),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (shouldCopy != true || !context.mounted) return;
+    await Clipboard.setData(ClipboardData(text: message.body));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Message copié.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -1730,14 +1909,7 @@ class _AnimatedMessageBubble extends StatelessWidget {
       child: Align(
         alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
         child: GestureDetector(
-          onLongPress: () async {
-            await Clipboard.setData(ClipboardData(text: message.body));
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Message copié.')),
-              );
-            }
-          },
+          onLongPress: () => _showActions(context),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 320),
             margin: const EdgeInsets.only(bottom: 10),
