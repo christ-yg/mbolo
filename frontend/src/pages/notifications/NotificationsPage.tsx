@@ -265,6 +265,9 @@ export function NotificationsPage() {
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] =
     useState<NotificationFilter>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkActionPending, setIsBulkActionPending] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.is_read).length,
@@ -276,6 +279,24 @@ export function NotificationsPage() {
       matchesNotificationFilter(notification, activeFilter)),
     [activeFilter, notifications],
   );
+
+  const filteredIds = useMemo(
+    () => filteredNotifications.map((notification) => notification.id),
+    [filteredNotifications],
+  );
+
+  const selectedNotifications = useMemo(
+    () => notifications.filter((notification) => selectedIds.has(notification.id)),
+    [notifications, selectedIds],
+  );
+
+  const selectedUnreadCount = useMemo(
+    () => selectedNotifications.filter((notification) => !notification.is_read).length,
+    [selectedNotifications],
+  );
+
+  const allFilteredSelected = filteredIds.length > 0 &&
+    filteredIds.every((id) => selectedIds.has(id));
 
   const groupedNotifications = useMemo(
     () => groupNotifications(filteredNotifications),
@@ -296,12 +317,37 @@ export function NotificationsPage() {
 
   const readCount = Math.max(0, totalCount - unreadCount);
 
+  function toggleNotificationSelection(notificationId: string): void {
+    setSelectedIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      if (nextIds.has(notificationId)) {
+        nextIds.delete(notificationId);
+      } else {
+        nextIds.add(notificationId);
+      }
+      return nextIds;
+    });
+  }
+
+  function toggleFilteredSelection(): void {
+    setSelectedIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      if (allFilteredSelected) {
+        filteredIds.forEach((id) => nextIds.delete(id));
+      } else {
+        filteredIds.forEach((id) => nextIds.add(id));
+      }
+      return nextIds;
+    });
+  }
+
   const loadFirstPage = useCallback(async (): Promise<void> => {
     setErrorMessage(null);
 
     try {
       const response = await getNotifications(1, 20);
       setNotifications(response.results);
+      setSelectedIds(new Set());
       setTotalCount(response.count);
       setCurrentPage(1);
       setHasNextPage(response.next !== null);
@@ -457,6 +503,11 @@ export function NotificationsPage() {
         currentItems.filter((item) => item.id !== notificationId),
       );
       setTotalCount((currentCount) => Math.max(0, currentCount - 1));
+      setSelectedIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.delete(notificationId);
+        return nextIds;
+      });
     } catch (error: unknown) {
       setErrorMessage(
         error instanceof Error
@@ -469,6 +520,97 @@ export function NotificationsPage() {
         nextIds.delete(notificationId);
         return nextIds;
       });
+    }
+  }
+
+  async function handleMarkSelectedRead(): Promise<void> {
+    const unreadIds = selectedNotifications
+      .filter((notification) => !notification.is_read)
+      .map((notification) => notification.id);
+
+    if (isBulkActionPending || unreadIds.length === 0) {
+      return;
+    }
+
+    setIsBulkActionPending(true);
+    setErrorMessage(null);
+    setPendingIds((currentIds) => new Set([...currentIds, ...unreadIds]));
+
+    const results = await Promise.allSettled(
+      unreadIds.map((notificationId) => markNotificationRead(notificationId)),
+    );
+    const updatedNotifications = new Map<string, NotificationItem>();
+    let failedCount = 0;
+
+    results.forEach((result) => {
+      if (result.status === "fulfilled") {
+        updatedNotifications.set(result.value.id, result.value);
+      } else {
+        failedCount += 1;
+      }
+    });
+
+    setNotifications((currentItems) => currentItems.map((item) =>
+      updatedNotifications.get(item.id) ?? item));
+    setPendingIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      unreadIds.forEach((id) => nextIds.delete(id));
+      return nextIds;
+    });
+    setIsBulkActionPending(false);
+
+    if (failedCount > 0) {
+      setErrorMessage(
+        `${failedCount} notification${failedCount > 1 ? "s n’ont" : " n’a"} pas pu être marquée${failedCount > 1 ? "s" : ""} comme lue${failedCount > 1 ? "s" : ""}.`,
+      );
+    }
+  }
+
+  async function handleDeleteSelected(): Promise<void> {
+    const ids = selectedNotifications.map((notification) => notification.id);
+    if (isBulkActionPending || ids.length === 0) {
+      return;
+    }
+
+    setBulkDeleteOpen(false);
+    setIsBulkActionPending(true);
+    setErrorMessage(null);
+    setPendingIds((currentIds) => new Set([...currentIds, ...ids]));
+
+    const results = await Promise.allSettled(
+      ids.map((notificationId) => deleteNotification(notificationId)),
+    );
+    const deletedIds = new Set<string>();
+    let failedCount = 0;
+
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        deletedIds.add(ids[index]);
+      } else {
+        failedCount += 1;
+      }
+    });
+
+    setNotifications((currentItems) =>
+      currentItems.filter((item) => !deletedIds.has(item.id)));
+    setTotalCount((currentCount) =>
+      Math.max(0, currentCount - deletedIds.size));
+    setSelectedIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      deletedIds.forEach((id) => nextIds.delete(id));
+      return nextIds;
+    });
+    setPendingIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      ids.forEach((id) => nextIds.delete(id));
+      return nextIds;
+    });
+    setIsBulkActionPending(false);
+
+    if (failedCount > 0) {
+      setErrorMessage(
+        `${failedCount} notification${failedCount > 1 ? "s n’ont" : " n’a"} pas pu être supprimée${failedCount > 1 ? "s" : ""}.`,
+      );
     }
   }
 
@@ -619,7 +761,10 @@ export function NotificationsPage() {
                   ? "notifications-filter notifications-filter--active"
                   : "notifications-filter"}
                 aria-pressed={activeFilter === filter.key}
-                onClick={() => setActiveFilter(filter.key)}
+                onClick={() => {
+                  setActiveFilter(filter.key);
+                  setSelectedIds(new Set());
+                }}
               >
                 <span aria-hidden="true">{filter.symbol}</span>
                 {filter.label}
@@ -628,6 +773,58 @@ export function NotificationsPage() {
             ))}
           </div>
         </div>
+
+        {filteredNotifications.length > 0 ? (
+          <div className="notifications-bulk" aria-label="Actions groupées">
+            <label className="notifications-bulk__select">
+              <input
+                type="checkbox"
+                checked={allFilteredSelected}
+                onChange={toggleFilteredSelection}
+              />
+              <span>
+                {allFilteredSelected
+                  ? "Désélectionner le filtre"
+                  : "Tout sélectionner dans ce filtre"}
+              </span>
+            </label>
+
+            {selectedIds.size > 0 ? (
+              <div className="notifications-bulk__actions">
+                <strong>
+                  {selectedIds.size} sélectionnée{selectedIds.size > 1 ? "s" : ""}
+                </strong>
+                <button
+                  type="button"
+                  disabled={isBulkActionPending || selectedUnreadCount === 0}
+                  onClick={() => void handleMarkSelectedRead()}
+                >
+                  Marquer comme lu
+                </button>
+                <button
+                  type="button"
+                  className="notifications-bulk__delete"
+                  disabled={isBulkActionPending}
+                  onClick={() => setBulkDeleteOpen(true)}
+                >
+                  Supprimer
+                </button>
+                <button
+                  type="button"
+                  className="notifications-bulk__clear"
+                  disabled={isBulkActionPending}
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Annuler
+                </button>
+              </div>
+            ) : (
+              <span className="notifications-bulk__hint">
+                Sélectionne plusieurs éléments pour agir en une fois.
+              </span>
+            )}
+          </div>
+        ) : null}
 
         <div className="notifications-list" aria-busy={isLoading}>
           {isLoading ? (
@@ -678,11 +875,24 @@ export function NotificationsPage() {
                       <article
                         key={notification.id}
                         className={
-                          notification.is_read
+                          `${notification.is_read
                             ? "notification-item"
-                            : "notification-item notification-item--unread"
+                            : "notification-item notification-item--unread"}${
+                            selectedIds.has(notification.id)
+                              ? " notification-item--selected"
+                              : ""
+                          }`
                         }
                       >
+                        <label className="notification-item__select">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(notification.id)}
+                            disabled={isPending || isBulkActionPending}
+                            aria-label={`Sélectionner la notification : ${notification.title}`}
+                            onChange={() => toggleNotificationSelection(notification.id)}
+                          />
+                        </label>
                         <button
                           type="button"
                           className="notification-item__main"
@@ -761,6 +971,42 @@ export function NotificationsPage() {
           </div>
         ) : null}
       </section>
+
+      {bulkDeleteOpen ? (
+        <div
+          className="notification-confirm-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) {
+              setBulkDeleteOpen(false);
+            }
+          }}
+        >
+          <section
+            className="notification-confirm"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="notification-confirm-title"
+            aria-describedby="notification-confirm-description"
+          >
+            <span className="notification-confirm__symbol" aria-hidden="true">×</span>
+            <p className="notifications-eyebrow">Nettoyage du centre</p>
+            <h2 id="notification-confirm-title">Supprimer la sélection ?</h2>
+            <p id="notification-confirm-description">
+              {selectedIds.size} notification{selectedIds.size > 1 ? "s seront" : " sera"}
+              {" "}retirée{selectedIds.size > 1 ? "s" : ""} définitivement de ton historique.
+            </p>
+            <div className="notification-confirm__actions">
+              <button type="button" onClick={() => setBulkDeleteOpen(false)}>
+                Conserver
+              </button>
+              <button type="button" onClick={() => void handleDeleteSelected()}>
+                Supprimer définitivement
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {preferencesOpen ? (
         <div
