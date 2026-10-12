@@ -337,6 +337,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Nouveau match avec Grâce'), findsOneWidget);
     expect(find.text('1 nouvelle'), findsOneWidget);
+    expect(find.text('Matchs 1'), findsOneWidget);
+    expect(find.text('Sécurité 1'), findsOneWidget);
+
+    await tester.tap(find.text('Non lues 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nouveau match avec Grâce'), findsOneWidget);
+    expect(find.text('Ton compte est protégé'), findsNothing);
+
+    await tester.tap(find.text('Tout 2'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Tout lire'));
     await tester.pumpAndSettle();

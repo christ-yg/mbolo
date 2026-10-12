@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import 'auth_contract.dart';
 
+enum _NotificationFilter { all, unread, messages, matches, likes, security }
+
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({
     super.key,
@@ -26,6 +28,7 @@ class _NotificationsPageState extends State<NotificationsPage>
   bool _refreshing = false;
   Timer? _refreshTimer;
   String? _error;
+  _NotificationFilter _filter = _NotificationFilter.all;
 
   @override
   void initState() {
@@ -160,6 +163,50 @@ class _NotificationsPageState extends State<NotificationsPage>
         _ => Icons.notifications_rounded,
       };
 
+  bool _matchesFilter(AppNotification item, _NotificationFilter filter) =>
+      switch (filter) {
+        _NotificationFilter.all => true,
+        _NotificationFilter.unread => !item.read,
+        _NotificationFilter.messages => item.kind == 'message',
+        _NotificationFilter.matches => item.kind == 'match',
+        _NotificationFilter.likes =>
+          item.kind == 'like' || item.kind == 'super_like',
+        _NotificationFilter.security => item.kind == 'security',
+      };
+
+  String _filterLabel(_NotificationFilter filter) => switch (filter) {
+        _NotificationFilter.all => 'Tout',
+        _NotificationFilter.unread => 'Non lues',
+        _NotificationFilter.messages => 'Messages',
+        _NotificationFilter.matches => 'Matchs',
+        _NotificationFilter.likes => 'Likes',
+        _NotificationFilter.security => 'Sécurité',
+      };
+
+  IconData _filterIcon(_NotificationFilter filter) => switch (filter) {
+        _NotificationFilter.all => Icons.inbox_rounded,
+        _NotificationFilter.unread => Icons.mark_email_unread_rounded,
+        _NotificationFilter.messages => Icons.chat_bubble_rounded,
+        _NotificationFilter.matches => Icons.favorite_rounded,
+        _NotificationFilter.likes => Icons.auto_awesome_rounded,
+        _NotificationFilter.security => Icons.shield_rounded,
+      };
+
+  int _filterCount(_NotificationFilter filter) =>
+      _items.where((item) => _matchesFilter(item, filter)).length;
+
+  String _dayLabel(DateTime value) {
+    final local = value.toLocal();
+    final now = DateTime.now();
+    final day = DateTime(local.year, local.month, local.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final difference = today.difference(day).inDays;
+    if (difference == 0) return 'Aujourd’hui';
+    if (difference == 1) return 'Hier';
+    if (difference < 7) return 'Cette semaine';
+    return 'Plus anciennes';
+  }
+
   String _date(DateTime value) {
     final local = value.toLocal();
     return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')} • ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
@@ -168,6 +215,9 @@ class _NotificationsPageState extends State<NotificationsPage>
   @override
   Widget build(BuildContext context) {
     final unread = _items.where((item) => !item.read).length;
+    final visibleItems = _items
+        .where((item) => _matchesFilter(item, _filter))
+        .toList(growable: false);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
@@ -270,41 +320,176 @@ class _NotificationsPageState extends State<NotificationsPage>
                       ),
                     ],
                     const SizedBox(height: 20),
+                    _NotificationFilters(
+                      selected: _filter,
+                      labelFor: _filterLabel,
+                      iconFor: _filterIcon,
+                      countFor: _filterCount,
+                      onSelected: (filter) => setState(() => _filter = filter),
+                    ),
+                    const SizedBox(height: 20),
                     if (_items.isEmpty)
                       const _NotificationEmptyState()
+                    else if (visibleItems.isEmpty)
+                      _NotificationFilteredEmptyState(
+                        filterLabel: _filterLabel(_filter),
+                        onReset: () => setState(
+                          () => _filter = _NotificationFilter.all,
+                        ),
+                      )
                     else
-                      ..._items.indexed.map(
+                      ...visibleItems.indexed.map(
                         (entry) {
                           final index = entry.$1;
                           final item = entry.$2;
-                          return Dismissible(
-                          key: ValueKey(item.id),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.only(right: 24),
-                            alignment: Alignment.centerRight,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.error,
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            child: const Icon(Icons.delete_outline, color: Colors.white),
-                          ),
-                          onDismissed: (_) => _delete(item),
-                          child: _AnimatedNotificationTile(
-                            item: item,
-                            index: index,
-                            icon: _icon(item.kind),
-                            date: _date(item.createdAt),
-                            working: _working,
-                            onTap: () => _open(item),
-                          ),
-                        );
+                          final dayLabel = _dayLabel(item.createdAt);
+                          final previousLabel = index == 0
+                              ? null
+                              : _dayLabel(visibleItems[index - 1].createdAt);
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (dayLabel != previousLabel)
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    top: index == 0 ? 0 : 12,
+                                    bottom: 10,
+                                    left: 4,
+                                  ),
+                                  child: Text(
+                                    dayLabel,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                  ),
+                                ),
+                              Dismissible(
+                                key: ValueKey(item.id),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.only(right: 24),
+                                  alignment: Alignment.centerRight,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.error,
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  child: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                onDismissed: (_) => _delete(item),
+                                child: _AnimatedNotificationTile(
+                                  item: item,
+                                  index: index,
+                                  icon: _icon(item.kind),
+                                  date: _date(item.createdAt),
+                                  working: _working,
+                                  onTap: () => _open(item),
+                                ),
+                              ),
+                            ],
+                          );
                         },
                       ),
                   ],
                 ),
               ),
+      ),
+    );
+  }
+}
+
+class _NotificationFilters extends StatelessWidget {
+  const _NotificationFilters({
+    required this.selected,
+    required this.labelFor,
+    required this.iconFor,
+    required this.countFor,
+    required this.onSelected,
+  });
+
+  final _NotificationFilter selected;
+  final String Function(_NotificationFilter) labelFor;
+  final IconData Function(_NotificationFilter) iconFor;
+  final int Function(_NotificationFilter) countFor;
+  final ValueChanged<_NotificationFilter> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Filtrer l’activité',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _NotificationFilter.values.map((filter) {
+              final selectedFilter = filter == selected;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  selected: selectedFilter,
+                  showCheckmark: false,
+                  avatar: Icon(iconFor(filter), size: 18),
+                  label: Text('${labelFor(filter)} ${countFor(filter)}'),
+                  onSelected: (_) => onSelected(filter),
+                ),
+              );
+            }).toList(growable: false),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationFilteredEmptyState extends StatelessWidget {
+  const _NotificationFilteredEmptyState({
+    required this.filterLabel,
+    required this.onReset,
+  });
+
+  final String filterLabel;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      child: Column(
+        children: [
+          Icon(Icons.filter_alt_off_rounded, size: 48, color: scheme.primary),
+          const SizedBox(height: 14),
+          Text(
+            'Aucune notification « $filterLabel »',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Les nouvelles activités correspondant à ce filtre apparaîtront ici.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 14),
+          TextButton.icon(
+            onPressed: onReset,
+            icon: const Icon(Icons.inbox_rounded),
+            label: const Text('Voir toute l’activité'),
+          ),
+        ],
       ),
     );
   }
