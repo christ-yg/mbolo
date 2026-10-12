@@ -197,6 +197,22 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    expect(find.text('Activité de sécurité'), findsOneWidget);
+    await tester.tap(find.text('Activité de sécurité'));
+    await tester.pumpAndSettle();
+    expect(find.text('Alertes de connexion par e-mail'), findsOneWidget);
+    expect(find.text('MBOLO · Android'), findsOneWidget);
+    await tester.tap(find.text('Journal'));
+    await tester.pumpAndSettle();
+    expect(find.text('Connexion au compte'), findsOneWidget);
+    expect(find.text('Réussi'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Exporter mes données'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Désactiver mon compte'), findsOneWidget);
     expect(find.text('Supprimer définitivement'), findsOneWidget);
   });

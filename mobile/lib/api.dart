@@ -203,6 +203,53 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<List<LoginActivity>> getLoginActivity() async {
+    final response = await client.get<dynamic>('auth/security/login-activity/');
+    final payload = response.data;
+    final raw = payload is Map<String, dynamic> ? payload['data'] : null;
+    if (raw is! List) throw const FormatException('Historique incorrect.');
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(LoginActivity.fromJson)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<AccountSecurityEvent>> getSecurityEvents() async {
+    final response = await client.get<dynamic>('auth/security/events/');
+    final rawData = response.data;
+    final raw = rawData is Map<String, dynamic> && rawData['data'] is List
+        ? rawData['data']
+        : rawData;
+    if (raw is! List) throw const FormatException('Journal de sécurité incorrect.');
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(AccountSecurityEvent.fromJson)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<LoginAlertPreference> getLoginAlertPreference() async {
+    final response = await client.get<dynamic>(
+      'auth/security/login-alert-emails/',
+    );
+    return LoginAlertPreference.fromJson(objectData(response.data));
+  }
+
+  @override
+  Future<LoginAlertPreference> updateLoginAlertPreference({
+    required bool enabled,
+    required String currentPassword,
+  }) async {
+    return LoginAlertPreference.fromJson(
+      await _patchObject('auth/security/login-alert-emails/', {
+        'enabled': enabled,
+        'current_password': currentPassword,
+      }),
+    );
+  }
+
+  @override
   Future<void> revokeConnectedSession({
     required String sessionId,
     required String currentPassword,

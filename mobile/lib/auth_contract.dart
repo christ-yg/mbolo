@@ -94,6 +94,70 @@ class ConnectedSession {
   }
 }
 
+class LoginActivity {
+  const LoginActivity({
+    required this.id,
+    required this.method,
+    required this.device,
+    required this.ipFingerprint,
+    required this.createdAt,
+  });
+  final String id;
+  final String method;
+  final String device;
+  final String ipFingerprint;
+  final DateTime createdAt;
+
+  factory LoginActivity.fromJson(Map<String, dynamic> data) => LoginActivity(
+        id: data['id']?.toString() ?? '',
+        method: data['method']?.toString() ?? 'password',
+        device: data['device']?.toString() ?? 'Appareil inconnu',
+        ipFingerprint: data['ipFingerprint']?.toString() ?? '',
+        createdAt: DateTime.tryParse(data['createdAt']?.toString() ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      );
+}
+
+class AccountSecurityEvent {
+  const AccountSecurityEvent({
+    required this.id,
+    required this.event,
+    required this.outcome,
+    required this.reason,
+    required this.createdAt,
+  });
+  final String id;
+  final String event;
+  final String outcome;
+  final String reason;
+  final DateTime createdAt;
+
+  factory AccountSecurityEvent.fromJson(Map<String, dynamic> data) =>
+      AccountSecurityEvent(
+        id: data['id']?.toString() ?? '',
+        event: data['event']?.toString() ?? 'security.event',
+        outcome: data['outcome']?.toString() ?? 'unknown',
+        reason: data['reason']?.toString() ?? '',
+        createdAt: DateTime.tryParse(data['createdAt']?.toString() ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      );
+}
+
+class LoginAlertPreference {
+  const LoginAlertPreference({
+    required this.emailEnabled,
+    required this.internalEnabled,
+  });
+  final bool emailEnabled;
+  final bool internalEnabled;
+
+  factory LoginAlertPreference.fromJson(Map<String, dynamic> data) =>
+      LoginAlertPreference(
+        emailEnabled: data['loginAlertEmailsEnabled'] == true,
+        internalEnabled: data['internalSecurityNotificationsEnabled'] == true,
+      );
+}
+
 class LoginResult {
   const LoginResult({this.account, this.challenge, this.maskedEmail});
   final Account? account;
@@ -1112,6 +1176,13 @@ abstract class AuthApi {
   Future<Account> me();
   Future<Account?> restoreSession();
   Future<List<ConnectedSession>> getConnectedSessions();
+  Future<List<LoginActivity>> getLoginActivity();
+  Future<List<AccountSecurityEvent>> getSecurityEvents();
+  Future<LoginAlertPreference> getLoginAlertPreference();
+  Future<LoginAlertPreference> updateLoginAlertPreference({
+    required bool enabled,
+    required String currentPassword,
+  });
   Future<void> revokeConnectedSession({
     required String sessionId,
     required String currentPassword,

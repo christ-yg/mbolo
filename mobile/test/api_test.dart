@@ -109,6 +109,37 @@ class FakeServer implements HttpClientAdapter {
           },
         ],
       };
+    } else if (path.endsWith('/auth/security/login-activity/')) {
+      data = {
+        'data': [
+          {
+            'id': 'login-1',
+            'method': 'email_2fa',
+            'device': 'MBOLO · Android',
+            'ipFingerprint': 'c8f2a4d9',
+            'createdAt': '2026-10-12T17:30:00Z',
+          },
+        ],
+      };
+    } else if (path.endsWith('/auth/security/events/')) {
+      data = [
+        {
+          'id': 'event-1',
+          'event': 'auth.login',
+          'outcome': 'success',
+          'reason': 'email_2fa_confirmed',
+          'createdAt': '2026-10-12T17:30:00Z',
+        },
+      ];
+    } else if (path.endsWith('/auth/security/login-alert-emails/')) {
+      data = {
+        'data': {
+          'loginAlertEmailsEnabled': options.method == 'PATCH'
+              ? options.data['enabled']
+              : true,
+          'internalSecurityNotificationsEnabled': true,
+        },
+      };
     } else if (path.endsWith('/premium/overview/')) {
       data = {
         'data': {
@@ -1002,6 +1033,32 @@ void main() {
 
     await api.unblockUser(blocked.single.id);
     expect(server.requests.last.method, 'DELETE');
+    expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
+  });
+
+  test('Security activity and login alerts remain account scoped', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final logins = await api.getLoginActivity();
+    expect(logins.single.method, 'email_2fa');
+    final events = await api.getSecurityEvents();
+    expect(events.single.outcome, 'success');
+    final preference = await api.getLoginAlertPreference();
+    expect(preference.emailEnabled, isTrue);
+    expect(preference.internalEnabled, isTrue);
+
+    final updated = await api.updateLoginAlertPreference(
+      enabled: false,
+      currentPassword: 'MboloDemo!',
+    );
+    expect(updated.emailEnabled, isFalse);
+    expect(updated.internalEnabled, isTrue);
+    expect(server.requests.last.method, 'PATCH');
     expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
   });
 

@@ -22,6 +22,7 @@ class DemoApi implements AuthApi {
       );
   final List<PremiumPayment> _premiumPayments = <PremiumPayment>[];
   bool _twoFactorEnabled = true;
+  bool _loginAlertEmailsEnabled = true;
   final List<ConnectedSession> _sessions = <ConnectedSession>[
     ConnectedSession(
       id: 'demo-current-session',
@@ -366,6 +367,62 @@ class DemoApi implements AuthApi {
 
   @override
   Future<MemberProfile> getProfile() async => _profile;
+
+  @override
+  Future<List<LoginActivity>> getLoginActivity() async => <LoginActivity>[
+        LoginActivity(
+          id: 'demo-login-1',
+          method: 'email_2fa',
+          device: 'MBOLO · Android',
+          ipFingerprint: 'c8f2a4d9',
+          createdAt: DateTime(2026, 10, 12, 17, 30),
+        ),
+        LoginActivity(
+          id: 'demo-login-2',
+          method: 'password',
+          device: 'Chrome · Windows',
+          ipFingerprint: 'a19e20bf',
+          createdAt: DateTime(2026, 10, 11, 8, 15),
+        ),
+      ];
+
+  @override
+  Future<List<AccountSecurityEvent>> getSecurityEvents() async =>
+      <AccountSecurityEvent>[
+        AccountSecurityEvent(
+          id: 'demo-event-1',
+          event: 'auth.login',
+          outcome: 'success',
+          reason: 'email_2fa_confirmed',
+          createdAt: DateTime(2026, 10, 12, 17, 30),
+        ),
+        AccountSecurityEvent(
+          id: 'demo-event-2',
+          event: 'auth.login',
+          outcome: 'failure',
+          reason: 'invalid_credentials',
+          createdAt: DateTime(2026, 10, 11, 8, 10),
+        ),
+      ];
+
+  @override
+  Future<LoginAlertPreference> getLoginAlertPreference() async =>
+      LoginAlertPreference(
+        emailEnabled: _loginAlertEmailsEnabled,
+        internalEnabled: true,
+      );
+
+  @override
+  Future<LoginAlertPreference> updateLoginAlertPreference({
+    required bool enabled,
+    required String currentPassword,
+  }) async {
+    if (!_validDemoPassword(currentPassword)) {
+      throw const FormatException('Mot de passe incorrect.');
+    }
+    _loginAlertEmailsEnabled = enabled;
+    return LoginAlertPreference(emailEnabled: enabled, internalEnabled: true);
+  }
 
   @override
   Future<ProfileVerificationState> getProfileVerification() async {

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'auth_contract.dart';
 import 'trust_center.dart';
+import 'security_activity.dart';
 
 class SecurityPage extends StatefulWidget {
   const SecurityPage({
@@ -608,6 +609,21 @@ class _SecurityPageState extends State<SecurityPage> {
                       : () => Navigator.of(context).push<void>(
                             MaterialPageRoute<void>(
                               builder: (context) => TrustCenterPage(api: widget.api),
+                            ),
+                          ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  enabled: !_working,
+                  leading: const Icon(Icons.history_rounded),
+                  title: const Text('Activité de sécurité'),
+                  subtitle: const Text('Connexions, événements et alertes e-mail'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _working
+                      ? null
+                      : () => Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (context) => SecurityActivityPage(api: widget.api),
                             ),
                           ),
                 ),
