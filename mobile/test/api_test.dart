@@ -70,6 +70,45 @@ class FakeServer implements HttpClientAdapter {
         'reviewed_at': null,
         'updated_at': '2026-10-12T10:00:00Z',
       };
+    } else if (path.endsWith('/safety/blocks/')) {
+      data = {
+        'count': 1,
+        'next': null,
+        'previous': null,
+        'results': [
+          {
+            'id': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'blocked_profile': {
+              'id': 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+              'display_name': 'Alex',
+              'city': 'libreville',
+              'city_label': 'Libreville',
+              'photos': <Map<String, dynamic>>[],
+            },
+            'created_at': '2026-10-10T12:00:00Z',
+          },
+        ],
+      };
+    } else if (path.contains('/safety/blocks/') && options.method == 'DELETE') {
+      status = 204;
+      data = '';
+    } else if (path.endsWith('/safety/reports/')) {
+      data = {
+        'count': 1,
+        'next': null,
+        'previous': null,
+        'results': [
+          {
+            'id': 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+            'reported_profile': {'display_name': 'Compte signalé'},
+            'reason': 'fake_profile',
+            'description': 'Informations incohérentes.',
+            'status': 'under_review',
+            'created_at': '2026-10-11T09:30:00Z',
+            'updated_at': '2026-10-11T10:00:00Z',
+          },
+        ],
+      };
     } else if (path.endsWith('/premium/overview/')) {
       data = {
         'data': {
@@ -943,6 +982,27 @@ void main() {
     expect(request.method, 'POST');
     expect(request.data, isA<FormData>());
     expect(request.headers['X-CSRFToken'], 'csrf-test');
+  });
+
+  test('Trust centre lists private safety history and unblocks with CSRF', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final blocked = await api.getBlockedUsers();
+    expect(blocked.single.displayName, 'Alex');
+    expect(blocked.single.city, 'Libreville');
+
+    final reports = await api.getMyReports();
+    expect(reports.single.status, 'under_review');
+    expect(reports.single.reason, 'fake_profile');
+
+    await api.unblockUser(blocked.single.id);
+    expect(server.requests.last.method, 'DELETE');
+    expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
   });
 
 }

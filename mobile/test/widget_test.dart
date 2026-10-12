@@ -181,6 +181,22 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    expect(find.text('Confiance et modération'), findsOneWidget);
+    await tester.tap(find.text('Confiance et modération'));
+    await tester.pumpAndSettle();
+    expect(find.text('Alex'), findsOneWidget);
+    expect(find.text('Débloquer'), findsOneWidget);
+    await tester.tap(find.text('Signalements'));
+    await tester.pumpAndSettle();
+    expect(find.text('Compte signalé'), findsOneWidget);
+    expect(find.text('En examen'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Exporter mes données'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Désactiver mon compte'), findsOneWidget);
     expect(find.text('Supprimer définitivement'), findsOneWidget);
   });
@@ -360,7 +376,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Nouveau match avec Grâce'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Ton compte est protégé'));
+    await tester.scrollUntilVisible(
+      find.text('Ton compte est protégé'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
     await tester.longPress(find.text('Ton compte est protégé'));
     await tester.pumpAndSettle();
     expect(find.text('1 sélectionnée'), findsOneWidget);

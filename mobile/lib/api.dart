@@ -502,6 +502,51 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<List<BlockedUserItem>> getBlockedUsers() async {
+    final response = await client.get<dynamic>(
+      'safety/blocks/',
+      queryParameters: const {'page': 1, 'page_size': 50},
+    );
+    final raw = response.data;
+    if (raw is! Map<String, dynamic> || raw['results'] is! List) {
+      throw const FormatException('Liste des blocages incorrecte.');
+    }
+    return (raw['results'] as List<dynamic>)
+        .whereType<Map<String, dynamic>>()
+        .map(BlockedUserItem.fromJson)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> unblockUser(String blockId) async {
+    final csrf = await client.get<dynamic>('csrf/');
+    final token = objectData(csrf.data)['csrfToken'];
+    if (token is! String || token.isEmpty) {
+      throw const FormatException('Protection CSRF indisponible.');
+    }
+    await client.delete<dynamic>(
+      'safety/blocks/$blockId/',
+      options: Options(headers: {'X-CSRFToken': token}),
+    );
+  }
+
+  @override
+  Future<List<UserReportItem>> getMyReports() async {
+    final response = await client.get<dynamic>(
+      'safety/reports/',
+      queryParameters: const {'page': 1, 'page_size': 50},
+    );
+    final raw = response.data;
+    if (raw is! Map<String, dynamic> || raw['results'] is! List) {
+      throw const FormatException('Liste des signalements incorrecte.');
+    }
+    return (raw['results'] as List<dynamic>)
+        .whereType<Map<String, dynamic>>()
+        .map(UserReportItem.fromJson)
+        .toList(growable: false);
+  }
+
+  @override
   Future<DiscoveryPreferences> getPreferences() async {
     final response = await client.get<dynamic>('profiles/preferences/me/');
     return DiscoveryPreferences.fromJson(objectData(response.data));

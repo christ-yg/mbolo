@@ -655,6 +655,93 @@ class ProfileVerificationState {
   }
 }
 
+class BlockedUserItem {
+  const BlockedUserItem({
+    required this.id,
+    required this.displayName,
+    required this.city,
+    required this.createdAt,
+    this.photoUrl = '',
+  });
+
+  final String id;
+  final String displayName;
+  final String city;
+  final String photoUrl;
+  final DateTime createdAt;
+
+  factory BlockedUserItem.fromJson(Map<String, dynamic> data) {
+    final id = data['id'];
+    final profile = data['blocked_profile'];
+    if (id is! String || id.isEmpty) {
+      throw const FormatException('Blocage incorrect.');
+    }
+    var photoUrl = '';
+    if (profile is Map<String, dynamic> && profile['photos'] is List) {
+      final photos = profile['photos'] as List<dynamic>;
+      final primary = photos.whereType<Map<String, dynamic>>().where(
+            (item) => item['is_primary'] == true,
+          );
+      final typedPhotos = photos.whereType<Map<String, dynamic>>().toList();
+      final photo = primary.isNotEmpty
+          ? primary.first
+          : typedPhotos.isEmpty
+              ? null
+              : typedPhotos.first;
+      photoUrl = photo?['image_url']?.toString() ?? '';
+    }
+    return BlockedUserItem(
+      id: id,
+      displayName: profile is Map<String, dynamic>
+          ? profile['display_name']?.toString() ?? 'Profil indisponible'
+          : 'Profil indisponible',
+      city: profile is Map<String, dynamic>
+          ? profile['city_label']?.toString() ?? profile['city']?.toString() ?? ''
+          : '',
+      photoUrl: photoUrl,
+      createdAt: DateTime.tryParse(data['created_at']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+    );
+  }
+}
+
+class UserReportItem {
+  const UserReportItem({
+    required this.id,
+    required this.displayName,
+    required this.reason,
+    required this.description,
+    required this.status,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String displayName;
+  final String reason;
+  final String description;
+  final String status;
+  final DateTime createdAt;
+
+  factory UserReportItem.fromJson(Map<String, dynamic> data) {
+    final id = data['id'];
+    if (id is! String || id.isEmpty) {
+      throw const FormatException('Signalement incorrect.');
+    }
+    final profile = data['reported_profile'];
+    return UserReportItem(
+      id: id,
+      displayName: profile is Map<String, dynamic>
+          ? profile['display_name']?.toString() ?? 'Profil indisponible'
+          : 'Profil indisponible',
+      reason: data['reason']?.toString() ?? 'other',
+      description: data['description']?.toString() ?? '',
+      status: data['status']?.toString() ?? 'pending',
+      createdAt: DateTime.tryParse(data['created_at']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+    );
+  }
+}
+
 class DiscoveryPreferences {
   const DiscoveryPreferences({
     required this.minimumAge,
@@ -1079,6 +1166,9 @@ abstract class AuthApi {
     required Uint8List bytes,
     required String filename,
   });
+  Future<List<BlockedUserItem>> getBlockedUsers();
+  Future<void> unblockUser(String blockId);
+  Future<List<UserReportItem>> getMyReports();
   Future<DiscoveryPreferences> getPreferences();
   Future<DiscoveryPreferences> updatePreferences({
     required int minimumAge,

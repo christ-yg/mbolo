@@ -108,6 +108,24 @@ class DemoApi implements AuthApi {
 
   final List<ProfilePhoto> _photos = <ProfilePhoto>[];
   final Set<String> _blockedProfiles = <String>{};
+  final List<BlockedUserItem> _blockedUsers = <BlockedUserItem>[
+    BlockedUserItem(
+      id: 'demo-block-1',
+      displayName: 'Alex',
+      city: 'Libreville',
+      createdAt: DateTime(2026, 10, 10, 12),
+    ),
+  ];
+  final List<UserReportItem> _reports = <UserReportItem>[
+    UserReportItem(
+      id: 'demo-report-1',
+      displayName: 'Compte signalé',
+      reason: 'fake_profile',
+      description: 'Photos et informations incohérentes.',
+      status: 'under_review',
+      createdAt: DateTime(2026, 10, 11, 9, 30),
+    ),
+  ];
   final List<AppNotification> _notifications = <AppNotification>[
     AppNotification(
       id: 'notification-match',
@@ -371,6 +389,23 @@ class DemoApi implements AuthApi {
       submittedAt: DateTime.now(),
     );
     return _profileVerification;
+  }
+
+  @override
+  Future<List<BlockedUserItem>> getBlockedUsers() async {
+    return List<BlockedUserItem>.unmodifiable(_blockedUsers);
+  }
+
+  @override
+  Future<void> unblockUser(String blockId) async {
+    final exists = _blockedUsers.any((item) => item.id == blockId);
+    if (!exists) throw const FormatException('Blocage introuvable.');
+    _blockedUsers.removeWhere((item) => item.id == blockId);
+  }
+
+  @override
+  Future<List<UserReportItem>> getMyReports() async {
+    return List<UserReportItem>.unmodifiable(_reports);
   }
 
   @override

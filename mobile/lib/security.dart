@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'auth_contract.dart';
+import 'trust_center.dart';
 
 class SecurityPage extends StatefulWidget {
   const SecurityPage({
@@ -596,6 +597,21 @@ class _SecurityPageState extends State<SecurityPage> {
           Card(
             child: Column(
               children: [
+                ListTile(
+                  enabled: !_working,
+                  leading: const Icon(Icons.health_and_safety_outlined),
+                  title: const Text('Confiance et modération'),
+                  subtitle: const Text('Blocages et suivi de mes signalements'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _working
+                      ? null
+                      : () => Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (context) => TrustCenterPage(api: widget.api),
+                            ),
+                          ),
+                ),
+                const Divider(height: 1),
                 ListTile(
                   enabled: !_working,
                   leading: const Icon(Icons.download_outlined),
