@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'auth_contract.dart';
+import 'message_drafts.dart';
 import 'safety_actions.dart';
 
 class MessagesPage extends StatefulWidget {
@@ -1245,10 +1246,12 @@ class ConversationPage extends StatefulWidget {
     super.key,
     required this.api,
     required this.conversation,
+    this.draftStore,
   });
 
   final AuthApi api;
   final ConversationSummary conversation;
+  final MessageDraftStore? draftStore;
 
   @override
   State<ConversationPage> createState() => _ConversationPageState();
@@ -1260,6 +1263,8 @@ class _ConversationPageState extends State<ConversationPage>
   final TextEditingController _messageSearch = TextEditingController();
   final ScrollController _scroll = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
+  late final MessageDraftStore _draftStore =
+      widget.draftStore ?? EncryptedMessageDraftStore();
   List<ChatMessage> _messages = <ChatMessage>[];
   bool _loading = true;
   bool _sending = false;
@@ -1269,6 +1274,7 @@ class _ConversationPageState extends State<ConversationPage>
   bool _refreshingMessages = false;
   int _newMessageCount = 0;
   Timer? _typingDebounce;
+  Timer? _draftDebounce;
   Timer? _typingPoll;
   Timer? _messagePoll;
   String? _error;
@@ -1278,6 +1284,7 @@ class _ConversationPageState extends State<ConversationPage>
   bool _pickingImage = false;
   ChatMessage? _replyingTo;
   bool _searching = false;
+  bool _restoringDraft = true;
   String _messageQuery = '';
   late bool _pinned = widget.conversation.pinned;
   late bool _muted = widget.conversation.muted;
@@ -1290,6 +1297,7 @@ class _ConversationPageState extends State<ConversationPage>
     _composer.addListener(_onComposerChanged);
     _messageSearch.addListener(_onMessageSearchChanged);
     _scroll.addListener(_onScroll);
+    unawaited(_restoreDraft());
     _load();
     _pollTyping();
     _typingPoll = Timer.periodic(
@@ -1302,10 +1310,14 @@ class _ConversationPageState extends State<ConversationPage>
   @override
   void dispose() {
     _typingDebounce?.cancel();
+    _draftDebounce?.cancel();
     _typingPoll?.cancel();
     _messagePoll?.cancel();
     if (_selfTyping) {
       unawaited(_publishTyping(false));
+    }
+    if (!_sending) {
+      unawaited(_saveDraftQuietly(_composer.text));
     }
     _composer.removeListener(_onComposerChanged);
     _messageSearch.removeListener(_onMessageSearchChanged);
@@ -1398,6 +1410,43 @@ class _ConversationPageState extends State<ConversationPage>
         _selfTyping = false;
         unawaited(_publishTyping(false));
       });
+    }
+    if (!_restoringDraft) {
+      _draftDebounce?.cancel();
+      _draftDebounce = Timer(const Duration(milliseconds: 450), () {
+        unawaited(_saveDraftQuietly(_composer.text));
+      });
+    }
+  }
+
+  Future<void> _saveDraftQuietly(String value) async {
+    try {
+      await _draftStore.write(widget.conversation.id, value);
+    } catch (_) {
+      // Draft persistence is best-effort and never interrupts message editing.
+    }
+  }
+
+  Future<void> _clearDraftQuietly() async {
+    try {
+      await _draftStore.clear(widget.conversation.id);
+    } catch (_) {
+      // The cleared composer remains authoritative if storage is unavailable.
+    }
+  }
+
+  Future<void> _restoreDraft() async {
+    try {
+      final draft = await _draftStore.read(widget.conversation.id);
+      if (!mounted || draft == null || _composer.text.isNotEmpty) return;
+      _composer.value = TextEditingValue(
+        text: draft,
+        selection: TextSelection.collapsed(offset: draft.length),
+      );
+    } catch (_) {
+      // A storage failure must never block the conversation.
+    } finally {
+      _restoringDraft = false;
     }
   }
 
@@ -1505,7 +1554,9 @@ class _ConversationPageState extends State<ConversationPage>
         replyToId: reply?.id,
       );
       if (!mounted) return;
+      _draftDebounce?.cancel();
       _composer.clear();
+      unawaited(_clearDraftQuietly());
       setState(() {
         _failedBody = null;
         _pendingImage = null;

@@ -1,7 +1,25 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mbolo_mobile/demo_api.dart';
+import 'package:mbolo_mobile/message_drafts.dart';
 
 void main() {
+  test('les brouillons restent privés par conversation', () async {
+    final drafts = MemoryMessageDraftStore();
+
+    await drafts.write('conversation-a', 'Un message à terminer');
+    await drafts.write('conversation-b', 'Autre brouillon');
+
+    expect(await drafts.read('conversation-a'), 'Un message à terminer');
+    expect(await drafts.read('conversation-b'), 'Autre brouillon');
+
+    await drafts.clear('conversation-a');
+    expect(await drafts.read('conversation-a'), isNull);
+    expect(await drafts.read('conversation-b'), 'Autre brouillon');
+
+    await drafts.write('conversation-b', '   ');
+    expect(await drafts.read('conversation-b'), isNull);
+  });
+
   test('la démo liste, lit et envoie des messages', () async {
     final api = DemoApi();
 
