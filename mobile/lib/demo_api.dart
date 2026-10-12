@@ -4,6 +4,10 @@ import 'auth_contract.dart';
 
 /// Local-only demonstration: no HTTP client and no persistent storage.
 class DemoApi implements AuthApi {
+  DemoApi({bool advancedFiltersAvailable = false})
+      : _advancedFilters = AdvancedDiscoveryFilters(available: advancedFiltersAvailable);
+  AdvancedDiscoveryFilters _advancedFilters;
+
   static const account = Account('demo', 'demo@mbolo.test', true);
   bool _authenticated = false;
   bool _conversationPinned = false;
@@ -638,6 +642,23 @@ class DemoApi implements AuthApi {
   @override
   Future<void> deletePhoto(String id) async {
     _photos.removeWhere((photo) => photo.id == id);
+  }
+
+  @override
+  Future<AdvancedDiscoveryFilters> getAdvancedDiscoveryFilters() async => _advancedFilters;
+
+  @override
+  Future<AdvancedDiscoveryFilters> updateAdvancedDiscoveryFilters(
+    AdvancedDiscoveryFilters filters,
+  ) async {
+    if (!_advancedFilters.available) {
+      throw const FormatException('Abonnement requis.');
+    }
+    _advancedFilters = AdvancedDiscoveryFilters.fromJson({
+      ...filters.toUpdateJson(),
+      'advanced_filters_available': true,
+    });
+    return _advancedFilters;
   }
 
   @override

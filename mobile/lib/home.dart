@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'auth_contract.dart';
+import 'advanced_discovery.dart';
 import 'design_system.dart';
 import 'messages.dart';
 import 'notifications.dart';
@@ -3128,11 +3129,15 @@ class _PreferencesPageState extends State<_PreferencesPage> {
                             ? Icons.workspace_premium
                             : Icons.lock_outline,
                       ),
+                      onTap: _saving ? null : () => Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(builder: (_) => AdvancedDiscoveryPage(api: widget.api)),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
                       title: const Text('Filtres avancés'),
                       subtitle: Text(
                         _advancedFiltersAvailable
                             ? 'Disponibles avec ton abonnement actif.'
-                            : 'Villes, intentions, distance et profils vérifiés seront proposés avec MBOLO Plus.',
+                            : 'Villes, intentions, distance et profils vérifiés avec un abonnement compatible.',
                       ),
                     ),
                   ),

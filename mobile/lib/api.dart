@@ -594,6 +594,19 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<AdvancedDiscoveryFilters> getAdvancedDiscoveryFilters() async {
+    final response = await client.get<dynamic>('profiles/preferences/me/');
+    return AdvancedDiscoveryFilters.fromJson(objectData(response.data));
+  }
+
+  @override
+  Future<AdvancedDiscoveryFilters> updateAdvancedDiscoveryFilters(
+    AdvancedDiscoveryFilters filters,
+  ) async => AdvancedDiscoveryFilters.fromJson(
+    await _patchObject('profiles/preferences/me/', filters.toUpdateJson()),
+  );
+
+  @override
   Future<DiscoveryPreferences> getPreferences() async {
     final response = await client.get<dynamic>('profiles/preferences/me/');
     return DiscoveryPreferences.fromJson(objectData(response.data));

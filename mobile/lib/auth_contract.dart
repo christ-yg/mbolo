@@ -806,6 +806,53 @@ class UserReportItem {
   }
 }
 
+class AdvancedDiscoveryFilters {
+  const AdvancedDiscoveryFilters({
+    required this.available,
+    this.cities = const [],
+    this.intents = const [],
+    this.distanceKm = 50,
+    this.verifiedOnly = false,
+    this.photosOnly = false,
+  });
+  final bool available;
+  final List<String> cities;
+  final List<String> intents;
+  final int distanceKm;
+  final bool verifiedOnly;
+  final bool photosOnly;
+
+  factory AdvancedDiscoveryFilters.fromJson(Map<String, dynamic> data) {
+    final distance = data['maximum_distance_km'];
+    final cities = data['preferred_cities'];
+    final intents = data['preferred_dating_intents'];
+    if (distance is! int || distance < 1 || distance > 500 ||
+        cities is! List || cities.any((value) => value is! String) ||
+        intents is! List || intents.any((value) => value is! String) ||
+        data['only_verified_profiles'] is! bool ||
+        data['only_profiles_with_photos'] is! bool ||
+        data['advanced_filters_available'] is! bool) {
+      throw const FormatException('Filtres avancés incorrects.');
+    }
+    return AdvancedDiscoveryFilters(
+      available: data['advanced_filters_available'] == true,
+      cities: List<String>.unmodifiable(cities.cast<String>()),
+      intents: List<String>.unmodifiable(intents.cast<String>()),
+      distanceKm: distance,
+      verifiedOnly: data['only_verified_profiles'] == true,
+      photosOnly: data['only_profiles_with_photos'] == true,
+    );
+  }
+
+  Map<String, dynamic> toUpdateJson() => {
+    'preferred_cities': cities,
+    'preferred_dating_intents': intents,
+    'maximum_distance_km': distanceKm,
+    'only_verified_profiles': verifiedOnly,
+    'only_profiles_with_photos': photosOnly,
+  };
+}
+
 class DiscoveryPreferences {
   const DiscoveryPreferences({
     required this.minimumAge,
@@ -1240,6 +1287,8 @@ abstract class AuthApi {
   Future<List<BlockedUserItem>> getBlockedUsers();
   Future<void> unblockUser(String blockId);
   Future<List<UserReportItem>> getMyReports();
+  Future<AdvancedDiscoveryFilters> getAdvancedDiscoveryFilters();
+  Future<AdvancedDiscoveryFilters> updateAdvancedDiscoveryFilters(AdvancedDiscoveryFilters filters);
   Future<DiscoveryPreferences> getPreferences();
   Future<DiscoveryPreferences> updatePreferences({
     required int minimumAge,

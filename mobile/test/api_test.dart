@@ -430,6 +430,11 @@ class FakeServer implements HttpClientAdapter {
           'maximum_age': 39,
           'preferred_genders': ['woman'],
           'advanced_filters_available': false,
+          'preferred_cities': ['libreville'],
+          'preferred_dating_intents': ['friendship'],
+          'maximum_distance_km': 120,
+          'only_verified_profiles': true,
+          'only_profiles_with_photos': true,
         },
       };
     } else if (path.endsWith('/profiles/me/')) {
@@ -1060,6 +1065,29 @@ void main() {
     expect(updated.internalEnabled, isTrue);
     expect(server.requests.last.method, 'PATCH');
     expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
+  });
+
+  test('Advanced discovery reads and patches only private filter fields with CSRF', () async {
+    final server = FakeServer();
+    final api = MboloApi('https://example.com', client: Dio()..httpClientAdapter = server);
+    addTearDown(api.close);
+    final filters = await api.getAdvancedDiscoveryFilters();
+    expect(filters.cities, ['libreville']);
+    expect(filters.intents, ['friendship']);
+    expect(filters.distanceKm, 120);
+    expect(filters.verifiedOnly, isTrue);
+    expect(filters.photosOnly, isTrue);
+    await api.updateAdvancedDiscoveryFilters(filters);
+    final request = server.requests.last;
+    expect(request.method, 'PATCH');
+    expect(request.headers['X-CSRFToken'], 'csrf-test');
+    expect(request.data, {
+      'preferred_cities': ['libreville'],
+      'preferred_dating_intents': ['friendship'],
+      'maximum_distance_km': 120,
+      'only_verified_profiles': true,
+      'only_profiles_with_photos': true,
+    });
   });
 
 }
