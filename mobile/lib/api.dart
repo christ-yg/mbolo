@@ -779,12 +779,35 @@ class MboloApi implements AuthApi {
   }
 
   @override
-  Future<List<AppNotification>> getNotifications() async {
-    final response = await client.get<dynamic>('notifications/');
-    return _paginatedResults(
-      response.data,
-      AppNotification.fromJson,
-      'Notifications indisponibles.',
+  Future<AppNotificationPage> getNotifications({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    if (page < 1 || pageSize < 1 || pageSize > 100) {
+      throw const FormatException('Pagination des notifications incorrecte.');
+    }
+    final response = await client.get<dynamic>(
+      'notifications/',
+      queryParameters: {'page': page, 'page_size': pageSize},
+    );
+    final data = objectData(response.data);
+    final rawItems = data['results'];
+    final count = data['count'];
+    if (rawItems is! List || count is! int || count < 0) {
+      throw const FormatException('Notifications indisponibles.');
+    }
+    final items = rawItems
+        .map((item) {
+          if (item is! Map<String, dynamic>) {
+            throw const FormatException('Notification incorrecte.');
+          }
+          return AppNotification.fromJson(item);
+        })
+        .toList(growable: false);
+    return AppNotificationPage(
+      items: items,
+      totalCount: count,
+      hasNext: data['next'] is String && (data['next'] as String).isNotEmpty,
     );
   }
 

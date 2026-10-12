@@ -199,7 +199,9 @@ class FakeServer implements HttpClientAdapter {
             },
           ],
           'count': 1,
-          'next': null,
+          'next': options.uri.queryParameters['page_size'] == '10'
+              ? 'https://example.com/api/v1/notifications/?page=2&page_size=10'
+              : null,
           'previous': null,
         };
       }
@@ -795,15 +797,19 @@ void main() {
     );
     addTearDown(api.close);
 
-    final items = await api.getNotifications();
-    expect(items, hasLength(1));
-    expect(items.single.title, 'Nouveau match');
+    final page = await api.getNotifications(page: 1, pageSize: 10);
+    expect(page.items, hasLength(1));
+    expect(page.items.single.title, 'Nouveau match');
+    expect(page.totalCount, 1);
+    expect(page.hasNext, isTrue);
+    expect(server.requests.last.uri.queryParameters['page'], '1');
+    expect(server.requests.last.uri.queryParameters['page_size'], '10');
     expect(await api.getNotificationUnreadCount(), 1);
 
-    final updated = await api.markNotificationRead(items.single.id);
+    final updated = await api.markNotificationRead(page.items.single.id);
     expect(updated.read, isTrue);
     await api.markAllNotificationsRead();
-    await api.deleteNotification(items.single.id);
+    await api.deleteNotification(page.items.single.id);
     expect(server.requests.last.method, 'DELETE');
     expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
   });

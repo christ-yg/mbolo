@@ -891,8 +891,27 @@ class DemoApi implements AuthApi {
   }
 
   @override
-  Future<List<AppNotification>> getNotifications() async =>
-      List<AppNotification>.unmodifiable(_notifications);
+  Future<AppNotificationPage> getNotifications({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    if (page < 1 || pageSize < 1) {
+      throw const FormatException('Pagination incorrecte.');
+    }
+    final start = (page - 1) * pageSize;
+    final requestedEnd = start + pageSize;
+    final end = requestedEnd < _notifications.length
+        ? requestedEnd
+        : _notifications.length;
+    final items = start >= _notifications.length
+        ? const <AppNotification>[]
+        : _notifications.sublist(start, end);
+    return AppNotificationPage(
+      items: List<AppNotification>.unmodifiable(items),
+      totalCount: _notifications.length,
+      hasNext: end < _notifications.length,
+    );
+  }
 
   @override
   Future<int> getNotificationUnreadCount() async =>

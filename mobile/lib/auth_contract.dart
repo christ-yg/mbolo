@@ -180,6 +180,18 @@ class AppNotification {
       );
 }
 
+class AppNotificationPage {
+  const AppNotificationPage({
+    required this.items,
+    required this.totalCount,
+    required this.hasNext,
+  });
+
+  final List<AppNotification> items;
+  final int totalCount;
+  final bool hasNext;
+}
+
 class NotificationPreferences {
   const NotificationPreferences({
     required this.notificationsEnabled,
@@ -1076,7 +1088,10 @@ abstract class AuthApi {
   Future<void> markConversationRead(String conversationId);
   Future<bool> getTypingStatus(String conversationId);
   Future<void> setTypingStatus(String conversationId, bool isTyping);
-  Future<List<AppNotification>> getNotifications();
+  Future<AppNotificationPage> getNotifications({
+    int page = 1,
+    int pageSize = 20,
+  });
   Future<int> getNotificationUnreadCount();
   Future<AppNotification> markNotificationRead(String notificationId);
   Future<void> markAllNotificationsRead();

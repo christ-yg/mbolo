@@ -29,17 +29,23 @@ class _NotificationsPageState extends State<NotificationsPage>
   bool _loading = true;
   bool _working = false;
   bool _refreshing = false;
+  bool _loadingMore = false;
+  bool _hasNextPage = false;
+  int _currentPage = 1;
+  int _totalCount = 0;
   Timer? _refreshTimer;
   String? _error;
   _NotificationFilter _filter = _NotificationFilter.all;
   _NotificationSort _sort = _NotificationSort.recent;
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(_handleScroll);
     _load();
     _startRefreshing();
   }
@@ -48,6 +54,9 @@ class _NotificationsPageState extends State<NotificationsPage>
   void dispose() {
     _refreshTimer?.cancel();
     _searchController.dispose();
+    _scrollController
+      ..removeListener(_handleScroll)
+      ..dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -74,15 +83,34 @@ class _NotificationsPageState extends State<NotificationsPage>
     );
   }
 
+  void _handleScroll() {
+    if (!_scrollController.hasClients ||
+        _scrollController.position.extentAfter > 320) {
+      return;
+    }
+    unawaited(_loadMore());
+  }
+
   Future<void> _load({bool silent = false}) async {
     if (_refreshing || _working) return;
     _refreshing = true;
     if (!silent && mounted) setState(() => _error = null);
     try {
-      final items = await widget.api.getNotifications();
+      final response = await widget.api.getNotifications();
       if (mounted) {
         setState(() {
-          _items = items;
+          if (silent && _items.isNotEmpty) {
+            final freshIds = response.items.map((item) => item.id).toSet();
+            _items = <AppNotification>[
+              ...response.items,
+              ..._items.where((item) => !freshIds.contains(item.id)),
+            ];
+          } else {
+            _items = List<AppNotification>.of(response.items);
+            _currentPage = 1;
+          }
+          _totalCount = response.totalCount;
+          _hasNextPage = _items.length < _totalCount;
           _error = null;
         });
       }
@@ -91,6 +119,31 @@ class _NotificationsPageState extends State<NotificationsPage>
     } finally {
       _refreshing = false;
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _refreshing || _working || !_hasNextPage) return;
+    final nextPage = _currentPage + 1;
+    setState(() => _loadingMore = true);
+    try {
+      final response = await widget.api.getNotifications(page: nextPage);
+      if (!mounted) return;
+      setState(() {
+        final knownIds = _items.map((item) => item.id).toSet();
+        _items = <AppNotification>[
+          ..._items,
+          ...response.items.where((item) => !knownIds.contains(item.id)),
+        ];
+        _currentPage = nextPage;
+        _totalCount = response.totalCount;
+        _hasNextPage = response.hasNext && _items.length < _totalCount;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -155,7 +208,11 @@ class _NotificationsPageState extends State<NotificationsPage>
     try {
       await widget.api.deleteNotification(item.id);
       if (mounted) {
-        setState(() => _items.removeWhere((current) => current.id == item.id));
+        setState(() {
+          _items.removeWhere((current) => current.id == item.id);
+          if (_totalCount > 0) _totalCount -= 1;
+          _hasNextPage = _items.length < _totalCount;
+        });
       }
     } catch (error) {
       if (mounted) setState(() => _error = friendlyError(error));
@@ -284,6 +341,7 @@ class _NotificationsPageState extends State<NotificationsPage>
             : RefreshIndicator(
                 onRefresh: _load,
                 child: ListView(
+                  controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
                   children: [
                     TweenAnimationBuilder<double>(
@@ -462,6 +520,31 @@ class _NotificationsPageState extends State<NotificationsPage>
                             ],
                           );
                         },
+                      ),
+                    if (_loadingMore)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 22),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (_hasNextPage)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: OutlinedButton.icon(
+                          onPressed: () => unawaited(_loadMore()),
+                          icon: const Icon(Icons.expand_more_rounded),
+                          label: const Text('Charger plus de notifications'),
+                        ),
+                      )
+                    else if (_items.isNotEmpty && _items.length >= _totalCount)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 18),
+                        child: Text(
+                          'Tu as consulté tout ton historique.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ),
                   ],
                 ),
