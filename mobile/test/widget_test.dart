@@ -204,7 +204,8 @@ void main() {
     expect(find.text('MBOLO · Android'), findsOneWidget);
     await tester.tap(find.text('Journal'));
     await tester.pumpAndSettle();
-    expect(find.text('Connexion au compte'), findsOneWidget);
+    expect(find.text('Connexion au compte'), findsNWidgets(2));
+    expect(find.text('Refusé'), findsOneWidget);
     expect(find.text('Réussi'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
