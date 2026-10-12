@@ -44,6 +44,47 @@ interface NotificationGroup {
   items: NotificationItem[];
 }
 
+type NotificationFilter =
+  | "all"
+  | "unread"
+  | "messages"
+  | "matches"
+  | "likes"
+  | "security";
+
+const notificationFilters: ReadonlyArray<{
+  key: NotificationFilter;
+  label: string;
+  symbol: string;
+}> = [
+  {key: "all", label: "Tout", symbol: "◇"},
+  {key: "unread", label: "Non lues", symbol: "●"},
+  {key: "messages", label: "Messages", symbol: "✉"},
+  {key: "matches", label: "Matchs", symbol: "♥"},
+  {key: "likes", label: "Likes", symbol: "★"},
+  {key: "security", label: "Sécurité", symbol: "◆"},
+];
+
+function matchesNotificationFilter(
+  notification: NotificationItem,
+  filter: NotificationFilter,
+): boolean {
+  switch (filter) {
+    case "all":
+      return true;
+    case "unread":
+      return !notification.is_read;
+    case "messages":
+      return notification.kind === "message";
+    case "matches":
+      return notification.kind === "match";
+    case "likes":
+      return notification.kind === "like" || notification.kind === "super_like";
+    case "security":
+      return notification.kind === "security" || notification.kind === "system";
+  }
+}
+
 
 function parseDate(value: string): Date | null {
   const date = new Date(value);
@@ -222,16 +263,36 @@ export function NotificationsPage() {
   const [preferencesLoading, setPreferencesLoading] = useState(false);
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] =
+    useState<NotificationFilter>("all");
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.is_read).length,
     [notifications],
   );
 
-  const groupedNotifications = useMemo(
-    () => groupNotifications(notifications),
-    [notifications],
+  const filteredNotifications = useMemo(
+    () => notifications.filter((notification) =>
+      matchesNotificationFilter(notification, activeFilter)),
+    [activeFilter, notifications],
   );
+
+  const groupedNotifications = useMemo(
+    () => groupNotifications(filteredNotifications),
+    [filteredNotifications],
+  );
+
+  const filterCounts = useMemo(() => {
+    const counts = new Map<NotificationFilter, number>();
+    for (const filter of notificationFilters) {
+      counts.set(
+        filter.key,
+        notifications.filter((notification) =>
+          matchesNotificationFilter(notification, filter.key)).length,
+      );
+    }
+    return counts;
+  }, [notifications]);
 
   const readCount = Math.max(0, totalCount - unreadCount);
 
@@ -544,6 +605,30 @@ export function NotificationsPage() {
           </div>
         ) : null}
 
+        <div className="notifications-filters" aria-label="Filtrer les notifications">
+          <div className="notifications-filters__heading">
+            <strong>Filtrer l’activité</strong>
+            <span>Résultats chargés sur cet appareil</span>
+          </div>
+          <div className="notifications-filters__scroller" role="toolbar">
+            {notificationFilters.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                className={activeFilter === filter.key
+                  ? "notifications-filter notifications-filter--active"
+                  : "notifications-filter"}
+                aria-pressed={activeFilter === filter.key}
+                onClick={() => setActiveFilter(filter.key)}
+              >
+                <span aria-hidden="true">{filter.symbol}</span>
+                {filter.label}
+                <strong>{filterCounts.get(filter.key) ?? 0}</strong>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="notifications-list" aria-busy={isLoading}>
           {isLoading ? (
             <div className="notifications-state">
@@ -562,6 +647,18 @@ export function NotificationsPage() {
               </p>
               <button type="button" onClick={() => navigate("/discover")}>
                 Continuer à découvrir →
+              </button>
+            </div>
+          ) : filteredNotifications.length === 0 ? (
+            <div className="notifications-state notifications-state--empty">
+              <span className="notifications-state__success" aria-hidden="true">◇</span>
+              <p className="notifications-eyebrow">Filtre actif</p>
+              <h3>Aucune activité dans cette catégorie</h3>
+              <p>
+                Les prochaines notifications correspondantes apparaîtront ici.
+              </p>
+              <button type="button" onClick={() => setActiveFilter("all")}>
+                Voir toute l’activité
               </button>
             </div>
           ) : (
