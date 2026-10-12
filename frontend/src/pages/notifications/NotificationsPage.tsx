@@ -18,14 +18,17 @@ import { useNavigate } from "react-router-dom";
 
 import {
   deleteNotification,
+  getNotificationPreferences,
   getNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  updateNotificationPreferences,
 } from "../../api/notificationService";
 import { useAccountRealtime } from "../../hooks/useAccountRealtime";
 import type {
   NotificationItem,
   NotificationKind,
+  NotificationPreferences,
 } from "../../types/notifications";
 import "./NotificationsPage.css";
 
@@ -213,6 +216,12 @@ export function NotificationsPage() {
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [preferences, setPreferences] =
+    useState<NotificationPreferences | null>(null);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [preferencesLoading, setPreferencesLoading] = useState(false);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
+  const [preferencesError, setPreferencesError] = useState<string | null>(null);
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.is_read).length,
@@ -402,6 +411,68 @@ export function NotificationsPage() {
     }
   }
 
+  async function handleOpenPreferences(): Promise<void> {
+    setPreferencesOpen(true);
+    setPreferencesLoading(true);
+    setPreferencesError(null);
+    try {
+      setPreferences(await getNotificationPreferences());
+    } catch (error: unknown) {
+      setPreferencesError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de charger les préférences.",
+      );
+    } finally {
+      setPreferencesLoading(false);
+    }
+  }
+
+  function updatePreference(
+    key: keyof NotificationPreferences,
+    value: boolean | string,
+  ): void {
+    setPreferences((current) => current === null
+      ? null
+      : {...current, [key]: value});
+  }
+
+  async function handleSavePreferences(): Promise<void> {
+    if (preferences === null || preferencesSaving) {
+      return;
+    }
+    if (preferences.quiet_start === preferences.quiet_end) {
+      setPreferencesError(
+        "Le début et la fin des heures silencieuses doivent différer.",
+      );
+      return;
+    }
+    setPreferencesSaving(true);
+    setPreferencesError(null);
+    try {
+      const saved = await updateNotificationPreferences({
+        notifications_enabled: preferences.notifications_enabled,
+        messages_enabled: preferences.messages_enabled,
+        matches_enabled: preferences.matches_enabled,
+        likes_enabled: preferences.likes_enabled,
+        quiet_hours_enabled: preferences.quiet_hours_enabled,
+        quiet_start: preferences.quiet_start,
+        quiet_end: preferences.quiet_end,
+        timezone_offset_minutes: -new Date().getTimezoneOffset(),
+      });
+      setPreferences(saved);
+      setPreferencesOpen(false);
+    } catch (error: unknown) {
+      setPreferencesError(
+        error instanceof Error
+          ? error.message
+          : "Impossible d’enregistrer les préférences.",
+      );
+    } finally {
+      setPreferencesSaving(false);
+    }
+  }
+
   return (
     <main className="notifications-page">
       <section className="notifications-hero">
@@ -439,6 +510,13 @@ export function NotificationsPage() {
             onClick={() => void handleMarkAllRead()}
           >
             {isMarkingAll ? "Traitement…" : "Tout marquer comme lu"}
+          </button>
+          <button
+            type="button"
+            className="notifications-summary__preferences"
+            onClick={() => void handleOpenPreferences()}
+          >
+            Régler mes notifications
           </button>
         </aside>
       </section>
@@ -586,6 +664,123 @@ export function NotificationsPage() {
           </div>
         ) : null}
       </section>
+
+      {preferencesOpen ? (
+        <div
+          className="notification-preferences-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) {
+              setPreferencesOpen(false);
+            }
+          }}
+        >
+          <section
+            className="notification-preferences-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="notification-preferences-title"
+          >
+            <header>
+              <div>
+                <p className="notifications-eyebrow">Expérience maîtrisée</p>
+                <h2 id="notification-preferences-title">
+                  Préférences de notifications
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="notification-preferences-panel__close"
+                aria-label="Fermer les préférences"
+                onClick={() => setPreferencesOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+
+            {preferencesLoading ? (
+              <div className="notification-preferences-panel__loading">
+                Chargement des préférences…
+              </div>
+            ) : preferences === null ? (
+              <div className="notifications-error" role="alert">
+                <span aria-hidden="true">!</span>
+                <p>{preferencesError ?? "Préférences indisponibles."}</p>
+                <button type="button" onClick={() => void handleOpenPreferences()}>
+                  Réessayer
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="notification-preferences-list">
+                  <label className="notification-preference-row">
+                    <span><strong>Notifications MBOLO</strong><small>Activer les alertes personnalisées</small></span>
+                    <input
+                      type="checkbox"
+                      checked={preferences.notifications_enabled}
+                      onChange={(event) => updatePreference("notifications_enabled", event.target.checked)}
+                    />
+                  </label>
+                  {([
+                    ["messages_enabled", "Messages", "Nouveaux messages et réactions"],
+                    ["matches_enabled", "Matchs", "Nouvelles connexions réciproques"],
+                    ["likes_enabled", "Likes et Super Likes", "Activité reçue sur ton profil"],
+                  ] as const).map(([key, title, description]) => (
+                    <label className="notification-preference-row" key={key}>
+                      <span><strong>{title}</strong><small>{description}</small></span>
+                      <input
+                        type="checkbox"
+                        checked={preferences[key]}
+                        disabled={!preferences.notifications_enabled}
+                        onChange={(event) => updatePreference(key, event.target.checked)}
+                      />
+                    </label>
+                  ))}
+                  <label className="notification-preference-row notification-preference-row--locked">
+                    <span><strong>Sécurité du compte</strong><small>Toujours active pour protéger ton compte</small></span>
+                    <input type="checkbox" checked disabled aria-label="Sécurité toujours active" />
+                  </label>
+                  <label className="notification-preference-row">
+                    <span><strong>Heures silencieuses</strong><small>Suspendre les alertes non urgentes pendant ton repos</small></span>
+                    <input
+                      type="checkbox"
+                      checked={preferences.quiet_hours_enabled}
+                      disabled={!preferences.notifications_enabled}
+                      onChange={(event) => updatePreference("quiet_hours_enabled", event.target.checked)}
+                    />
+                  </label>
+                </div>
+
+                {preferences.quiet_hours_enabled ? (
+                  <div className="notification-preferences-times">
+                    <label>Début<input type="time" value={preferences.quiet_start} onChange={(event) => updatePreference("quiet_start", event.target.value)} /></label>
+                    <label>Fin<input type="time" value={preferences.quiet_end} onChange={(event) => updatePreference("quiet_end", event.target.value)} /></label>
+                  </div>
+                ) : null}
+
+                {preferencesError ? (
+                  <p className="notification-preferences-panel__error" role="alert">
+                    {preferencesError}
+                  </p>
+                ) : null}
+
+                <footer>
+                  <button type="button" onClick={() => setPreferencesOpen(false)}>
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    disabled={preferencesSaving}
+                    onClick={() => void handleSavePreferences()}
+                  >
+                    {preferencesSaving ? "Enregistrement…" : "Enregistrer"}
+                  </button>
+                </footer>
+              </>
+            )}
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

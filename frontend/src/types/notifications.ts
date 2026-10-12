@@ -37,3 +37,21 @@ export interface MarkAllNotificationsReadResponse {
   marked_count: number;
   read_at: string;
 }
+
+export interface NotificationPreferences {
+  notifications_enabled: boolean;
+  messages_enabled: boolean;
+  matches_enabled: boolean;
+  likes_enabled: boolean;
+  security_enabled: true;
+  quiet_hours_enabled: boolean;
+  quiet_start: string;
+  quiet_end: string;
+  timezone_offset_minutes: number;
+  updated_at: string;
+}
+
+export type NotificationPreferencesUpdate = Omit<
+  NotificationPreferences,
+  "security_enabled" | "updated_at"
+>;
