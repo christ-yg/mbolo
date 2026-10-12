@@ -7,6 +7,8 @@ import 'notification_preferences.dart';
 
 enum _NotificationFilter { all, unread, messages, matches, likes, security }
 
+enum _NotificationSort { recent, unreadFirst }
+
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({
     super.key,
@@ -30,6 +32,9 @@ class _NotificationsPageState extends State<NotificationsPage>
   Timer? _refreshTimer;
   String? _error;
   _NotificationFilter _filter = _NotificationFilter.all;
+  _NotificationSort _sort = _NotificationSort.recent;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -42,6 +47,7 @@ class _NotificationsPageState extends State<NotificationsPage>
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _searchController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -180,7 +186,30 @@ class _NotificationsPageState extends State<NotificationsPage>
         _NotificationFilter.matches => item.kind == 'match',
         _NotificationFilter.likes =>
           item.kind == 'like' || item.kind == 'super_like',
-        _NotificationFilter.security => item.kind == 'security',
+        _NotificationFilter.security =>
+          item.kind == 'security' || item.kind == 'system',
+      };
+
+  bool _matchesSearch(AppNotification item) {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return true;
+    return item.title.toLowerCase().contains(query) ||
+        item.body.toLowerCase().contains(query) ||
+        _kindLabel(item.kind).toLowerCase().contains(query);
+  }
+
+  String _kindLabel(String kind) => switch (kind) {
+        'message' => 'Message',
+        'match' => 'Match',
+        'like' => 'Like',
+        'super_like' => 'Super Like',
+        'security' => 'Sécurité',
+        _ => 'Information',
+      };
+
+  String _sortLabel(_NotificationSort sort) => switch (sort) {
+        _NotificationSort.recent => 'Plus récentes',
+        _NotificationSort.unreadFirst => 'Non lues d’abord',
       };
 
   String _filterLabel(_NotificationFilter filter) => switch (filter) {
@@ -225,8 +254,15 @@ class _NotificationsPageState extends State<NotificationsPage>
   Widget build(BuildContext context) {
     final unread = _items.where((item) => !item.read).length;
     final visibleItems = _items
-        .where((item) => _matchesFilter(item, _filter))
-        .toList(growable: false);
+        .where((item) =>
+            _matchesFilter(item, _filter) && _matchesSearch(item))
+        .toList(growable: true)
+      ..sort((left, right) {
+        if (_sort == _NotificationSort.unreadFirst && left.read != right.read) {
+          return left.read ? 1 : -1;
+        }
+        return right.createdAt.compareTo(left.createdAt);
+      });
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
@@ -341,15 +377,34 @@ class _NotificationsPageState extends State<NotificationsPage>
                       countFor: _filterCount,
                       onSelected: (filter) => setState(() => _filter = filter),
                     ),
+                    const SizedBox(height: 14),
+                    _NotificationSearch(
+                      controller: _searchController,
+                      query: _searchQuery,
+                      sort: _sort,
+                      sortLabel: _sortLabel,
+                      onChanged: (value) => setState(() => _searchQuery = value),
+                      onClear: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                      onSortChanged: (sort) => setState(() => _sort = sort),
+                    ),
                     const SizedBox(height: 20),
                     if (_items.isEmpty)
                       const _NotificationEmptyState()
                     else if (visibleItems.isEmpty)
                       _NotificationFilteredEmptyState(
-                        filterLabel: _filterLabel(_filter),
-                        onReset: () => setState(
-                          () => _filter = _NotificationFilter.all,
-                        ),
+                        filterLabel: _searchQuery.trim().isEmpty
+                            ? _filterLabel(_filter)
+                            : 'Recherche : ${_searchQuery.trim()}',
+                        onReset: () {
+                          _searchController.clear();
+                          setState(() {
+                            _filter = _NotificationFilter.all;
+                            _searchQuery = '';
+                          });
+                        },
                       )
                     else
                       ...visibleItems.indexed.map(
@@ -459,6 +514,104 @@ class _NotificationFilters extends StatelessWidget {
                 ),
               );
             }).toList(growable: false),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationSearch extends StatelessWidget {
+  const _NotificationSearch({
+    required this.controller,
+    required this.query,
+    required this.sort,
+    required this.sortLabel,
+    required this.onChanged,
+    required this.onClear,
+    required this.onSortChanged,
+  });
+
+  final TextEditingController controller;
+  final String query;
+  final _NotificationSort sort;
+  final String Function(_NotificationSort) sortLabel;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+  final ValueChanged<_NotificationSort> onSortChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: TextField(
+            key: const ValueKey('notification-search-field'),
+            controller: controller,
+            onChanged: onChanged,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Rechercher dans ton activité',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: query.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Effacer la recherche',
+                      onPressed: onClear,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+              filled: true,
+              fillColor: scheme.surfaceContainerLow,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(color: scheme.outlineVariant),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        PopupMenuButton<_NotificationSort>(
+          tooltip: 'Trier les notifications',
+          initialValue: sort,
+          onSelected: onSortChanged,
+          itemBuilder: (context) => _NotificationSort.values
+              .map(
+                (option) => PopupMenuItem<_NotificationSort>(
+                  value: option,
+                  child: Row(
+                    children: [
+                      Icon(
+                        option == _NotificationSort.recent
+                            ? Icons.schedule_rounded
+                            : Icons.mark_email_unread_rounded,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(sortLabel(option)),
+                    ],
+                  ),
+                ),
+              )
+              .toList(growable: false),
+          child: Semantics(
+            button: true,
+            label: 'Tri actuel : ${sortLabel(sort)}',
+            child: Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: const Icon(Icons.swap_vert_rounded),
+            ),
           ),
         ),
       ],

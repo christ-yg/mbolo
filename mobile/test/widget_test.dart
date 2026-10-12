@@ -348,6 +348,25 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
+    await tester.enterText(
+      find.byKey(const ValueKey('notification-search-field')),
+      'protégé',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Ton compte est protégé'), findsOneWidget);
+    expect(find.text('Nouveau match avec Grâce'), findsNothing);
+
+    await tester.tap(find.byTooltip('Effacer la recherche'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nouveau match avec Grâce'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Trier les notifications'));
+    await tester.pumpAndSettle();
+    expect(find.text('Plus récentes'), findsOneWidget);
+    expect(find.text('Non lues d’abord'), findsOneWidget);
+    await tester.tap(find.text('Non lues d’abord'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Non lues 1'));
     await tester.pumpAndSettle();
     expect(find.text('Nouveau match avec Grâce'), findsOneWidget);
