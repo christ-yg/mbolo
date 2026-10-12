@@ -40,6 +40,7 @@ class _NotificationsPageState extends State<NotificationsPage>
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
+  Set<String> _selectedIds = <String>{};
 
   @override
   void initState() {
@@ -163,6 +164,105 @@ class _NotificationsPageState extends State<NotificationsPage>
     } finally {
       if (mounted) setState(() => _working = false);
     }
+  }
+
+  void _toggleSelection(AppNotification item) {
+    if (_working) return;
+    setState(() {
+      final nextIds = Set<String>.of(_selectedIds);
+      if (!nextIds.add(item.id)) nextIds.remove(item.id);
+      _selectedIds = nextIds;
+    });
+  }
+
+  void _clearSelection() => setState(() => _selectedIds = <String>{});
+
+  Future<void> _readSelected() async {
+    if (_working || _selectedIds.isEmpty) return;
+    final unreadItems = _items
+        .where((item) => _selectedIds.contains(item.id) && !item.read)
+        .toList(growable: false);
+    if (unreadItems.isEmpty) {
+      _clearSelection();
+      return;
+    }
+    setState(() => _working = true);
+    final results = <AppNotification?>[];
+    for (final item in unreadItems) {
+      try {
+        results.add(await widget.api.markNotificationRead(item.id));
+      } catch (_) {
+        results.add(null);
+      }
+    }
+    if (!mounted) return;
+    final updated = <String, AppNotification>{
+      for (final item in results.whereType<AppNotification>()) item.id: item,
+    };
+    setState(() {
+      _items = _items
+          .map((item) => updated[item.id] ?? item)
+          .toList(growable: true);
+      _selectedIds = <String>{};
+      _working = false;
+      if (updated.length != unreadItems.length) {
+        _error = 'Certaines notifications n’ont pas pu être marquées comme lues.';
+      }
+    });
+  }
+
+  Future<void> _confirmDeleteSelected() async {
+    if (_working || _selectedIds.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.delete_sweep_rounded),
+        title: const Text('Supprimer la sélection ?'),
+        content: Text(
+          '${_selectedIds.length} notification${_selectedIds.length > 1 ? 's seront supprimées' : ' sera supprimée'} définitivement.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Conserver'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _deleteSelected();
+  }
+
+  Future<void> _deleteSelected() async {
+    final ids = Set<String>.of(_selectedIds);
+    setState(() => _working = true);
+    final results = <String?>[];
+    for (final id in ids) {
+      try {
+        await widget.api.deleteNotification(id);
+        results.add(id);
+      } catch (_) {
+        results.add(null);
+      }
+    }
+    if (!mounted) return;
+    final deletedIds = results.whereType<String>().toSet();
+    setState(() {
+      _items.removeWhere((item) => deletedIds.contains(item.id));
+      _totalCount = _totalCount > deletedIds.length
+          ? _totalCount - deletedIds.length
+          : 0;
+      _hasNextPage = _items.length < _totalCount;
+      _selectedIds = ids.difference(deletedIds);
+      _working = false;
+      if (deletedIds.length != ids.length) {
+        _error = 'Certaines notifications n’ont pas pu être supprimées.';
+      }
+    });
   }
 
   bool _isSafeTarget(String path) {
@@ -322,18 +422,42 @@ class _NotificationsPageState extends State<NotificationsPage>
       });
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          IconButton(
-            tooltip: 'Préférences de notifications',
-            onPressed: _openPreferences,
-            icon: const Icon(Icons.tune_rounded),
-          ),
-          TextButton(
-            onPressed: _working ? null : _readAll,
-            child: const Text('Tout lire'),
-          ),
-        ],
+        leading: _selectedIds.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Annuler la sélection',
+                onPressed: _working ? null : _clearSelection,
+                icon: const Icon(Icons.close_rounded),
+              ),
+        title: Text(
+          _selectedIds.isEmpty
+              ? 'Notifications'
+              : '${_selectedIds.length} sélectionnée${_selectedIds.length > 1 ? 's' : ''}',
+        ),
+        actions: _selectedIds.isEmpty
+            ? [
+                IconButton(
+                  tooltip: 'Préférences de notifications',
+                  onPressed: _openPreferences,
+                  icon: const Icon(Icons.tune_rounded),
+                ),
+                TextButton(
+                  onPressed: _working ? null : _readAll,
+                  child: const Text('Tout lire'),
+                ),
+              ]
+            : [
+                IconButton(
+                  tooltip: 'Marquer la sélection comme lue',
+                  onPressed: _working ? null : _readSelected,
+                  icon: const Icon(Icons.mark_email_read_rounded),
+                ),
+                IconButton(
+                  tooltip: 'Supprimer la sélection',
+                  onPressed: _working ? null : _confirmDeleteSelected,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                ),
+              ],
       ),
       body: SafeArea(
         child: _loading
@@ -493,7 +617,9 @@ class _NotificationsPageState extends State<NotificationsPage>
                                 ),
                               Dismissible(
                                 key: ValueKey(item.id),
-                                direction: DismissDirection.endToStart,
+                                direction: _selectedIds.isEmpty
+                                    ? DismissDirection.endToStart
+                                    : DismissDirection.none,
                                 background: Container(
                                   margin: const EdgeInsets.only(bottom: 12),
                                   padding: const EdgeInsets.only(right: 24),
@@ -514,7 +640,11 @@ class _NotificationsPageState extends State<NotificationsPage>
                                   icon: _icon(item.kind),
                                   date: _date(item.createdAt),
                                   working: _working,
-                                  onTap: () => _open(item),
+                                  selected: _selectedIds.contains(item.id),
+                                  onTap: () => _selectedIds.isEmpty
+                                      ? _open(item)
+                                      : _toggleSelection(item),
+                                  onLongPress: () => _toggleSelection(item),
                                 ),
                               ),
                             ],
@@ -833,7 +963,9 @@ class _AnimatedNotificationTile extends StatelessWidget {
     required this.icon,
     required this.date,
     required this.working,
+    required this.selected,
     required this.onTap,
+    required this.onLongPress,
   });
 
   final AppNotification item;
@@ -841,7 +973,9 @@ class _AnimatedNotificationTile extends StatelessWidget {
   final IconData icon;
   final String date;
   final bool working;
+  final bool selected;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -852,7 +986,9 @@ class _AnimatedNotificationTile extends StatelessWidget {
         icon: icon,
         date: date,
         working: working,
+        selected: selected,
         onTap: onTap,
+        onLongPress: onLongPress,
       );
     }
     return TweenAnimationBuilder<double>(
@@ -871,7 +1007,9 @@ class _AnimatedNotificationTile extends StatelessWidget {
         icon: icon,
         date: date,
         working: working,
+        selected: selected,
         onTap: onTap,
+        onLongPress: onLongPress,
       ),
     );
   }
@@ -883,14 +1021,18 @@ class _NotificationTile extends StatelessWidget {
     required this.icon,
     required this.date,
     required this.working,
+    required this.selected,
     required this.onTap,
+    required this.onLongPress,
   });
 
   final AppNotification item;
   final IconData icon;
   final String date;
   final bool working;
+  final bool selected;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -905,12 +1047,18 @@ class _NotificationTile extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 260),
           decoration: BoxDecoration(
-            color: item.read ? scheme.surface : scheme.primaryContainer,
+            color: selected
+                ? scheme.secondaryContainer
+                : item.read
+                    ? scheme.surface
+                    : scheme.primaryContainer,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: item.read
-                  ? scheme.outlineVariant
-                  : scheme.primary.withValues(alpha: 0.24),
+              color: selected
+                  ? scheme.secondary
+                  : item.read
+                      ? scheme.outlineVariant
+                      : scheme.primary.withValues(alpha: 0.24),
             ),
             boxShadow: item.read
                 ? null
@@ -930,11 +1078,22 @@ class _NotificationTile extends StatelessWidget {
               contentPadding: const EdgeInsets.all(16),
               enabled: !working,
               onTap: onTap,
-              leading: CircleAvatar(
-                backgroundColor: item.read
-                    ? scheme.surfaceContainerHighest
-                    : scheme.primary.withValues(alpha: 0.16),
-                child: Icon(icon, color: scheme.primary),
+              onLongPress: onLongPress,
+              leading: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: selected
+                    ? CircleAvatar(
+                        key: const ValueKey('selected'),
+                        backgroundColor: scheme.secondary,
+                        child: Icon(Icons.check_rounded, color: scheme.onSecondary),
+                      )
+                    : CircleAvatar(
+                        key: const ValueKey('kind'),
+                        backgroundColor: item.read
+                            ? scheme.surfaceContainerHighest
+                            : scheme.primary.withValues(alpha: 0.16),
+                        child: Icon(icon, color: scheme.primary),
+                      ),
               ),
               title: Text(
                 item.title,

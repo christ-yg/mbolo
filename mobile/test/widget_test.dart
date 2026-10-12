@@ -360,6 +360,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Nouveau match avec Grâce'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Ton compte est protégé'));
+    await tester.longPress(find.text('Ton compte est protégé'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 sélectionnée'), findsOneWidget);
+    expect(find.byTooltip('Marquer la sélection comme lue'), findsOneWidget);
+    expect(find.byTooltip('Supprimer la sélection'), findsOneWidget);
+    await tester.tap(find.byTooltip('Annuler la sélection'));
+    await tester.pumpAndSettle();
+    expect(find.text('Notifications'), findsOneWidget);
+
     await tester.tap(find.byTooltip('Trier les notifications'));
     await tester.pumpAndSettle();
     expect(find.text('Plus récentes'), findsOneWidget);
