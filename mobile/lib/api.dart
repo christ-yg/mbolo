@@ -475,6 +475,33 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<ProfileVerificationState> getProfileVerification() async {
+    final response = await client.get<dynamic>('profiles/verification/me/');
+    return ProfileVerificationState.fromJson(objectData(response.data));
+  }
+
+  @override
+  Future<ProfileVerificationState> submitProfileVerification({
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    if (bytes.isEmpty) throw const FormatException('Selfie vide.');
+    final csrf = await client.get<dynamic>('csrf/');
+    final token = objectData(csrf.data)['csrfToken'];
+    if (token is! String || token.isEmpty) {
+      throw const FormatException('Protection CSRF indisponible.');
+    }
+    final response = await client.post<dynamic>(
+      'profiles/verification/me/',
+      data: FormData.fromMap({
+        'selfie': MultipartFile.fromBytes(bytes, filename: filename),
+      }),
+      options: Options(headers: {'X-CSRFToken': token}),
+    );
+    return ProfileVerificationState.fromJson(objectData(response.data));
+  }
+
+  @override
   Future<DiscoveryPreferences> getPreferences() async {
     final response = await client.get<dynamic>('profiles/preferences/me/');
     return DiscoveryPreferences.fromJson(objectData(response.data));

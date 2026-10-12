@@ -12,6 +12,14 @@ class DemoApi implements AuthApi {
   bool _conversationMarkedUnread = false;
   bool _incognito = false;
   bool _boostActive = false;
+  ProfileVerificationState _profileVerification =
+      const ProfileVerificationState(
+        status: 'not_submitted',
+        statusLabel: 'Non demandée',
+        canSubmit: true,
+        isVerified: false,
+        rejectionReason: '',
+      );
   final List<PremiumPayment> _premiumPayments = <PremiumPayment>[];
   bool _twoFactorEnabled = true;
   final List<ConnectedSession> _sessions = <ConnectedSession>[
@@ -340,6 +348,30 @@ class DemoApi implements AuthApi {
 
   @override
   Future<MemberProfile> getProfile() async => _profile;
+
+  @override
+  Future<ProfileVerificationState> getProfileVerification() async {
+    return _profileVerification;
+  }
+
+  @override
+  Future<ProfileVerificationState> submitProfileVerification({
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    if (bytes.isEmpty || filename.trim().isEmpty) {
+      throw const FormatException('Ajoute un selfie récent et net.');
+    }
+    _profileVerification = ProfileVerificationState(
+      status: 'pending',
+      statusLabel: 'En attente',
+      canSubmit: false,
+      isVerified: false,
+      rejectionReason: '',
+      submittedAt: DateTime.now(),
+    );
+    return _profileVerification;
+  }
 
   @override
   Future<MemberProfile> updateProfile({

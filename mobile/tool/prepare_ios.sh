@@ -26,8 +26,8 @@ sed -i '' -E 's/IPHONEOS_DEPLOYMENT_TARGET = [^;]+;/IPHONEOS_DEPLOYMENT_TARGET =
   /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string MBOLO' "$plist"
 /usr/libexec/PlistBuddy -c 'Set :NSPhotoLibraryUsageDescription MBOLO accède uniquement aux photos que vous choisissez pour votre profil ou vos messages.' "$plist" 2>/dev/null || \
   /usr/libexec/PlistBuddy -c 'Add :NSPhotoLibraryUsageDescription string MBOLO accède uniquement aux photos que vous choisissez pour votre profil ou vos messages.' "$plist"
-/usr/libexec/PlistBuddy -c 'Set :NSCameraUsageDescription MBOLO utilise la caméra uniquement lorsque vous choisissez de prendre une photo à partager.' "$plist" 2>/dev/null || \
-  /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string MBOLO utilise la caméra uniquement lorsque vous choisissez de prendre une photo à partager.' "$plist"
+/usr/libexec/PlistBuddy -c 'Set :NSCameraUsageDescription MBOLO utilise la caméra uniquement lorsque vous choisissez de prendre une photo, joindre une image ou réaliser un selfie privé de vérification.' "$plist" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string MBOLO utilise la caméra uniquement lorsque vous choisissez de prendre une photo, joindre une image ou réaliser un selfie privé de vérification.' "$plist"
 
 grep -q 'PRODUCT_BUNDLE_IDENTIFIER = ga.mbolo.app;' "$project"
 grep -q 'IPHONEOS_DEPLOYMENT_TARGET = 13.0;' "$project"

@@ -57,6 +57,19 @@ class FakeServer implements HttpClientAdapter {
         'next': null,
         'previous': null,
       };
+    } else if (path.endsWith('/profiles/verification/me/')) {
+      data = {
+        'status': options.method == 'POST' ? 'pending' : 'not_submitted',
+        'status_label': options.method == 'POST' ? 'En attente' : 'Non demandée',
+        'can_submit': options.method != 'POST',
+        'is_verified': false,
+        'rejection_reason': '',
+        'submitted_at': options.method == 'POST'
+            ? '2026-10-12T10:00:00Z'
+            : null,
+        'reviewed_at': null,
+        'updated_at': '2026-10-12T10:00:00Z',
+      };
     } else if (path.endsWith('/premium/overview/')) {
       data = {
         'data': {
@@ -906,6 +919,30 @@ void main() {
     expect(confirmed.status, 'succeeded');
     final canceled = await api.cancelPremiumPayment(payment.id);
     expect(canceled.status, 'canceled');
+  });
+
+  test('Profile verification keeps status private and submits multipart', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final initial = await api.getProfileVerification();
+    expect(initial.status, 'not_submitted');
+    expect(initial.canSubmit, isTrue);
+
+    final submitted = await api.submitProfileVerification(
+      bytes: Uint8List.fromList(<int>[1, 2, 3]),
+      filename: 'selfie.jpg',
+    );
+    expect(submitted.status, 'pending');
+    expect(submitted.canSubmit, isFalse);
+    final request = server.requests.last;
+    expect(request.method, 'POST');
+    expect(request.data, isA<FormData>());
+    expect(request.headers['X-CSRFToken'], 'csrf-test');
   });
 
 }

@@ -613,6 +613,48 @@ class ProfilePhoto {
   }
 }
 
+class ProfileVerificationState {
+  const ProfileVerificationState({
+    required this.status,
+    required this.statusLabel,
+    required this.canSubmit,
+    required this.isVerified,
+    required this.rejectionReason,
+    this.submittedAt,
+    this.reviewedAt,
+  });
+
+  final String status;
+  final String statusLabel;
+  final bool canSubmit;
+  final bool isVerified;
+  final String rejectionReason;
+  final DateTime? submittedAt;
+  final DateTime? reviewedAt;
+
+  factory ProfileVerificationState.fromJson(Map<String, dynamic> data) {
+    final status = data['status'];
+    final statusLabel = data['status_label'];
+    if (status is! String || status.isEmpty || statusLabel is! String) {
+      throw const FormatException('État de vérification incorrect.');
+    }
+    DateTime? optionalDate(String key) {
+      final value = data[key];
+      return value is String ? DateTime.tryParse(value) : null;
+    }
+
+    return ProfileVerificationState(
+      status: status,
+      statusLabel: statusLabel,
+      canSubmit: data['can_submit'] == true,
+      isVerified: data['is_verified'] == true,
+      rejectionReason: data['rejection_reason']?.toString() ?? '',
+      submittedAt: optionalDate('submitted_at'),
+      reviewedAt: optionalDate('reviewed_at'),
+    );
+  }
+}
+
 class DiscoveryPreferences {
   const DiscoveryPreferences({
     required this.minimumAge,
@@ -1032,6 +1074,11 @@ abstract class AuthApi {
     bool? primary,
   });
   Future<void> deletePhoto(String id);
+  Future<ProfileVerificationState> getProfileVerification();
+  Future<ProfileVerificationState> submitProfileVerification({
+    required Uint8List bytes,
+    required String filename,
+  });
   Future<DiscoveryPreferences> getPreferences();
   Future<DiscoveryPreferences> updatePreferences({
     required int minimumAge,

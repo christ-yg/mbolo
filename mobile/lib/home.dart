@@ -10,6 +10,7 @@ import 'design_system.dart';
 import 'messages.dart';
 import 'notifications.dart';
 import 'premium.dart';
+import 'profile_verification.dart';
 import 'safety_actions.dart';
 import 'security.dart';
 import 'showcase.dart';
@@ -394,6 +395,14 @@ class _MboloHomeState extends State<MboloHome> with WidgetsBindingObserver {
     await _loadOnboardingProgress();
   }
 
+  Future<void> _openProfileVerification() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => ProfileVerificationPage(api: widget.api),
+      ),
+    );
+  }
+
   Future<void> _openPremium() async {
     await Navigator.of(context).push<void>(MaterialPageRoute<void>(builder: (context) => PremiumPage(api: widget.api)));
     await _loadPremiumActions();
@@ -482,6 +491,7 @@ class _MboloHomeState extends State<MboloHome> with WidgetsBindingObserver {
         onEditProfile: _openProfileEditor,
         onEditPhotos: _openPhotos,
         onEditPreferences: _openPreferences,
+        onVerifyProfile: _openProfileVerification,
         onPremium: _openPremium,
         onShowcase: _openShowcase,
       ),
@@ -1902,6 +1912,7 @@ class _ProfilePage extends StatelessWidget {
     required this.onEditProfile,
     required this.onEditPhotos,
     required this.onEditPreferences,
+    required this.onVerifyProfile,
     required this.onPremium,
     required this.onShowcase,
   });
@@ -1915,6 +1926,7 @@ class _ProfilePage extends StatelessWidget {
   final VoidCallback onEditProfile;
   final VoidCallback onEditPhotos;
   final VoidCallback onEditPreferences;
+  final VoidCallback onVerifyProfile;
   final VoidCallback onPremium;
   final VoidCallback onShowcase;
 
@@ -2068,6 +2080,17 @@ class _ProfilePage extends StatelessWidget {
                 title: const Text('Préférences de rencontre'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: onEditPreferences,
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(
+                  Icons.verified_user_outlined,
+                  color: Color(0xFFB51F50),
+                ),
+                title: const Text('Vérifier mon profil'),
+                subtitle: const Text('Badge de confiance · selfie privé'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onVerifyProfile,
               ),
               const Divider(height: 1),
               const ListTile(
