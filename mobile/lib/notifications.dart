@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'auth_contract.dart';
+import 'notification_preferences.dart';
 
 enum _NotificationFilter { all, unread, messages, matches, likes, security }
 
@@ -155,6 +156,14 @@ class _NotificationsPageState extends State<NotificationsPage>
     }
   }
 
+  Future<void> _openPreferences() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => NotificationPreferencesPage(api: widget.api),
+      ),
+    );
+  }
+
   IconData _icon(String kind) => switch (kind) {
         'message' => Icons.chat_bubble_rounded,
         'match' => Icons.favorite_rounded,
@@ -222,6 +231,11 @@ class _NotificationsPageState extends State<NotificationsPage>
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
+          IconButton(
+            tooltip: 'Préférences de notifications',
+            onPressed: _openPreferences,
+            icon: const Icon(Icons.tune_rounded),
+          ),
           TextButton(
             onPressed: _working ? null : _readAll,
             child: const Text('Tout lire'),

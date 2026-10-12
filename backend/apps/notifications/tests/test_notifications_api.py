@@ -7,8 +7,12 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 
-from ..models import Notification
-from ..services import create_message_notification, create_reaction_notification
+from ..models import Notification, NotificationPreference
+from ..services import (
+    create_message_notification,
+    create_reaction_notification,
+    notification_delivery_is_quiet,
+)
 
 
 class NotificationApiTests(APITestCase):
@@ -62,6 +66,72 @@ class NotificationApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["unread_count"], 1)
+
+    def test_preferences_are_private_validated_and_security_stays_enabled(self):
+        response = self.client.get(reverse("notifications:preferences"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["messages_enabled"])
+        self.assertTrue(response.data["security_enabled"])
+
+        response = self.client.patch(
+            reverse("notifications:preferences"),
+            {
+                "messages_enabled": False,
+                "quiet_hours_enabled": True,
+                "quiet_start": "21:30",
+                "quiet_end": "06:15",
+                "security_enabled": False,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["messages_enabled"])
+        self.assertTrue(response.data["security_enabled"])
+        self.assertEqual(response.data["quiet_start"], "21:30")
+
+        self.client.force_authenticate(self.other_user)
+        other = self.client.get(reverse("notifications:preferences"))
+        self.assertTrue(other.data["messages_enabled"])
+
+    def test_preferences_reject_identical_quiet_hours(self):
+        response = self.client.patch(
+            reverse("notifications:preferences"),
+            {
+                "quiet_hours_enabled": True,
+                "quiet_start": "22:00",
+                "quiet_end": "22:00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_disabled_message_category_suppresses_message_notification(self):
+        NotificationPreference.objects.create(
+            user=self.user,
+            messages_enabled=False,
+        )
+        result = create_message_notification(
+            recipient=self.user,
+            sender_display_name="Kevin",
+            conversation_id=uuid.uuid4(),
+            message_id=uuid.uuid4(),
+            body_preview="Bonjour",
+        )
+        self.assertIsNone(result)
+        self.assertFalse(Notification.objects.filter(recipient=self.user).exists())
+
+    def test_quiet_hours_handle_ranges_crossing_midnight(self):
+        preference = NotificationPreference.objects.create(
+            user=self.user,
+            quiet_hours_enabled=True,
+            quiet_start="00:00",
+            quiet_end="23:59",
+            timezone_offset_minutes=0,
+        )
+        self.assertTrue(notification_delivery_is_quiet(recipient=self.user))
+        preference.quiet_hours_enabled = False
+        preference.save(update_fields=("quiet_hours_enabled", "updated_at"))
+        self.assertFalse(notification_delivery_is_quiet(recipient=self.user))
 
     def test_mark_read_updates_only_owned_notification(self):
         notification = self.create_notification()

@@ -14,10 +14,11 @@ from rest_framework.views import APIView
 
 from apps.accounts.realtime import broadcast_account_event
 
-from .models import Notification
+from .models import Notification, NotificationPreference
 from .pagination import NotificationPagination
 from .serializers import (
     MarkAllNotificationsReadSerializer,
+    NotificationPreferenceSerializer,
     NotificationSerializer,
     NotificationUnreadCountSerializer,
 )
@@ -151,3 +152,29 @@ class NotificationDeleteView(APIView):
         broadcast_notification_count(request.user)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class NotificationPreferenceView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def _preference(self, request: Request) -> NotificationPreference:
+        preference, _ = NotificationPreference.objects.get_or_create(
+            user=request.user,
+        )
+        return preference
+
+    def get(self, request: Request) -> Response:
+        return Response(
+            NotificationPreferenceSerializer(self._preference(request)).data
+        )
+
+    def patch(self, request: Request) -> Response:
+        preference = self._preference(request)
+        serializer = NotificationPreferenceSerializer(
+            preference,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

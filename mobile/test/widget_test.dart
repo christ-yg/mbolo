@@ -340,6 +340,14 @@ void main() {
     expect(find.text('Matchs 1'), findsOneWidget);
     expect(find.text('Sécurité 1'), findsOneWidget);
 
+    await tester.tap(find.byTooltip('Préférences de notifications'));
+    await tester.pumpAndSettle();
+    expect(find.text('Préférences de notifications'), findsOneWidget);
+    expect(find.text('Sécurité du compte'), findsOneWidget);
+    expect(find.text('Heures silencieuses'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Non lues 1'));
     await tester.pumpAndSettle();
     expect(find.text('Nouveau match avec Grâce'), findsOneWidget);

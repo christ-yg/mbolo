@@ -825,6 +825,24 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<NotificationPreferences> getNotificationPreferences() async {
+    final response = await client.get<dynamic>('notifications/preferences/');
+    return NotificationPreferences.fromJson(objectData(response.data));
+  }
+
+  @override
+  Future<NotificationPreferences> updateNotificationPreferences(
+    NotificationPreferences preferences,
+  ) async {
+    return NotificationPreferences.fromJson(
+      await _patchObject(
+        'notifications/preferences/',
+        preferences.toUpdateJson(),
+      ),
+    );
+  }
+
+  @override
   Future<PremiumOverview> getPremiumOverview() async {
     final response = await client.get<dynamic>('premium/overview/');
     return PremiumOverview.fromJson(objectData(response.data));

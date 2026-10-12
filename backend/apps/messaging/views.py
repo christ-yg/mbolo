@@ -22,6 +22,7 @@ from apps.notifications.services import (
     create_reaction_notification,
     broadcast_notification_created,
     get_unread_notification_count,
+    notification_delivery_is_quiet,
 )
 from apps.safety.report_throttles import ReportCreateThrottle
 
@@ -350,26 +351,30 @@ class ConversationMessageListCreateView(
                 body_preview=message.body[:160] if message.body else "Photo",
             )
 
-            notification_unread_count = get_unread_notification_count(
-                actor=recipient_user,
-            )
+            if (
+                durable_notification_result is not None
+                and not notification_delivery_is_quiet(recipient=recipient_user)
+            ):
+                notification_unread_count = get_unread_notification_count(
+                    actor=recipient_user,
+                )
 
-            broadcast_account_event(
-                user_id=recipient_user.id,
-                event={
-                    "event": "message.notification",
-                    "conversation_id": str(message.conversation_id),
-                    "message_id": str(message.id),
-                    "sender_display_name": request.user.profile.display_name,
-                    "body_preview": message.body[:160],
-                    "created_at": message.created_at.isoformat(),
-                    "unread_count": recipient_unread_count,
-                    "notification_unread_count": notification_unread_count,
-                    "notification": NotificationSerializer(
-                        durable_notification_result.notification
-                    ).data,
-                },
-            )
+                broadcast_account_event(
+                    user_id=recipient_user.id,
+                    event={
+                        "event": "message.notification",
+                        "conversation_id": str(message.conversation_id),
+                        "message_id": str(message.id),
+                        "sender_display_name": request.user.profile.display_name,
+                        "body_preview": message.body[:160],
+                        "created_at": message.created_at.isoformat(),
+                        "unread_count": recipient_unread_count,
+                        "notification_unread_count": notification_unread_count,
+                        "notification": NotificationSerializer(
+                            durable_notification_result.notification
+                        ).data,
+                    },
+                )
 
         broadcast_account_event(
             user_id=request.user.id,
@@ -594,11 +599,14 @@ class MessageReactionView(APIView):
                 message_id=message.id,
                 emoji=emoji,
             )
-            broadcast_notification_created(
-                notification=result.notification,
-                event_name="message.reaction.notification",
-                extra_payload={"conversation_id": str(conversation_id)},
-            )
+            if result is not None and not notification_delivery_is_quiet(
+                recipient=message.sender,
+            ):
+                broadcast_notification_created(
+                    notification=result.notification,
+                    event_name="message.reaction.notification",
+                    extra_payload={"conversation_id": str(conversation_id)},
+                )
         return Response(output.data, status=status.HTTP_200_OK)
 
 

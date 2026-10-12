@@ -180,6 +180,94 @@ class AppNotification {
       );
 }
 
+class NotificationPreferences {
+  const NotificationPreferences({
+    required this.notificationsEnabled,
+    required this.messagesEnabled,
+    required this.matchesEnabled,
+    required this.likesEnabled,
+    required this.securityEnabled,
+    required this.quietHoursEnabled,
+    required this.quietStart,
+    required this.quietEnd,
+    required this.timezoneOffsetMinutes,
+  });
+
+  final bool notificationsEnabled;
+  final bool messagesEnabled;
+  final bool matchesEnabled;
+  final bool likesEnabled;
+  final bool securityEnabled;
+  final bool quietHoursEnabled;
+  final String quietStart;
+  final String quietEnd;
+  final int timezoneOffsetMinutes;
+
+  factory NotificationPreferences.fromJson(Map<String, dynamic> data) {
+    final start = data['quiet_start'];
+    final end = data['quiet_end'];
+    if (data['notifications_enabled'] is! bool ||
+        data['messages_enabled'] is! bool ||
+        data['matches_enabled'] is! bool ||
+        data['likes_enabled'] is! bool ||
+        data['security_enabled'] is! bool ||
+        data['quiet_hours_enabled'] is! bool ||
+        start is! String ||
+        !RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(start) ||
+        end is! String ||
+        !RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(end) ||
+        data['timezone_offset_minutes'] is! int) {
+      throw const FormatException('Préférences de notifications incorrectes.');
+    }
+    return NotificationPreferences(
+      notificationsEnabled: data['notifications_enabled'] as bool,
+      messagesEnabled: data['messages_enabled'] as bool,
+      matchesEnabled: data['matches_enabled'] as bool,
+      likesEnabled: data['likes_enabled'] as bool,
+      securityEnabled: data['security_enabled'] as bool,
+      quietHoursEnabled: data['quiet_hours_enabled'] as bool,
+      quietStart: start,
+      quietEnd: end,
+      timezoneOffsetMinutes: data['timezone_offset_minutes'] as int,
+    );
+  }
+
+  Map<String, dynamic> toUpdateJson() => <String, dynamic>{
+        'notifications_enabled': notificationsEnabled,
+        'messages_enabled': messagesEnabled,
+        'matches_enabled': matchesEnabled,
+        'likes_enabled': likesEnabled,
+        'quiet_hours_enabled': quietHoursEnabled,
+        'quiet_start': quietStart,
+        'quiet_end': quietEnd,
+        'timezone_offset_minutes': DateTime.now().timeZoneOffset.inMinutes,
+      };
+
+  NotificationPreferences copyWith({
+    bool? notificationsEnabled,
+    bool? messagesEnabled,
+    bool? matchesEnabled,
+    bool? likesEnabled,
+    bool? quietHoursEnabled,
+    String? quietStart,
+    String? quietEnd,
+    int? timezoneOffsetMinutes,
+  }) =>
+      NotificationPreferences(
+        notificationsEnabled:
+            notificationsEnabled ?? this.notificationsEnabled,
+        messagesEnabled: messagesEnabled ?? this.messagesEnabled,
+        matchesEnabled: matchesEnabled ?? this.matchesEnabled,
+        likesEnabled: likesEnabled ?? this.likesEnabled,
+        securityEnabled: securityEnabled,
+        quietHoursEnabled: quietHoursEnabled ?? this.quietHoursEnabled,
+        quietStart: quietStart ?? this.quietStart,
+        quietEnd: quietEnd ?? this.quietEnd,
+        timezoneOffsetMinutes:
+            timezoneOffsetMinutes ?? this.timezoneOffsetMinutes,
+      );
+}
+
 class MemberProfile {
   const MemberProfile({
     required this.displayName,
@@ -993,6 +1081,10 @@ abstract class AuthApi {
   Future<AppNotification> markNotificationRead(String notificationId);
   Future<void> markAllNotificationsRead();
   Future<void> deleteNotification(String notificationId);
+  Future<NotificationPreferences> getNotificationPreferences();
+  Future<NotificationPreferences> updateNotificationPreferences(
+    NotificationPreferences preferences,
+  );
   Future<PremiumOverview> getPremiumOverview();
   Future<PremiumPayment> createPremiumCheckout({required String plan, required String method, required String phoneNumber});
   Future<List<PremiumPayment>> getPremiumPaymentHistory();

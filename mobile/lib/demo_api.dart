@@ -121,6 +121,18 @@ class DemoApi implements AuthApi {
     ),
   ];
   bool _demoMatchActive = true;
+  NotificationPreferences _notificationPreferences =
+      const NotificationPreferences(
+        notificationsEnabled: true,
+        messagesEnabled: true,
+        matchesEnabled: true,
+        likesEnabled: true,
+        securityEnabled: true,
+        quietHoursEnabled: false,
+        quietStart: '22:00',
+        quietEnd: '07:00',
+        timezoneOffsetMinutes: 60,
+      );
   DiscoveryProfile? _lastPassed;
   int _remainingSuperLikes = 3;
   final List<ReceivedLike> _receivedLikes = <ReceivedLike>[
@@ -904,6 +916,23 @@ class DemoApi implements AuthApi {
   @override
   Future<void> deleteNotification(String notificationId) async {
     _notifications.removeWhere((item) => item.id == notificationId);
+  }
+
+  @override
+  Future<NotificationPreferences> getNotificationPreferences() async =>
+      _notificationPreferences;
+
+  @override
+  Future<NotificationPreferences> updateNotificationPreferences(
+    NotificationPreferences preferences,
+  ) async {
+    if (preferences.quietStart == preferences.quietEnd) {
+      throw const FormatException(
+        'Les heures silencieuses doivent être différentes.',
+      );
+    }
+    _notificationPreferences = preferences.copyWith();
+    return _notificationPreferences;
   }
 
   @override

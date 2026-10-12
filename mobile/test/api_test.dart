@@ -203,6 +203,29 @@ class FakeServer implements HttpClientAdapter {
           'previous': null,
         };
       }
+    } else if (path.endsWith('/notifications/preferences/')) {
+      data = {
+        'notifications_enabled': true,
+        'messages_enabled': options.method == 'PATCH'
+            ? options.data['messages_enabled']
+            : true,
+        'matches_enabled': true,
+        'likes_enabled': true,
+        'security_enabled': true,
+        'quiet_hours_enabled': options.method == 'PATCH'
+            ? options.data['quiet_hours_enabled']
+            : false,
+        'quiet_start': options.method == 'PATCH'
+            ? options.data['quiet_start']
+            : '22:00',
+        'quiet_end': options.method == 'PATCH'
+            ? options.data['quiet_end']
+            : '07:00',
+        'timezone_offset_minutes': options.method == 'PATCH'
+            ? options.data['timezone_offset_minutes']
+            : 60,
+        'updated_at': '2026-10-12T12:00:00Z',
+      };
     } else if (path.endsWith('/notifications/unread-count/')) {
       data = {'unread_count': 1};
     } else if (path.endsWith('/messages/unread-count/')) {
@@ -782,6 +805,33 @@ void main() {
     await api.markAllNotificationsRead();
     await api.deleteNotification(items.single.id);
     expect(server.requests.last.method, 'DELETE');
+    expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
+  });
+
+  test('Notification preferences use authenticated protected routes', () async {
+    final server = FakeServer();
+    final api = MboloApi(
+      'https://example.com',
+      client: Dio()..httpClientAdapter = server,
+    );
+    addTearDown(api.close);
+
+    final initial = await api.getNotificationPreferences();
+    expect(initial.messagesEnabled, isTrue);
+    expect(initial.securityEnabled, isTrue);
+
+    final saved = await api.updateNotificationPreferences(
+      initial.copyWith(
+        messagesEnabled: false,
+        quietHoursEnabled: true,
+        quietStart: '21:30',
+        quietEnd: '06:15',
+      ),
+    );
+    expect(saved.messagesEnabled, isFalse);
+    expect(saved.quietHoursEnabled, isTrue);
+    expect(saved.quietStart, '21:30');
+    expect(server.requests.last.method, 'PATCH');
     expect(server.requests.last.headers['X-CSRFToken'], 'csrf-test');
   });
 
