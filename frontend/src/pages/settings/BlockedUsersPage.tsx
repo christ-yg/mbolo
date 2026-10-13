@@ -16,6 +16,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
@@ -29,6 +30,7 @@ import type {
 } from "../../types/safety";
 
 import "./BlockedUsersPage.css";
+import "./TrustHistoryControls.css";
 
 
 type PageStatus =
@@ -103,6 +105,10 @@ export function BlockedUsersPage() {
     useState("");
 
 
+  const busy = useRef(false);
+  const [query, setQuery] = useState("");
+  const [oldestFirst, setOldestFirst] = useState(false);
+
   const counterLabel = useMemo(
     () => (
       totalCount === 1
@@ -115,6 +121,8 @@ export function BlockedUsersPage() {
 
   const loadFirstPage =
     useCallback(async (): Promise<void> => {
+      if (busy.current) return;
+      busy.current = true;
       setStatus("loading");
       setErrorMessage("");
       setSuccessMessage("");
@@ -138,6 +146,8 @@ export function BlockedUsersPage() {
             : "Impossible de charger les profils bloqués.",
         );
         setStatus("error");
+      } finally {
+        busy.current = false;
       }
     }, []);
 
@@ -148,10 +158,11 @@ export function BlockedUsersPage() {
 
 
   async function loadMore(): Promise<void> {
-    if (isLoadingMore || !hasNextPage) {
+    if (busy.current || isLoadingMore || !hasNextPage) {
       return;
     }
 
+    busy.current = true;
     setIsLoadingMore(true);
     setErrorMessage("");
 
@@ -180,6 +191,7 @@ export function BlockedUsersPage() {
           : "Impossible de charger la suite.",
       );
     } finally {
+      busy.current = false;
       setIsLoadingMore(false);
     }
   }
@@ -188,10 +200,11 @@ export function BlockedUsersPage() {
   async function confirmUnblock(
     item: BlockedUserItem,
   ): Promise<void> {
-    if (pendingId !== null) {
+    if (busy.current || pendingId !== null) {
       return;
     }
 
+    busy.current = true;
     setPendingId(item.id);
     setErrorMessage("");
     setSuccessMessage("");
@@ -215,7 +228,21 @@ export function BlockedUsersPage() {
         `${displayName} a été débloqué. L’ancien match et l’ancienne conversation ne sont pas restaurés.`,
       );
 
-      if (items.length === 1 && !hasNextPage) {
+      // Removing a row changes page offsets; restart before loading more.
+      if (hasNextPage || currentPage > 1) {
+        setStatus("loading");
+        try {
+          const response = await getBlockedUsers(1, 20);
+          setItems(response.results);
+          setCurrentPage(1);
+          setTotalCount(response.count);
+          setHasNextPage(response.next !== null);
+          setStatus(response.results.length ? "success" : "empty");
+        } catch {
+          setStatus("error");
+          setErrorMessage("Profil débloqué. Actualise la liste avant de poursuivre.");
+        }
+      } else if (items.length === 1) {
         setStatus("empty");
       }
     } catch (error: unknown) {
@@ -225,10 +252,15 @@ export function BlockedUsersPage() {
           : "Le déblocage a échoué.",
       );
     } finally {
+      busy.current = false;
       setPendingId(null);
     }
   }
 
+
+  const filteredItems = items.filter((item) =>
+    `${item.blocked_profile?.display_name ?? "Profil indisponible"} ${item.blocked_profile?.city_label ?? item.blocked_profile?.city ?? ""}`.toLocaleLowerCase("fr").includes(query.trim().toLocaleLowerCase("fr"))
+  ).sort((a, b) => oldestFirst ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at));
 
   return (
     <main className="blocked-users-page">
@@ -303,6 +335,21 @@ export function BlockedUsersPage() {
             <p>{errorMessage}</p>
           </div>
         ) : null}
+      </section>
+
+      <section className="trust-history-controls" aria-label="Recherche et filtres">
+        <label>Rechercher dans la liste
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+        <label>Ordre chronologique
+          <select aria-label="Ordre chronologique" value={oldestFirst ? "oldest" : "newest"} onChange={(event) => setOldestFirst(event.target.value === "oldest")}>
+            <option value="newest">Plus récents d’abord</option><option value="oldest">Plus anciens d’abord</option>
+          </select>
+        </label>
+        <button type="button" disabled={status === "loading" || isLoadingMore || pendingId !== null || confirmingItem !== null} onClick={() => void loadFirstPage()}>Actualiser la liste</button>
+        <button type="button" onClick={() => { setQuery(""); setOldestFirst(false);  }}>Réinitialiser les filtres</button>
+        <p role="status">{filteredItems.length} résultat(s) sur {items.length} entrée(s) chargée(s). Recherche et tri limités aux entrées chargées.</p>
+        {status === "success" && filteredItems.length === 0 && <p>Aucun résultat pour ces filtres. Tu peux charger la suite si elle est disponible.</p>}
       </section>
 
       {status === "loading" ? (
@@ -396,7 +443,7 @@ export function BlockedUsersPage() {
             className="blocked-users-grid"
             aria-label="Liste des profils bloqués"
           >
-            {items.map((item) => {
+            {filteredItems.map((item) => {
               const profile = item.blocked_profile;
               const photo = getPhoto(item);
 
@@ -453,7 +500,7 @@ export function BlockedUsersPage() {
                     <button
                       type="button"
                       className="blocked-users-button blocked-users-button--unblock"
-                      disabled={pendingId !== null}
+                      disabled={pendingId !== null || isLoadingMore}
                       onClick={() => setConfirmingItem(item)}
                     >
                       Débloquer ce profil
@@ -470,7 +517,7 @@ export function BlockedUsersPage() {
               <button
                 type="button"
                 className="blocked-users-button blocked-users-button--secondary"
-                disabled={isLoadingMore}
+                disabled={isLoadingMore || pendingId !== null || confirmingItem !== null}
                 onClick={() => void loadMore()}
               >
                 {isLoadingMore
@@ -491,7 +538,7 @@ export function BlockedUsersPage() {
             type="button"
             className="blocked-users-dialog-backdrop"
             aria-label="Fermer la confirmation"
-            disabled={pendingId !== null}
+            disabled={pendingId !== null || isLoadingMore}
             onClick={() => setConfirmingItem(null)}
           />
 
@@ -536,7 +583,7 @@ export function BlockedUsersPage() {
               <button
                 type="button"
                 className="blocked-users-button blocked-users-button--secondary"
-                disabled={pendingId !== null}
+                disabled={pendingId !== null || isLoadingMore}
                 onClick={() => setConfirmingItem(null)}
               >
                 Annuler
@@ -545,7 +592,7 @@ export function BlockedUsersPage() {
               <button
                 type="button"
                 className="blocked-users-button blocked-users-button--primary"
-                disabled={pendingId !== null}
+                disabled={pendingId !== null || isLoadingMore}
                 onClick={() => void confirmUnblock(confirmingItem)}
               >
                 {pendingId === confirmingItem.id

@@ -74,9 +74,9 @@ test.describe("Sécurité communautaire Mbolo", () => {
     await expect(page.getByRole("heading", { name: "Mes signalements" })).toBeVisible();
     await expect(page.getByText("Amina", { exact: true })).toBeVisible();
     await expect(page.getByText("Arnaque", { exact: true })).toBeVisible();
-    await expect(page.getByText("En cours d’examen", { exact: true })).toBeVisible();
+    await expect(page.locator(".reports-premium-list").getByText("En cours d’examen", { exact: true })).toBeVisible();
     await expect(page.getByText("Profil indisponible", { exact: true })).toBeVisible();
-    await expect(page.getByText("Traité", { exact: true })).toBeVisible();
+    await expect(page.locator(".reports-premium-list").getByText("Traité", { exact: true })).toBeVisible();
     await expect(page.getByText("identité du modérateur", { exact: false })).toBeVisible();
   });
 
@@ -190,3 +190,68 @@ async function installBlockedUsersApi(
     });
   });
 }
+
+test.describe("Centre de confiance interactif Web", () => {
+  test.beforeEach(async ({ page }) => { await installAuthenticatedMember(page); });
+
+  test("recherche, statut et réinitialisation des signalements", async ({ page }) => {
+    await page.route("**/api/v1/safety/reports/**", route => json(route, {
+      count: 2, next: null, previous: null, results: [
+        { id: "a", reported_profile: null, reason: "spam", description: "Messages répétés", status: "pending", created_at: "2026-10-12T10:00:00Z", updated_at: "2026-10-12T10:00:00Z" },
+        { id: "b", reported_profile: null, reason: "scam", description: "Demande argent", status: "resolved", created_at: "2026-10-11T10:00:00Z", updated_at: "2026-10-12T10:00:00Z" },
+      ],
+    }));
+    await page.goto("/reports");
+    const cards = page.locator(".reports-premium-card");
+    await expect(cards).toHaveCount(2);
+    await page.getByRole("searchbox").fill("argent");
+    await expect(cards).toHaveCount(1);
+    await page.getByLabel("Statut du dossier", { exact: true }).selectOption("pending");
+    await expect(cards).toHaveCount(0);
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await expect(cards).toHaveCount(2);
+    await page.getByLabel("Ordre chronologique", { exact: true }).selectOption("oldest");
+    await expect(cards.first()).toContainText("Demande argent");
+  });
+
+  test("recherche des profils bloqués sans les débloquer", async ({ page }) => {
+    let deletes = 0;
+    await installBlockedUsersApi(page, () => { deletes += 1; });
+    await page.goto("/blocked-users");
+    await page.getByRole("searchbox").fill("introuvable");
+    await expect(page.locator(".blocked-user-card")).toHaveCount(0);
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await expect(page.getByText("David", { exact: true })).toBeVisible();
+    expect(deletes).toBe(0);
+  });
+
+  test("un déblocage paginé recharge la première page", async ({ page }) => {
+    let deleted = false;
+    const pages: string[] = [];
+    await page.route("**/api/v1/safety/blocks/**", async route => {
+      if (route.request().method() === "DELETE") { deleted = true; await route.fulfill({ status: 204 }); return; }
+      const current = new URL(route.request().url()).searchParams.get("page") ?? "1";
+      pages.push(current);
+      const person = deleted ? "Alice" : "David";
+      await json(route, { count: deleted ? 1 : 2, next: deleted ? null : "?page=2", previous: null,
+        results: [{ id: person, blocked_profile: { id: person, display_name: person, age: 30, city: "Libreville", photos: [] }, created_at: "2026-10-12T10:00:00Z" }] });
+    });
+    await page.goto("/blocked-users");
+    await page.getByRole("button", { name: "Débloquer ce profil" }).click();
+    await page.getByRole("button", { name: "Confirmer le déblocage" }).click();
+    await expect(page.getByText("Alice", { exact: true })).toBeVisible();
+    expect(pages).toEqual(["1", "1"]);
+    await expect(page.getByRole("button", { name: "Charger plus de profils" })).toHaveCount(0);
+  });
+
+  test("actualisation et reprise après une erreur de signalements", async ({ page }) => {
+    let failed = true;
+    await page.route("**/api/v1/safety/reports/**", route => json(route, failed ? { detail: "Indisponible" } : { count: 0, next: null, previous: null, results: [] }, failed ? 503 : 200));
+    await page.goto("/reports");
+    await expect(page.getByRole("heading", { name: "Impossible d’afficher tes dossiers" })).toBeVisible();
+    failed = false;
+    await page.getByRole("button", { name: "Actualiser la liste" }).click();
+    await expect(page.getByRole("heading", { name: "Aucun signalement envoyé" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Actualiser la liste" })).toBeEnabled();
+  });
+});
