@@ -12,7 +12,7 @@
  * - détection et célébration d'un match réciproque.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { normalizeApiError } from "../../api/apiError";
@@ -48,6 +48,8 @@ type DiscoveryStatus = "loading" | "success" | "empty" | "error";
 
 export function DiscoveryPage() {
   const navigate = useNavigate();
+  const actionLock = useRef(false);
+  const requestVersion = useRef(0);
   const { user } = useAuth();
 
   const [status, setStatus] = useState<DiscoveryStatus>("loading");
@@ -106,6 +108,7 @@ export function DiscoveryPage() {
    * Charge une page depuis l'API de découverte.
    */
   const loadDiscoveryPage = useCallback(async (page: number): Promise<void> => {
+    const version = ++requestVersion.current;
     setStatus("loading");
     setErrorMessage("");
     setActionError(null);
@@ -117,6 +120,7 @@ export function DiscoveryPage() {
         pageSize: DEFAULT_DISCOVERY_PAGE_SIZE,
       });
 
+      if (version !== requestVersion.current) return;
       setDiscoveryData(result);
       setCurrentPage(page);
 
@@ -127,6 +131,7 @@ export function DiscoveryPage() {
 
       setStatus("success");
     } catch (error: unknown) {
+      if (version !== requestVersion.current) return;
       const normalizedError = normalizeApiError(error);
 
       setDiscoveryData(null);
@@ -147,6 +152,7 @@ export function DiscoveryPage() {
       .catch(() => {
         // Le moteur principal reste disponible si cet état bonus échoue.
       });
+    return () => { requestVersion.current += 1; };
   }, [loadDiscoveryPage]);
 
   /**
@@ -164,7 +170,8 @@ export function DiscoveryPage() {
     }
 
     if (discoveryData?.next) {
-      await loadDiscoveryPage(currentPage + 1);
+      // Evaluated profiles disappear from the server selection; offsets shrink.
+      await loadDiscoveryPage(1);
       return;
     }
 
@@ -182,10 +189,11 @@ export function DiscoveryPage() {
     decision: InteractionDecision,
     isSuperLike = false,
   ): Promise<void> {
-    if (isActionPending || !currentProfile) {
+    if (actionLock.current || isActionPending || isRewindPending || matchCelebration !== null || status !== "success" || !currentProfile) {
       return;
     }
 
+    actionLock.current = true;
     setIsActionPending(true);
     setActionError(null);
 
@@ -241,6 +249,7 @@ export function DiscoveryPage() {
        */
       setActionError(normalizedError.message);
     } finally {
+      actionLock.current = false;
       setIsActionPending(false);
     }
   }
@@ -265,11 +274,14 @@ export function DiscoveryPage() {
     function handleDiscoveryShortcut(event: KeyboardEvent): void {
       const target = event.target;
       if (
+        event.repeat || event.altKey || event.ctrlKey || event.metaKey ||
+        document.querySelector('[role="dialog"], dialog[open]') !== null ||
+        (target instanceof HTMLElement && target.isContentEditable) ||
         (target instanceof Element &&
           target.closest("input, textarea, select, button, a, summary")) ||
         matchCelebration !== null ||
         status !== "success" ||
-        isActionPending
+        isActionPending || isRewindPending
       ) {
         return;
       }
@@ -300,10 +312,11 @@ export function DiscoveryPage() {
       return;
     }
 
-    if (!rewindState.available || isRewindPending) {
+    if (!rewindState.available || actionLock.current || isRewindPending || isActionPending || matchCelebration !== null) {
       return;
     }
 
+    actionLock.current = true;
     setIsRewindPending(true);
     setActionError(null);
 
@@ -337,6 +350,7 @@ export function DiscoveryPage() {
     } catch (error: unknown) {
       setActionError(normalizeApiError(error).message);
     } finally {
+      actionLock.current = false;
       setIsRewindPending(false);
     }
   }
@@ -552,6 +566,7 @@ export function DiscoveryPage() {
             <p>profils compatibles dans la sélection actuelle</p>
           </div>
 
+          <button type="button" disabled={isActionPending || isRewindPending || matchCelebration !== null} onClick={() => void loadDiscoveryPage(1)}>Actualiser la sélection</button>
           <button
             type="button"
             onClick={() => {
@@ -614,7 +629,7 @@ export function DiscoveryPage() {
           profile={currentProfile}
           currentPosition={currentProfileIndex + 1}
           totalInCurrentPage={profiles.length}
-          isActionPending={isActionPending}
+          isActionPending={isActionPending || isRewindPending || matchCelebration !== null}
           onPass={handlePass}
           onLike={handleLike}
           onSuperLike={handleSuperLike}

@@ -565,3 +565,46 @@ test.describe("Matchs Web organisés", () => {
     await expect(page.locator(".matches-grid").locator(":scope > *")).toHaveCount(2);
   });
 });
+
+test.describe("Découverte continue", () => {
+  test.beforeEach(async ({ page }) => { await installAuthenticatedApi(page); });
+  test("la sélection repart de la première page après un pass", async ({ page }) => {
+    let evaluated = false;
+    const pages: string[] = [];
+    await page.route("**/profiles/discovery/?*", route => {
+      pages.push(new URL(route.request().url()).searchParams.get("page") ?? "1");
+      return json(route, { count: evaluated ? 1 : 2, next: evaluated ? null : "?page=2", previous: null,
+        results: [{ ...PROFILE, id: evaluated ? "next-profile" : PROFILE.id, display_name: evaluated ? "Profil suivant" : PROFILE.display_name }] });
+    });
+    await page.route("**/interactions/", route => { evaluated = true; return json(route, { matched: false, decision: "pass", is_super_like: false }); });
+    await page.goto("/discovery");
+    await page.getByRole("button", { name: "Passer", exact: false }).click();
+    await expect(page.getByText("Profil suivant", { exact: true }).first()).toBeVisible();
+    expect(pages).toEqual(["1", "1"]);
+  });
+  test("un refus conserve le profil et autorise une nouvelle tentative", async ({ page }) => {
+    let fail = true;
+    await page.route("**/interactions/", route => json(route, fail ? { detail: "Réessaie" } : { matched: false, decision: "pass", is_super_like: false }, fail ? 503 : 200));
+    await page.goto("/discovery");
+    await page.getByRole("button", { name: "Passer", exact: false }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByText("Arielle Test", { exact: true }).first()).toBeVisible();
+    fail = false;
+    await page.getByRole("button", { name: "Passer", exact: false }).click();
+    await expect(page.getByRole("heading", { name: "Ta sélection est complète." })).toBeVisible();
+  });
+  test("les flèches dans la galerie ne déclenchent aucune interaction", async ({ page }) => {
+    let interactions = 0;
+    await page.route("**/interactions/", route => { interactions += 1; return json(route, { matched: false }); });
+    await page.route("**/profiles/discovery/?*", route => json(route, { count: 1, next: null, previous: null, results: [{ ...PROFILE, photos: [{ id: "p", image_url: "https://images.mbolo.invalid/p.svg", is_primary: true, position: 1 }] }] }));
+    await page.route("https://images.mbolo.invalid/**", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"/>' }));
+    await page.goto("/discovery");
+    await page.getByRole("button", { name: "Agrandir la photo de Arielle Test" }).click();
+    await expect(page.getByRole("dialog", { name: "Galerie de Arielle Test" })).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowLeft");
+    await page.getByRole("button", { name: "Fermer la galerie", exact: true }).click();
+    expect(interactions).toBe(0);
+    await expect(page.getByText("Arielle Test", { exact: true }).first()).toBeVisible();
+  });
+});

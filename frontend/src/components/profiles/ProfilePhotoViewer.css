@@ -1,9 +1,9 @@
-.profile-photo-viewer { box-sizing: border-box; width: min(960px, 96vw); max-height: 94dvh; padding: 16px; border: 1px solid #6f6089; border-radius: 20px; background: #17121f; color: #fff; }
-.profile-photo-viewer::backdrop { background: rgb(0 0 0 / 85%); }
-.profile-photo-viewer__toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
-.profile-photo-viewer button { min-height: 44px; padding: 10px 16px; background: #31263f; color: #fff; border: 1px solid #ad91cf; border-radius: 12px; font: inherit; }
-.profile-photo-viewer button:disabled { opacity: .5; }
-.profile-photo-viewer :focus-visible { outline: 3px solid #dac0fa; outline-offset: 3px; }
-.profile-photo-viewer__image { height: min(65dvh, 650px); overflow: auto; margin-block: 16px; text-align: center; }
-.profile-photo-viewer__image img { width: 100%; height: 100%; object-fit: contain; }
-.profile-photo-viewer__image img.is-zoomed { width: 180%; height: 180%; max-width: none; }
+.public-profile-photo-viewer { box-sizing: border-box; width: min(960px, 96vw); max-height: 94dvh; padding: 16px; border: 1px solid #6f6089; border-radius: 20px; background: #17121f; color: #fff; }
+.public-profile-photo-viewer::backdrop { background: rgb(0 0 0 / 85%); }
+.public-profile-photo-viewer__toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.public-profile-photo-viewer button { min-height: 44px; padding: 10px 16px; background: #31263f; color: #fff; border: 1px solid #ad91cf; border-radius: 12px; font: inherit; }
+.public-profile-photo-viewer button:disabled { opacity: .5; }
+.public-profile-photo-viewer :focus-visible { outline: 3px solid #dac0fa; outline-offset: 3px; }
+.public-profile-photo-viewer__image { height: min(65dvh, 650px); overflow: auto; margin-block: 16px; text-align: center; }
+.public-profile-photo-viewer__image img { width: 100%; height: 100%; object-fit: contain; }
+.public-profile-photo-viewer__image img.is-zoomed { width: 180%; height: 180%; max-width: none; }
