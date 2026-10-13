@@ -77,7 +77,7 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
               ])))
           : RefreshIndicator(onRefresh: _load, child: ListView(
               physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20), children: [
-                if (_acting) const LinearProgressIndicator(),
+                if (_acting) const Text('Action de sécurité en cours…'),
                 if (profile.photos.isEmpty)
                   const SizedBox(height: 190, child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.person_outline, size: 70), Text('Aucune photo publique'),
