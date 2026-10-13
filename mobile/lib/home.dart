@@ -12,6 +12,7 @@ import 'messages.dart';
 import 'notifications.dart';
 import 'premium.dart';
 import 'profile_verification.dart';
+import 'public_profile.dart';
 import 'safety_actions.dart';
 import 'security.dart';
 import 'showcase.dart';
@@ -1117,6 +1118,22 @@ class _DiscoverPage extends StatelessWidget {
             _ProfileDetailGallery(
               profile: profile,
               initialPhoto: photo,
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.person_search_outlined),
+              label: const Text('Consulter le profil actualisé'),
+              onPressed: () async {
+                final changed = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute<bool>(builder: (_) => PublicProfilePage(
+                    api: api, profileId: profile.id,
+                  )),
+                );
+                if (changed == true && context.mounted) {
+                  Navigator.of(context).pop();
+                  onSafetyComplete();
+                }
+              },
             ),
             const SizedBox(height: 20),
             Row(

@@ -497,6 +497,17 @@ class DemoApi implements AuthApi {
   }
 
   @override
+  Future<DiscoveryProfile> getPublicProfile(String profileId) async {
+    if (_blockedProfiles.contains(profileId)) {
+      throw const FormatException('Profil indisponible.');
+    }
+    return _discoveryProfiles.firstWhere(
+      (profile) => profile.id == profileId,
+      orElse: () => throw const FormatException('Profil indisponible.'),
+    );
+  }
+
+  @override
   Future<List<DiscoveryProfile>> getDiscovery() async {
     return _discoveryProfiles;
   }

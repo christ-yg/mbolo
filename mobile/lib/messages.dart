@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'auth_contract.dart';
 import 'message_drafts.dart';
+import 'public_profile.dart';
 import 'safety_actions.dart';
 
 class MessagesPage extends StatefulWidget {
@@ -1768,6 +1769,15 @@ class _ConversationPageState extends State<ConversationPage>
 
   Future<void> _handleConversationAction(String action) async {
     switch (action) {
+      case 'profile':
+        final changed = await Navigator.of(context).push<bool>(
+          MaterialPageRoute<bool>(builder: (_) => PublicProfilePage(
+            api: widget.api, profileId: widget.conversation.otherProfile.id,
+            matchId: widget.conversation.matchId,
+          )),
+        );
+        if (changed == true && mounted) Navigator.of(context).pop();
+        return;
       case 'pin':
         await _updatePreferences(pinned: !_pinned);
         return;
@@ -2060,6 +2070,10 @@ class _ConversationPageState extends State<ConversationPage>
             tooltip: 'Options de conversation',
             onSelected: _handleConversationAction,
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'profile',
+                child: ListTile(leading: Icon(Icons.person_outline), title: Text('Consulter le profil')),
+              ),
               PopupMenuItem(
                 value: 'pin',
                 child: ListTile(

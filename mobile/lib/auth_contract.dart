@@ -1258,6 +1258,7 @@ abstract class AuthApi {
     required List<String> interests,
   });
   Future<List<DiscoveryProfile>> getDiscovery();
+  Future<DiscoveryProfile> getPublicProfile(String profileId);
   Future<InteractionResult> decideProfile({
     required String profileId,
     required String decision,

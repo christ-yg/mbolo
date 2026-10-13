@@ -34,6 +34,14 @@ class FakeServer implements HttpClientAdapter {
       headers['set-cookie'] = [
         'sessionid=session-test; Path=/; Secure; HttpOnly',
       ];
+    } else if (path.contains('/profiles/public/')) {
+      data = {
+        'id': '22222222-2222-2222-2222-222222222222',
+        'display_name': 'Grâce', 'age': 29,
+        'city': 'port_gentil', 'city_label': 'Port-Gentil',
+        'dating_intent': 'serious_relationship', 'dating_intent_label': 'Relation sérieuse',
+        'biography': 'Une présentation publique.', 'is_verified': true, 'photos': [],
+      };
     } else if (path.endsWith('/profiles/discovery/')) {
       data = {
         'results': [
@@ -1088,6 +1096,21 @@ void main() {
       'only_verified_profiles': true,
       'only_profiles_with_photos': true,
     });
+  });
+
+  test('Public profile uses authorized endpoint and human labels', () async {
+    final server = FakeServer();
+    final api = MboloApi('https://example.com', client: Dio()..httpClientAdapter = server);
+    addTearDown(api.close);
+    const id = '22222222-2222-2222-2222-222222222222';
+    final profile = await api.getPublicProfile(id);
+    expect(server.requests.last.method, 'GET');
+    expect(server.requests.last.path, 'profiles/public/$id/');
+    expect(profile.displayName, 'Grâce');
+    expect(profile.city, 'Port-Gentil');
+    expect(profile.datingIntent, 'Relation sérieuse');
+    expect(profile.verified, isTrue);
+    await expectLater(api.getPublicProfile('other-id'), throwsFormatException);
   });
 
 }

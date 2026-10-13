@@ -393,6 +393,22 @@ class MboloApi implements AuthApi {
   }
 
   @override
+  Future<DiscoveryProfile> getPublicProfile(String profileId) async {
+    final response = await client.get<dynamic>(
+      'profiles/public/${Uri.encodeComponent(profileId)}/',
+    );
+    final data = objectData(response.data);
+    if (data['id'] != profileId) {
+      throw const FormatException('Profil public incorrect.');
+    }
+    return DiscoveryProfile.fromJson({
+      ...data,
+      'city': data['city_label'] ?? data['city'],
+      'dating_intent': data['dating_intent_label'] ?? data['dating_intent'],
+    });
+  }
+
+  @override
   Future<List<DiscoveryProfile>> getDiscovery() async {
     final response = await client.get<dynamic>(
       'profiles/discovery/',
