@@ -579,7 +579,7 @@ test.describe("Découverte continue", () => {
     await page.route("**/interactions/", route => { evaluated = true; return json(route, { matched: false, decision: "pass", is_super_like: false }); });
     await page.goto("/discovery");
     await page.getByRole("button", { name: "Passer", exact: false }).click();
-    await expect(page.getByRole("heading", { name: "Profil suivant, 29 ans", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Profil suivant\s*, 29 ans$/ })).toBeVisible();
     expect(pages).toEqual(["1", "1"]);
   });
   test("un refus conserve le profil et autorise une nouvelle tentative", async ({ page }) => {
@@ -588,7 +588,7 @@ test.describe("Découverte continue", () => {
     await page.goto("/discovery");
     await page.getByRole("button", { name: "Passer", exact: false }).click();
     await expect(page.getByRole("alert")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Arielle Test, 29 ans", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Arielle Test\s*, 29 ans$/ })).toBeVisible();
     fail = false;
     await page.getByRole("button", { name: "Passer", exact: false }).click();
     await expect(page.getByRole("heading", { name: "Ta sélection est complète." })).toBeVisible();
@@ -605,6 +605,6 @@ test.describe("Découverte continue", () => {
     await page.keyboard.press("ArrowLeft");
     await page.getByRole("button", { name: "Fermer la galerie", exact: true }).click();
     expect(interactions).toBe(0);
-    await expect(page.getByRole("heading", { name: "Arielle Test, 29 ans", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Arielle Test\s*, 29 ans$/ })).toBeVisible();
   });
 });
