@@ -11,6 +11,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
@@ -42,6 +43,11 @@ type MatchesStatus =
 
 export function MatchesPage() {
   const navigate = useNavigate();
+  const [query, setQuery] = useState("");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [sort, setSort] = useState("recent");
+  const requestVersion = useRef(0);
+
 
   const {
     lastEvent,
@@ -78,6 +84,7 @@ export function MatchesPage() {
    */
   const loadMatches = useCallback(
     async (page: number): Promise<void> => {
+      const version = ++requestVersion.current;
       setStatus("loading");
       setErrorMessage("");
 
@@ -87,6 +94,7 @@ export function MatchesPage() {
           pageSize: DEFAULT_MATCHES_PAGE_SIZE,
         });
 
+        if (version !== requestVersion.current) return;
         setMatchesData(result);
         setCurrentPage(page);
         setStatus(
@@ -95,6 +103,7 @@ export function MatchesPage() {
             : "success",
         );
       } catch (error: unknown) {
+        if (version !== requestVersion.current) return;
         const normalizedError =
           normalizeApiError(error);
 
@@ -109,6 +118,7 @@ export function MatchesPage() {
 
   useEffect(() => {
     void loadMatches(1);
+    return () => { requestVersion.current += 1; };
   }, [loadMatches]);
 
 
@@ -128,6 +138,11 @@ export function MatchesPage() {
     () => matchesData?.results ?? [],
     [matchesData?.results],
   );
+
+  const filteredMatches = useMemo(() => matches.filter((match) =>
+    (!verifiedOnly || match.other_profile.is_verified) &&
+    `${match.other_profile.display_name} ${match.other_profile.city_label ?? match.other_profile.city}`.toLocaleLowerCase("fr").includes(query.trim().toLocaleLowerCase("fr"))
+  ).sort((a, b) => sort === "name" ? a.other_profile.display_name.localeCompare(b.other_profile.display_name, "fr") : b.created_at.localeCompare(a.created_at)), [matches, query, verifiedOnly, sort]);
 
   const verifiedMatchesCount = useMemo(
     () =>
@@ -228,7 +243,7 @@ export function MatchesPage() {
             <small>
               {verifiedMatchesCount} profil
               {verifiedMatchesCount > 1 ? "s" : ""} vérifié
-              {verifiedMatchesCount > 1 ? "s" : ""}
+              {verifiedMatchesCount > 1 ? "s" : ""} sur cette page
             </small>
           ) : null}
         </aside>
@@ -339,6 +354,7 @@ export function MatchesPage() {
               >
                 Ajuster mes préférences
               </button>
+              <button type="button" onClick={() => void loadMatches(1)}>Actualiser les matchs</button>
             </div>
           </div>
         </section>
@@ -375,11 +391,21 @@ export function MatchesPage() {
         </button>
       </section>
 
+      <section className="matches-organization" aria-label="Organisation des matchs">
+        <label>Rechercher un match<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+        <label><input type="checkbox" checked={verifiedOnly} onChange={(event) => setVerifiedOnly(event.target.checked)} />Profils vérifiés uniquement</label>
+        <label>Trier<select aria-label="Trier les matchs" value={sort} onChange={(event) => setSort(event.target.value)}><option value="recent">Matchs récents</option><option value="name">Prénom</option></select></label>
+        <button type="button" disabled={isRemovingMatch || openingMatchId !== null || matchToRemove !== null} onClick={() => void loadMatches(currentPage)}>Actualiser les matchs</button>
+        <button type="button" onClick={() => { setQuery(""); setVerifiedOnly(false); setSort("recent"); }}>Réinitialiser les filtres</button>
+        <p role="status">{filteredMatches.length} match(s) affiché(s). Recherche, filtre et tri sur la page {currentPage} uniquement.</p>
+        {filteredMatches.length === 0 && <p>Aucun match ne correspond aux filtres. Essaie une autre page ou réinitialise les filtres.</p>}
+      </section>
+
       <section
         className="matches-grid"
         aria-label="Liste de mes matchs"
       >
-        {matches.map((match) => (
+        {filteredMatches.map((match) => (
           <MatchCard
             key={match.id}
             match={match}

@@ -472,3 +472,96 @@ test.describe("Parcours privés essentiels Mbolo", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 });
+
+
+test.describe("Messagerie Web organisée", () => {
+  test.beforeEach(async ({ page }) => { await installAuthenticatedApi(page); });
+  const conversations = [CONVERSATION, {
+    ...CONVERSATION, id: "conversation-zoe", other_profile: { ...PROFILE, display_name: "Zoé" },
+    unread_count: 0, other_presence: { is_online: false, last_seen_at: null }, last_message: null,
+    updated_at: "2026-10-01T12:00:00Z",
+  }];
+  test("filtres combinés, tri et réinitialisation", async ({ page }) => {
+    await page.route("**/conversations/?*", route => json(route, { count: 2, next: null, previous: null, results: conversations }));
+    await page.goto("/messages");
+    const cards = page.locator(".conversation-card");
+    await expect(cards).toHaveCount(2);
+    await page.getByLabel("Trier les conversations", { exact: true }).selectOption("name");
+    await expect(cards.first()).toContainText("Arielle Test");
+    await page.getByLabel("Filtrer les conversations", { exact: true }).selectOption("unread");
+    await expect(cards).toHaveCount(1);
+    await page.getByRole("searchbox").fill("Zoé");
+    await expect(cards).toHaveCount(0);
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await page.getByLabel("Filtrer les conversations", { exact: true }).selectOption("no_message");
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toContainText("Zoé");
+    await page.getByLabel("Filtrer les conversations", { exact: true }).selectOption("online");
+    await expect(cards).toContainText("Arielle Test");
+  });
+  test("actualisation conserve la recherche et reflète les nouveaux messages", async ({ page }) => {
+    let unread = 0;
+    await page.route("**/conversations/?*", route => json(route, { count: 1, next: null, previous: null, results: [{ ...CONVERSATION, unread_count: unread }] }));
+    await page.goto("/messages");
+    await page.getByRole("searchbox").fill("Arielle");
+    await page.getByLabel("Filtrer les conversations", { exact: true }).selectOption("unread");
+    await expect(page.locator(".conversation-card")).toHaveCount(0);
+    unread = 2;
+    await page.getByRole("button", { name: "Actualiser les conversations" }).click();
+    await expect(page.locator(".conversation-card")).toHaveCount(1);
+    await expect(page.getByRole("searchbox")).toHaveValue("Arielle");
+  });
+  test("une boîte vide peut être actualisée", async ({ page }) => {
+    let empty = true;
+    await page.route("**/conversations/?*", route => json(route, { count: empty ? 0 : 1, next: null, previous: null, results: empty ? [] : [CONVERSATION] }));
+    await page.goto("/messages");
+    await expect(page.getByRole("heading", { name: "Une vraie conversation commence après un match." })).toBeVisible();
+    empty = false;
+    await page.getByRole("button", { name: "Actualiser les conversations" }).click();
+    await expect(page.locator(".conversation-card")).toHaveCount(1);
+  });
+  test("une erreur puis une reprise conservent les filtres", async ({ page }) => {
+    let failed = false;
+    await page.route("**/conversations/?*", route => json(route, failed ? { detail: "Indisponible" } : { count: 1, next: null, previous: null, results: [CONVERSATION] }, failed ? 503 : 200));
+    await page.goto("/messages");
+    await page.getByRole("searchbox").fill("Arielle");
+    failed = true;
+    await page.getByRole("button", { name: "Actualiser les conversations" }).click();
+    await expect(page.getByRole("heading", { name: "Impossible de charger tes conversations" })).toBeVisible();
+    failed = false;
+    await page.getByRole("button", { name: "Réessayer" }).click();
+    await expect(page.getByRole("searchbox")).toHaveValue("Arielle");
+    await expect(page.locator(".conversation-card")).toHaveCount(1);
+  });
+});
+
+test.describe("Matchs Web organisés", () => {
+  test.beforeEach(async ({ page }) => { await installAuthenticatedApi(page); });
+  const matches = [
+    { id: "match-a", other_profile: PROFILE, created_at: "2026-10-01T12:00:00Z" },
+    { id: "match-b", other_profile: { ...PROFILE, id: "profile-b", display_name: "Zoé", is_verified: false }, created_at: "2026-10-12T12:00:00Z" },
+  ];
+  test("recherche et filtre vérifié se combinent sans modifier les matchs", async ({ page }) => {
+    await page.route("**/matches/?*", route => json(route, { count: 2, next: null, previous: null, results: matches }));
+    await page.goto("/matches");
+    const cards = page.locator(".matches-grid").locator(":scope > *");
+    await expect(cards).toHaveCount(2);
+    await page.getByLabel("Profils vérifiés uniquement").check();
+    await expect(cards).toHaveCount(1);
+    await page.getByRole("searchbox").fill("Zoé");
+    await expect(cards).toHaveCount(0);
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await page.getByLabel("Trier les matchs", { exact: true }).selectOption("name");
+    await expect(cards.first()).toContainText("Arielle Test");
+    await expect(cards).toHaveCount(2);
+  });
+  test("une liste vide peut être actualisée sans navigation", async ({ page }) => {
+    let empty = true;
+    await page.route("**/matches/?*", route => json(route, { count: empty ? 0 : 2, next: null, previous: null, results: empty ? [] : matches }));
+    await page.goto("/matches");
+    await expect(page.getByRole("heading", { name: "Ton prochain match commence dans Découvrir." })).toBeVisible();
+    empty = false;
+    await page.getByRole("button", { name: "Actualiser les matchs" }).click();
+    await expect(page.locator(".matches-grid").locator(":scope > *")).toHaveCount(2);
+  });
+});

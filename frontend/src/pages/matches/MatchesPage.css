@@ -756,3 +756,10 @@
     flex-wrap: wrap;
   }
 }
+
+.matches-organization { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-block: 24px; }
+.matches-organization label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.matches-organization input[type="search"], .matches-organization select, .matches-organization button { min-height: 44px; padding: 10px 14px; border-radius: 12px; border: 1px solid currentColor; background: inherit; color: inherit; font: inherit; max-width: 100%; }
+.matches-organization option { background: white; color: #171726; }
+.matches-organization p { flex-basis: 100%; }
+.matches-organization :focus-visible { outline: 3px solid #9772d9; outline-offset: 3px; }
