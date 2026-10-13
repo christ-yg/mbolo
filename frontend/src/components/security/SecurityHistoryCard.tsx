@@ -143,6 +143,7 @@ export function SecurityHistoryCard({
           <label>
             Résultat
             <select
+              aria-label="Résultat"
               value={outcome}
               onChange={(event) => {
                 setOutcome(event.target.value);
