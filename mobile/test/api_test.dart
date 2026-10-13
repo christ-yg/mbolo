@@ -1113,4 +1113,19 @@ void main() {
     await expectLater(api.getPublicProfile('other-id'), throwsFormatException);
   });
 
+  test('Safety history requests bounded pages and rejects invalid page indices', () async {
+    final server = FakeServer();
+    final api = MboloApi('https://example.com', client: Dio()..httpClientAdapter = server);
+    addTearDown(api.close);
+    final blocks = await api.getBlockedUsersPage(page: 2);
+    expect(blocks.totalCount, 1);
+    expect(blocks.hasNext, isFalse);
+    expect(server.requests.last.queryParameters, {'page': 2, 'page_size': 50});
+    await api.getMyReportsPage(page: 3);
+    expect(server.requests.last.queryParameters, {'page': 3, 'page_size': 50});
+    final before = server.requests.length;
+    await expectLater(api.getBlockedUsersPage(page: 0), throwsArgumentError);
+    expect(server.requests.length, before);
+  });
+
 }

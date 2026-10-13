@@ -452,6 +452,20 @@ class DemoApi implements AuthApi {
     return _profileVerification;
   }
 
+  SafetyHistoryPage<T> _demoSafetyPage<T>(List<T> items, int page) {
+    if (page < 1) throw ArgumentError.value(page, 'page');
+    return SafetyHistoryPage(items: List<T>.unmodifiable(items.skip((page - 1) * 50).take(50)),
+      totalCount: items.length, hasNext: page * 50 < items.length);
+  }
+
+  @override
+  Future<SafetyHistoryPage<BlockedUserItem>> getBlockedUsersPage({int page = 1}) async =>
+    _demoSafetyPage(await getBlockedUsers(), page);
+
+  @override
+  Future<SafetyHistoryPage<UserReportItem>> getMyReportsPage({int page = 1}) async =>
+    _demoSafetyPage(await getMyReports(), page);
+
   @override
   Future<List<BlockedUserItem>> getBlockedUsers() async {
     return List<BlockedUserItem>.unmodifiable(_blockedUsers);

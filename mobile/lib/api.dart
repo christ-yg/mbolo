@@ -564,21 +564,38 @@ class MboloApi implements AuthApi {
     return ProfileVerificationState.fromJson(objectData(response.data));
   }
 
-  @override
-  Future<List<BlockedUserItem>> getBlockedUsers() async {
-    final response = await client.get<dynamic>(
-      'safety/blocks/',
-      queryParameters: const {'page': 1, 'page_size': 50},
-    );
-    final raw = response.data;
-    if (raw is! Map<String, dynamic> || raw['results'] is! List) {
-      throw const FormatException('Liste des blocages incorrecte.');
+  SafetyHistoryPage<T> _safetyHistoryPage<T>(dynamic raw, T Function(Map<String, dynamic>) parse) {
+    if (raw is! Map<String, dynamic> || raw['results'] is! List ||
+        raw['count'] is! int || (raw['count'] as int) < 0 ||
+        (raw['next'] != null && raw['next'] is! String)) {
+      throw const FormatException('Historique de sécurité incorrect.');
     }
-    return (raw['results'] as List<dynamic>)
-        .whereType<Map<String, dynamic>>()
-        .map(BlockedUserItem.fromJson)
-        .toList(growable: false);
+    final items = (raw['results'] as List).map((item) {
+      if (item is! Map<String, dynamic>) throw const FormatException('Entrée de sécurité incorrecte.');
+      return parse(item);
+    }).toList(growable: false);
+    return SafetyHistoryPage(items: items, totalCount: raw['count'] as int,
+      hasNext: raw['next'] is String && (raw['next'] as String).isNotEmpty);
   }
+
+  @override
+  Future<SafetyHistoryPage<BlockedUserItem>> getBlockedUsersPage({int page = 1}) async {
+    if (page < 1) throw ArgumentError.value(page, 'page');
+    final response = await client.get<dynamic>('safety/blocks/',
+      queryParameters: {'page': page, 'page_size': 50});
+    return _safetyHistoryPage(response.data, BlockedUserItem.fromJson);
+  }
+
+  @override
+  Future<SafetyHistoryPage<UserReportItem>> getMyReportsPage({int page = 1}) async {
+    if (page < 1) throw ArgumentError.value(page, 'page');
+    final response = await client.get<dynamic>('safety/reports/',
+      queryParameters: {'page': page, 'page_size': 50});
+    return _safetyHistoryPage(response.data, UserReportItem.fromJson);
+  }
+
+  @override
+  Future<List<BlockedUserItem>> getBlockedUsers() async => (await getBlockedUsersPage()).items;
 
   @override
   Future<void> unblockUser(String blockId) async {
@@ -594,20 +611,7 @@ class MboloApi implements AuthApi {
   }
 
   @override
-  Future<List<UserReportItem>> getMyReports() async {
-    final response = await client.get<dynamic>(
-      'safety/reports/',
-      queryParameters: const {'page': 1, 'page_size': 50},
-    );
-    final raw = response.data;
-    if (raw is! Map<String, dynamic> || raw['results'] is! List) {
-      throw const FormatException('Liste des signalements incorrecte.');
-    }
-    return (raw['results'] as List<dynamic>)
-        .whereType<Map<String, dynamic>>()
-        .map(UserReportItem.fromJson)
-        .toList(growable: false);
-  }
+  Future<List<UserReportItem>> getMyReports() async => (await getMyReportsPage()).items;
 
   @override
   Future<AdvancedDiscoveryFilters> getAdvancedDiscoveryFilters() async {

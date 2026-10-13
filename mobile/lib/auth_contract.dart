@@ -719,6 +719,13 @@ class ProfileVerificationState {
   }
 }
 
+class SafetyHistoryPage<T> {
+  const SafetyHistoryPage({required this.items, required this.totalCount, required this.hasNext});
+  final List<T> items;
+  final int totalCount;
+  final bool hasNext;
+}
+
 class BlockedUserItem {
   const BlockedUserItem({
     required this.id,
@@ -1286,6 +1293,8 @@ abstract class AuthApi {
     required String filename,
   });
   Future<List<BlockedUserItem>> getBlockedUsers();
+  Future<SafetyHistoryPage<BlockedUserItem>> getBlockedUsersPage({int page = 1});
+  Future<SafetyHistoryPage<UserReportItem>> getMyReportsPage({int page = 1});
   Future<void> unblockUser(String blockId);
   Future<List<UserReportItem>> getMyReports();
   Future<AdvancedDiscoveryFilters> getAdvancedDiscoveryFilters();

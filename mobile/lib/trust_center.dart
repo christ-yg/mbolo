@@ -15,6 +15,13 @@ class _TrustCenterPageState extends State<TrustCenterPage> {
   List<BlockedUserItem> _blocked = const <BlockedUserItem>[];
   List<UserReportItem> _reports = const <UserReportItem>[];
   bool _loading = true;
+  bool _loadingMore = false;
+  int _blockedPage = 1;
+  int _reportsPage = 1;
+  bool _blockedNext = false;
+  bool _reportsNext = false;
+  int _blockedTotal = 0;
+  int _reportsTotal = 0;
   String? _workingId;
   String? _error;
 
@@ -25,19 +32,25 @@ class _TrustCenterPageState extends State<TrustCenterPage> {
   }
 
   Future<void> _load() async {
+    if (_loadingMore || _workingId != null) return;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final values = await Future.wait<Object>([
-        widget.api.getBlockedUsers(),
-        widget.api.getMyReports(),
+        widget.api.getBlockedUsersPage(),
+        widget.api.getMyReportsPage(),
       ]);
       if (!mounted) return;
       setState(() {
-        _blocked = values[0] as List<BlockedUserItem>;
-        _reports = values[1] as List<UserReportItem>;
+        final blocks = values[0] as SafetyHistoryPage<BlockedUserItem>;
+        final reports = values[1] as SafetyHistoryPage<UserReportItem>;
+        _blocked = blocks.items;
+        _reports = reports.items;
+        _blockedPage = 1; _reportsPage = 1;
+        _blockedNext = blocks.hasNext; _reportsNext = reports.hasNext;
+        _blockedTotal = blocks.totalCount; _reportsTotal = reports.totalCount;
       });
     } catch (error) {
       if (mounted) setState(() => _error = friendlyError(error));
@@ -46,7 +59,43 @@ class _TrustCenterPageState extends State<TrustCenterPage> {
     }
   }
 
+  Future<void> _more(bool blocks) async {
+    if (_loadingMore || _loading || _workingId != null) return;
+    setState(() { _loadingMore = true; _error = null; });
+    try {
+      if (blocks) {
+        final result = await widget.api.getBlockedUsersPage(page: _blockedPage + 1);
+        if (!mounted) return;
+        setState(() {
+          _blocked = {for (final item in [..._blocked, ...result.items]) item.id: item}.values.toList();
+          _blockedPage += 1; _blockedNext = result.hasNext; _blockedTotal = result.totalCount;
+        });
+      } else {
+        final result = await widget.api.getMyReportsPage(page: _reportsPage + 1);
+        if (!mounted) return;
+        setState(() {
+          _reports = {for (final item in [..._reports, ...result.items]) item.id: item}.values.toList();
+          _reportsPage += 1; _reportsNext = result.hasNext; _reportsTotal = result.totalCount;
+        });
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  Widget _footer(bool blocks) => Padding(padding: const EdgeInsets.all(12), child: Column(children: [
+    Text(blocks ? '${_blocked.length} sur $_blockedTotal blocages' : '${_reports.length} sur $_reportsTotal signalements'),
+    if (blocks ? _blockedNext : _reportsNext) TextButton.icon(
+      onPressed: _loadingMore || _workingId != null ? null : () => _more(blocks),
+      icon: const Icon(Icons.expand_more), label: const Text('Charger la suite')),
+    if (_loadingMore) const LinearProgressIndicator(),
+  ]));
+
   Future<void> _unblock(BlockedUserItem item) async {
+    if (_workingId != null || _loadingMore || _loading) return;
+    setState(() { _workingId = item.id; _error = null; });
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -67,7 +116,11 @@ class _TrustCenterPageState extends State<TrustCenterPage> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (!mounted) return;
+    if (confirmed != true) {
+      setState(() => _workingId = null);
+      return;
+    }
     setState(() => _workingId = item.id);
     try {
       await widget.api.unblockUser(item.id);
@@ -75,6 +128,9 @@ class _TrustCenterPageState extends State<TrustCenterPage> {
       setState(() => _blocked = _blocked
           .where((blocked) => blocked.id != item.id)
           .toList(growable: false));
+      setState(() => _workingId = null);
+      await _load();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${item.displayName} a été débloqué.')),
       );
@@ -91,6 +147,9 @@ class _TrustCenterPageState extends State<TrustCenterPage> {
         child: Scaffold(
           appBar: AppBar(
             title: const Text('Confiance et modération'),
+            actions: [IconButton(tooltip: 'Actualiser le centre de confiance',
+              onPressed: _loading || _loadingMore || _workingId != null ? null : _load,
+              icon: const Icon(Icons.refresh))],
             bottom: const TabBar(
               tabs: [
                 Tab(text: 'Bloqués'),
@@ -102,12 +161,11 @@ class _TrustCenterPageState extends State<TrustCenterPage> {
               ? const Center(child: CircularProgressIndicator())
               : _error != null && _blocked.isEmpty && _reports.isEmpty
                   ? _ErrorState(message: _error!, onRetry: _load)
-                  : TabBarView(
-                      children: [
-                        _blockedTab(),
-                        _reportsTab(),
-                      ],
-                    ),
+                  : Column(children: [
+                      if (_error != null) Padding(padding: const EdgeInsets.all(12),
+                        child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+                      Expanded(child: TabBarView(children: [_blockedTab(), _reportsTab()])),
+                    ]),
         ),
       );
 
@@ -122,10 +180,12 @@ class _TrustCenterPageState extends State<TrustCenterPage> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(18),
-        itemCount: _blocked.length,
+        itemCount: _blocked.length + 1,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
+          if (index == _blocked.length) return _footer(true);
           final item = _blocked[index];
           return Card(
             child: ListTile(
@@ -144,10 +204,10 @@ class _TrustCenterPageState extends State<TrustCenterPage> {
               trailing: _workingId == item.id
                   ? const SizedBox.square(
                       dimension: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: Icon(Icons.hourglass_top, size: 22),
                     )
                   : TextButton(
-                      onPressed: () => _unblock(item),
+                      onPressed: _workingId != null || _loadingMore ? null : () => _unblock(item),
                       child: const Text('Débloquer'),
                     ),
             ),
@@ -168,10 +228,12 @@ class _TrustCenterPageState extends State<TrustCenterPage> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(18),
-        itemCount: _reports.length,
+        itemCount: _reports.length + 1,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
+          if (index == _reports.length) return _footer(false);
           final item = _reports[index];
           final status = _status(item.status);
           return Card(
