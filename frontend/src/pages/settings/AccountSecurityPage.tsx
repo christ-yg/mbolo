@@ -7,17 +7,14 @@ import {
   deactivateAccount,
   revokeOtherSessions,
   setEmailTwoFactor,
-  getLoginActivity,
 } from "../../api/authService";
 import {
   getLoginAlertEmailPreference,
   updateLoginAlertEmailPreference,
 } from "../../api/securityAlertService";
-import { getAccountSecurityEvents } from "../../api/securityEventService";
+import { SecurityHistoryCard } from "../../components/security/SecurityHistoryCard";
 import { ConnectedDevicesCard } from "../../components/security/ConnectedDevicesCard";
 import { useAuth } from "../../hooks/useAuth";
-import type { LoginActivity } from "../../types/auth";
-import type { AccountSecurityEvent } from "../../types/securityEvents";
 
 import "./AccountSecurityPage.css";
 
@@ -29,16 +26,6 @@ type ActionName =
   | "loginAlerts"
   | "deactivate"
   | null;
-
-
-const securityEventLabels: Record<string, string> = {
-  "auth.password_change": "Mot de passe modifié",
-  "auth.sessions_revoke": "Autres sessions fermées",
-  "auth.email_2fa_settings": "Double authentification mise à jour",
-  "auth.login_alert_email_preference": "Alertes par e-mail mises à jour",
-  "auth.password_reset_confirm": "Mot de passe réinitialisé",
-  "auth.account_deactivate": "Compte désactivé",
-};
 
 
 export function AccountSecurityPage() {
@@ -66,46 +53,29 @@ export function AccountSecurityPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const [loginActivities, setLoginActivities] =
-    useState<LoginActivity[]>([]);
-  const [securityEvents, setSecurityEvents] =
-    useState<AccountSecurityEvent[]>([]);
-
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const [loginAlertPreferenceReady, setLoginAlertPreferenceReady] = useState(false);
 
   async function refreshSecurityEvents() {
+    setHistoryVersion((value) => value + 1);
+  }
+
+  async function loadAlertPreference() {
+    setIsLoadingLoginAlertPreference(true);
     try {
-      setSecurityEvents(await getAccountSecurityEvents());
+      const preference = await getLoginAlertEmailPreference();
+      setLoginAlertEmailsEnabled(preference.loginAlertEmailsEnabled);
+      setLoginAlertPreferenceReady(true);
+      setError("");
     } catch {
-      // Le journal secondaire ne doit pas bloquer la page.
+      setLoginAlertPreferenceReady(false);
+      setError("Impossible de charger la préférence des alertes par e-mail.");
+    } finally {
+      setIsLoadingLoginAlertPreference(false);
     }
   }
 
-
-  useEffect(() => {
-    void getLoginActivity()
-      .then(setLoginActivities)
-      .catch(() => {
-        // La page reste utilisable si l'historique échoue.
-      });
-
-    void refreshSecurityEvents();
-
-    void getLoginAlertEmailPreference()
-      .then((preference) => {
-        setLoginAlertEmailsEnabled(
-          preference.loginAlertEmailsEnabled,
-        );
-      })
-      .catch(() => {
-        setError(
-          "Impossible de charger la préférence des alertes par e-mail.",
-        );
-      })
-      .finally(() => {
-        setIsLoadingLoginAlertPreference(false);
-      });
-  }, []);
-
+  useEffect(() => { void loadAlertPreference(); }, []);
 
   function begin(action: ActionName) {
     setActiveAction(action);
@@ -216,6 +186,7 @@ export function AccountSecurityPage() {
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
+    if (!loginAlertPreferenceReady || activeAction !== null) return;
     begin("loginAlerts");
 
     try {
@@ -389,86 +360,9 @@ export function AccountSecurityPage() {
         </div>
 
         <div className="account-security-grid">
-          <section className="security-action-card">
-            <p className="section-heading__eyebrow">
-              Activité récente
-            </p>
-            <h2>Connexions à mon compte</h2>
-            <p>
-              L’adresse IP exacte n’est jamais affichée ni conservée.
-              L’empreinte sert uniquement à comparer les connexions.
-            </p>
-
-            {loginActivities.length ? (
-              <ul className="security-activity-list">
-                {loginActivities.slice(0, 8).map((activity) => (
-                  <li key={activity.id}>
-                    <strong>{activity.device}</strong>
-                    <span>
-                      {activity.method === "email_2fa"
-                        ? "Code e-mail confirmé"
-                        : "Mot de passe"}
-                      {" · "}
-                      {new Intl.DateTimeFormat("fr-FR", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      }).format(
-                        new Date(activity.createdAt),
-                      )}
-                    </span>
-                    <small>
-                      Empreinte réseau :{" "}
-                      {activity.ipFingerprint || "indisponible"}
-                    </small>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>Aucune connexion récente enregistrée.</p>
-            )}
-          </section>
-
+          <SecurityHistoryCard kind="logins" version={historyVersion} />
           <ConnectedDevicesCard />
-
-          <section className="security-action-card">
-            <p className="section-heading__eyebrow">
-              Journal de sécurité
-            </p>
-            <h2>Actions sensibles du compte</h2>
-            <p>
-              Mbolo conserve uniquement le type d’action, son résultat
-              et sa date.
-            </p>
-
-            {securityEvents.length ? (
-              <ul className="security-activity-list">
-                {securityEvents.slice(0, 10).map((securityEvent) => (
-                  <li key={securityEvent.id}>
-                    <strong>
-                      {securityEventLabels[securityEvent.event] ??
-                        "Action de sécurité"}
-                    </strong>
-                    <span>
-                      {securityEvent.outcome === "success"
-                        ? "Réussie"
-                        : "Échec"}
-                      {" · "}
-                      {new Intl.DateTimeFormat("fr-FR", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      }).format(
-                        new Date(securityEvent.createdAt),
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>
-                Aucune action sensible enregistrée pour le moment.
-              </p>
-            )}
-          </section>
+          <SecurityHistoryCard kind="events" version={historyVersion} />
         </div>
       </section>
 
@@ -551,7 +445,9 @@ export function AccountSecurityPage() {
               />
               {isLoadingLoginAlertPreference
                 ? "Chargement"
-                : loginAlertEmailsEnabled
+                : !loginAlertPreferenceReady
+                  ? "Indisponibles"
+                  : loginAlertEmailsEnabled
                   ? "Activées"
                   : "Désactivées"}
             </div>
@@ -560,6 +456,11 @@ export function AccountSecurityPage() {
               Alertes de sécurité
             </p>
             <h2>Nouvelles connexions par e-mail</h2>
+            {!loginAlertPreferenceReady && !isLoadingLoginAlertPreference && (
+              <button type="button" onClick={() => void loadAlertPreference()}>
+                Recharger la préférence des alertes
+              </button>
+            )}
             <p>
               Les notifications internes restent toujours actives,
               même lorsque les e-mails sont désactivés.
@@ -581,7 +482,7 @@ export function AccountSecurityPage() {
             <button
               disabled={
                 activeAction !== null ||
-                isLoadingLoginAlertPreference
+                isLoadingLoginAlertPreference || !loginAlertPreferenceReady
               }
             >
               {activeAction === "loginAlerts"
