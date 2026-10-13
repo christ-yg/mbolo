@@ -31,7 +31,7 @@ export function ProfilePhotoViewer({ photos, initialId, name, onClose }: {
     }}>
     <div className="profile-photo-viewer__toolbar">
       <p role="status">Photo {index + 1} sur {photos.length}</p>
-      <button type="button" onClick={onClose} autoFocus>Fermer la galerie</button>
+      <button type="button" onClick={onClose}>Fermer la galerie</button>
     </div>
     <div className="profile-photo-viewer__image">
       {failed ? <div role="alert"><p>Cette photo ne peut pas être chargée.</p><button type="button" onClick={() => { setFailed(false); setAttempt(value => value + 1); }}>Réessayer la photo</button></div>
