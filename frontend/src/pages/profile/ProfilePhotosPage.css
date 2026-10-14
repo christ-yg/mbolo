@@ -1007,3 +1007,12 @@
 .profile-photo-card__primary-badge {
   display: none;
 }
+
+.profile-gallery-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 1rem; margin-block: 1.5rem; }
+.profile-gallery-controls label { display: grid; gap: .5rem; }
+.profile-gallery-controls select { min-height: 44px; padding: .6rem; border: 1px solid currentColor; border-radius: .75rem; background: transparent; color: inherit; font: inherit; }
+.profile-gallery-controls p { flex-basis: 100%; }
+.profile-photo-native-dialog { margin: auto; max-height: 90dvh; overflow: auto; color: inherit; }
+.profile-photo-native-dialog::backdrop { background: rgba(33, 8, 20, .56); backdrop-filter: blur(8px); }
+:root[data-theme="dark"] .profile-photo-native-dialog { background: #20151d; }
+.profile-gallery-controls :focus-visible, .profile-photo-native-dialog :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }

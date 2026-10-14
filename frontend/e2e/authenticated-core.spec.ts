@@ -725,3 +725,65 @@ test.describe("Intérêts reçus organisés", () => {
     await expect(page.getByRole("searchbox")).toHaveValue("Arielle");
   });
 });
+
+test.describe("Galerie personnelle fiable", () => {
+  test.beforeEach(async ({ page }) => { await installAuthenticatedApi(page); });
+  test("une galerie inaccessible interdit les modifications puis se recharge", async ({ page }) => {
+    await page.route("**/profiles/photos/", route => json(route, { detail: "Galerie inaccessible" }, 503));
+    await page.goto("/profile/photos");
+    await expect(page.getByRole("heading", { name: "Galerie indisponible" })).toBeVisible();
+    await expect(page.locator("#profile-photo-input")).toBeDisabled();
+    await expect(page.getByRole("heading", { name: "Ajoute ta première photo." })).toHaveCount(0);
+    await page.route("**/profiles/photos/", route => json(route, { count: 1, results: [PHOTO] }));
+    await page.getByRole("button", { name: "Actualiser la galerie" }).click();
+    await expect(page.locator(".profile-photo-card")).toHaveCount(1);
+    await expect(page.locator("#profile-photo-input")).toBeEnabled();
+  });
+  test("le filtre de modération suit une actualisation", async ({ page }) => {
+    let approved = false;
+    await page.route("**/profiles/photos/", route => json(route, { count: 2, results: [PHOTO, { ...PHOTO, id: "photo-two", position: 2, is_primary: false, moderation_status: approved ? "approved" : "pending", moderation_status_label: approved ? "Approuvée" : "En attente" }] }));
+    await page.goto("/profile/photos");
+    await page.getByLabel("Filtrer par modération").selectOption("pending");
+    await expect(page.locator(".profile-photo-card")).toHaveCount(1);
+    approved = true;
+    await page.getByRole("button", { name: "Actualiser la galerie" }).click();
+    await expect(page.getByText("Aucune photo dans cette catégorie.", { exact: true })).toBeVisible();
+    await page.getByLabel("Filtrer par modération").selectOption("approved");
+    await expect(page.locator(".profile-photo-card")).toHaveCount(2);
+  });
+  test("la confirmation reçoit le focus et Échap restaure le bouton", async ({ page }) => {
+    await page.goto("/profile/photos");
+    const trigger = page.getByRole("button", { name: "Supprimer", exact: true });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "Supprimer cette photo ?" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Annuler", exact: true })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+  test("une suppression réussie reste acquise si la resynchronisation échoue", async ({ page }) => {
+    let deleted = false;
+    let recovered = false;
+    let deletions = 0;
+    await page.route("**/profiles/photos/", route => deleted && !recovered
+      ? json(route, { detail: "Lecture indisponible" }, 503)
+      : json(route, { count: deleted ? 0 : 1, results: deleted ? [] : [PHOTO] }));
+    await page.route(`**/profiles/photos/${PHOTO.id}/`, route => {
+      deleted = true; deletions += 1;
+      return route.fulfill({ status: 204 });
+    });
+    await page.goto("/profile/photos");
+    await page.getByRole("button", { name: "Supprimer", exact: true }).click();
+    await page.getByRole("button", { name: "Supprimer définitivement", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("alert")).toContainText("La photo a été supprimée.");
+    await expect(page.locator(".profile-photo-card")).toHaveCount(0);
+    await expect(page.locator("#profile-photo-input")).toBeDisabled();
+    expect(deletions).toBe(1);
+    recovered = true;
+    await page.getByRole("button", { name: "Actualiser la galerie" }).click();
+    await expect(page.getByRole("heading", { name: "Ajoute ta première photo." })).toBeVisible();
+    await expect(page.locator("#profile-photo-input")).toBeEnabled();
+  });
+});
