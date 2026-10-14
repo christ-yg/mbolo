@@ -660,3 +660,68 @@ test.describe("Notifications Web organisées", () => {
     await expect(page.getByRole("button", { name: "Actualiser les notifications" })).toBeEnabled();
   });
 });
+
+test.describe("Intérêts reçus organisés", () => {
+  const masked = { interaction_id: "like-a", city: "Libreville", age_range: "25–30", dating_intent: "Relation sérieuse", has_photo: true, received_at: "2026-10-01T12:00:00Z", is_identity_revealed: false, is_super_like: false, profile_id: null, display_name: "Nom confidentiel", image_url: null };
+  const revealed = { ...masked, interaction_id: "like-b", display_name: "Arielle", is_identity_revealed: true, is_super_like: true, received_at: "2026-10-02T12:00:00Z" };
+  test.beforeEach(async ({ page }) => {
+    await installAuthenticatedApi(page);
+    await page.route("**/likes-received/?*", route => json(route, { count: 2, next: null, previous: null, results: [masked, revealed] }));
+  });
+  test("la recherche ignore les noms masqués et combine filtres et tri", async ({ page }) => {
+    await page.goto("/likes-received");
+    const cards = page.locator(".received-like-card");
+    await expect(cards).toHaveCount(2);
+    await expect(cards.first()).toContainText("Arielle");
+    await page.getByRole("searchbox").fill("Nom confidentiel");
+    await expect(cards).toHaveCount(0);
+    await page.getByRole("searchbox").fill("libreville");
+    await page.getByLabel("Filtrer les intérêts").selectOption("super");
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toContainText("Super Like");
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await page.getByLabel("Trier les intérêts").selectOption("oldest");
+    await expect(cards.first()).toContainText("Quelqu’un s’intéresse à toi");
+  });
+  test("une réponse recharge la première page sans sauter les intérêts suivants", async ({ page }) => {
+    let answered = false;
+    const pages: string[] = [];
+    await page.route("**/likes-received/?*", route => {
+      pages.push(new URL(route.request().url()).searchParams.get("page") ?? "1");
+      return json(route, { count: answered ? 1 : 2, next: answered ? null : "?page=2", previous: null, results: [answered ? revealed : masked] });
+    });
+    await page.route("**/likes-received/like-a/respond/", route => {
+      answered = true;
+      return json(route, { matched: false, decision: "pass", revealed_profile: null });
+    });
+    await page.goto("/likes-received");
+    await page.getByRole("button", { name: "Passer", exact: true }).click();
+    await expect(page.locator(".received-like-card")).toContainText("Arielle");
+    expect(pages).toEqual(["1", "1"]);
+  });
+  test("une réponse refusée conserve la carte et permet une nouvelle tentative", async ({ page }) => {
+    let fail = true;
+    await page.route("**/likes-received/?*", route => json(route, { count: 1, next: null, previous: null, results: [masked] }));
+    await page.route("**/likes-received/like-a/respond/", route => json(route, fail ? { detail: "Réponse indisponible" } : { matched: false, decision: "pass", revealed_profile: null }, fail ? 503 : 200));
+    await page.goto("/likes-received");
+    await page.getByRole("button", { name: "Passer", exact: true }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.locator(".received-like-card")).toHaveCount(1);
+    fail = false;
+    await page.getByRole("button", { name: "Passer", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Aucun like en attente" })).toBeVisible();
+  });
+  test("actualiser conserve la recherche après une erreur réseau", async ({ page }) => {
+    await page.goto("/likes-received");
+    await expect(page.locator(".received-like-card")).toHaveCount(2);
+    await page.getByRole("searchbox").fill("Arielle");
+    await page.route("**/likes-received/?*", route => json(route, { detail: "Indisponible" }, 503));
+    await page.getByRole("button", { name: "Actualiser les intérêts" }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.locator(".received-like-card")).toHaveCount(1);
+    await page.route("**/likes-received/?*", route => json(route, { count: 0, next: null, previous: null, results: [] }));
+    await page.getByRole("button", { name: "Actualiser les intérêts" }).click();
+    await expect(page.getByRole("heading", { name: "Aucun like en attente" })).toBeVisible();
+    await expect(page.getByRole("searchbox")).toHaveValue("Arielle");
+  });
+});
