@@ -12,6 +12,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
@@ -268,6 +269,21 @@ export function NotificationsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkActionPending, setIsBulkActionPending] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [sortOrder, setSortOrder] = useState("recent");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const requestVersion = useRef(0);
+  const refreshPending = useRef(false);
+  const morePending = useRef(false);
+
+  function resetFilters(): void {
+    setSearch("");
+    setUnreadOnly(false);
+    setSortOrder("recent");
+    setActiveFilter("all");
+    setSelectedIds(new Set());
+  }
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.is_read).length,
@@ -275,9 +291,21 @@ export function NotificationsPage() {
   );
 
   const filteredNotifications = useMemo(
-    () => notifications.filter((notification) =>
-      matchesNotificationFilter(notification, activeFilter)),
-    [activeFilter, notifications],
+    () => {
+      const normalize = (value: string) => value.normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
+      const query = normalize(search.trim());
+      return notifications.filter((notification) =>
+        matchesNotificationFilter(notification, activeFilter) &&
+        (!unreadOnly || !notification.is_read) &&
+        normalize(`${notification.title} ${notification.body} ${getKindLabel(notification.kind)}`).includes(query),
+      ).sort((a, b) => {
+        const difference = (parseDate(b.created_at)?.getTime() ?? 0) -
+          (parseDate(a.created_at)?.getTime() ?? 0);
+        return sortOrder === "oldest" ? -difference : difference;
+      });
+    },
+    [activeFilter, notifications, search, unreadOnly, sortOrder],
   );
 
   const filteredIds = useMemo(
@@ -299,8 +327,11 @@ export function NotificationsPage() {
     filteredIds.every((id) => selectedIds.has(id));
 
   const groupedNotifications = useMemo(
-    () => groupNotifications(filteredNotifications),
-    [filteredNotifications],
+    () => {
+      const groups = groupNotifications(filteredNotifications);
+      return sortOrder === "oldest" ? groups.reverse() : groups;
+    },
+    [filteredNotifications, sortOrder],
   );
 
   const filterCounts = useMemo(() => {
@@ -315,7 +346,7 @@ export function NotificationsPage() {
     return counts;
   }, [notifications]);
 
-  const readCount = Math.max(0, totalCount - unreadCount);
+  const readCount = notifications.length - unreadCount;
 
   function toggleNotificationSelection(notificationId: string): void {
     setSelectedIds((currentIds) => {
@@ -342,23 +373,32 @@ export function NotificationsPage() {
   }
 
   const loadFirstPage = useCallback(async (): Promise<void> => {
+    refreshPending.current = true;
+    const version = ++requestVersion.current;
+    setIsRefreshing(true);
     setErrorMessage(null);
 
     try {
       const response = await getNotifications(1, 20);
+      if (version !== requestVersion.current) return;
       setNotifications(response.results);
       setSelectedIds(new Set());
       setTotalCount(response.count);
       setCurrentPage(1);
       setHasNextPage(response.next !== null);
     } catch (error: unknown) {
+      if (version !== requestVersion.current) return;
       setErrorMessage(
         error instanceof Error
           ? error.message
           : "Impossible de charger les notifications.",
       );
     } finally {
-      setIsLoading(false);
+      if (version === requestVersion.current) {
+        refreshPending.current = false;
+        setIsRefreshing(false);
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -382,16 +422,19 @@ export function NotificationsPage() {
   }, [lastEvent, loadFirstPage, revision]);
 
   async function handleLoadMore(): Promise<void> {
-    if (isLoadingMore || !hasNextPage) {
+    if (morePending.current || refreshPending.current || !hasNextPage) {
       return;
     }
 
     const nextPage = currentPage + 1;
+    const version = requestVersion.current;
+    morePending.current = true;
     setIsLoadingMore(true);
     setErrorMessage(null);
 
     try {
       const response = await getNotifications(nextPage, 20);
+      if (version !== requestVersion.current) return;
 
       setNotifications((currentItems) => {
         const knownIds = new Set(currentItems.map((item) => item.id));
@@ -406,12 +449,14 @@ export function NotificationsPage() {
       setCurrentPage(nextPage);
       setHasNextPage(response.next !== null);
     } catch (error: unknown) {
+      if (version !== requestVersion.current) return;
       setErrorMessage(
         error instanceof Error
           ? error.message
           : "Impossible de charger la page suivante.",
       );
     } finally {
+      morePending.current = false;
       setIsLoadingMore(false);
     }
   }
@@ -694,7 +739,8 @@ export function NotificationsPage() {
           </div>
         </div>
 
-        <aside className="notifications-summary" aria-label="Résumé">
+        <aside className="notifications-summary" aria-label="Résumé des notifications chargées">
+          <p>Parmi les notifications chargées</p>
           <div className="notifications-summary__icon" aria-hidden="true">◇</div>
           <div className="notifications-summary__numbers">
             <div>
@@ -746,6 +792,29 @@ export function NotificationsPage() {
             </button>
           </div>
         ) : null}
+
+        <div className="notifications-explorer">
+          <label>Rechercher dans les notifications
+            <input type="search" value={search} onChange={(event) => {
+              setSearch(event.target.value); setSelectedIds(new Set());
+            }} />
+          </label>
+          <label>Trier les notifications
+            <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+              <option value="recent">Plus récentes</option>
+              <option value="oldest">Plus anciennes</option>
+            </select>
+          </label>
+          <label><input type="checkbox" checked={unreadOnly} onChange={(event) => {
+            setUnreadOnly(event.target.checked); setSelectedIds(new Set());
+          }} /> Non lues uniquement</label>
+          <button type="button" onClick={resetFilters}>Réinitialiser les filtres</button>
+          <button type="button" disabled={isRefreshing || isLoadingMore || isMarkingAll || isBulkActionPending || pendingIds.size > 0}
+            onClick={() => void loadFirstPage()}>
+            {isRefreshing ? "Actualisation…" : "Actualiser les notifications"}
+          </button>
+          <p role="status">{filteredNotifications.length} résultat(s) parmi {notifications.length} notification(s) chargée(s).</p>
+        </div>
 
         <div className="notifications-filters" aria-label="Filtrer les notifications">
           <div className="notifications-filters__heading">
@@ -833,6 +902,8 @@ export function NotificationsPage() {
               <h3>Chargement de ton activité…</h3>
               <p>Les notifications sont récupérées depuis ton compte Mbolo.</p>
             </div>
+          ) : notifications.length === 0 && errorMessage ? (
+            <div className="notifications-state"><h3>Historique indisponible</h3><p>Réessaie pour consulter ton activité.</p></div>
           ) : notifications.length === 0 ? (
             <div className="notifications-state notifications-state--empty">
               <span className="notifications-state__success" aria-hidden="true">✓</span>
@@ -850,11 +921,11 @@ export function NotificationsPage() {
             <div className="notifications-state notifications-state--empty">
               <span className="notifications-state__success" aria-hidden="true">◇</span>
               <p className="notifications-eyebrow">Filtre actif</p>
-              <h3>Aucune activité dans cette catégorie</h3>
+              <h3>Aucune notification ne correspond aux filtres</h3>
               <p>
                 Les prochaines notifications correspondantes apparaîtront ici.
               </p>
-              <button type="button" onClick={() => setActiveFilter("all")}>
+              <button type="button" onClick={resetFilters}>
                 Voir toute l’activité
               </button>
             </div>
@@ -963,7 +1034,7 @@ export function NotificationsPage() {
           <div className="notifications-pagination">
             <button
               type="button"
-              disabled={isLoadingMore}
+              disabled={isLoadingMore || isRefreshing}
               onClick={() => void handleLoadMore()}
             >
               {isLoadingMore ? "Chargement…" : "Afficher plus de notifications"}

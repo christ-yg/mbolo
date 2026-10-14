@@ -1437,3 +1437,33 @@
     transition: none;
   }
 }
+
+/* Recherche et tri : couleurs héritées du thème clair ou sombre. */
+.notifications-explorer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  margin-block: 1.25rem;
+}
+.notifications-explorer label { display: grid; gap: .4rem; }
+.notifications-explorer input[type="search"],
+.notifications-explorer select,
+.notifications-explorer button {
+  min-height: 44px;
+  padding: .65rem .9rem;
+  border: 1px solid currentColor;
+  border-radius: .75rem;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  max-width: 100%;
+}
+.notifications-explorer label:has(input[type="checkbox"]) { display: flex; align-items: center; min-height: 44px; }
+.notifications-explorer p { flex-basis: 100%; margin: 0; }
+.notifications-explorer :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.notifications-explorer button:disabled { opacity: .55; cursor: wait; }
+@media (max-width: 600px) {
+  .notifications-explorer > label,
+  .notifications-explorer > button { width: 100%; }
+}

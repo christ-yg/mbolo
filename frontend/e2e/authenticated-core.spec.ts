@@ -608,3 +608,55 @@ test.describe("Découverte continue", () => {
     await expect(page.getByRole("heading", { name: /^Arielle Test\s*, 29 ans$/ })).toBeVisible();
   });
 });
+
+test.describe("Notifications Web organisées", () => {
+  const items = [
+    { id: "n1", kind: "message", title: "Échange avec Arielle", body: "Un nouveau message", target_path: "", is_read: false, read_at: null, created_at: "2026-10-01T12:00:00Z" },
+    { id: "n2", kind: "security", title: "Connexion sécurisée", body: "Nouvel appareil", target_path: "", is_read: true, read_at: "2026-10-02T12:00:00Z", created_at: "2026-10-02T12:00:00Z" },
+    { id: "n3", kind: "message", title: "Échange précédent", body: "Ancien message", target_path: "", is_read: true, read_at: "2026-10-03T12:00:00Z", created_at: "2026-10-03T12:00:00Z" },
+  ];
+  test.beforeEach(async ({ page }) => {
+    await installAuthenticatedApi(page);
+    await page.route("**/notifications/?*", route => json(route, { count: 30, next: "?page=2", previous: null, results: items }));
+  });
+  test("recherche sans accents, statut et tri se combinent", async ({ page }) => {
+    await page.goto("/notifications");
+    const cards = page.locator(".notification-item");
+    await expect(cards).toHaveCount(3);
+    await page.getByRole("searchbox").fill("echange");
+    await expect(cards).toHaveCount(2);
+    await page.getByLabel("Non lues uniquement").check();
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toContainText("Échange avec Arielle");
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await page.getByLabel("Trier les notifications").selectOption("oldest");
+    await expect(cards.first()).toContainText("Échange avec Arielle");
+    await page.getByLabel("Trier les notifications").selectOption("recent");
+    await expect(cards.first()).toContainText("Échange précédent");
+    const summary = page.getByRole("complementary", { name: "Résumé des notifications chargées" });
+    await expect(summary.locator(".notifications-summary__numbers strong").nth(1)).toHaveText("2");
+  });
+  test("actualiser conserve la recherche et reprend après une erreur", async ({ page }) => {
+    await page.goto("/notifications");
+    await expect(page.locator(".notification-item")).toHaveCount(3);
+    await page.getByRole("searchbox").fill("Arielle");
+    await page.route("**/notifications/?*", route => json(route, { detail: "Réseau indisponible" }, 503));
+    await page.getByRole("button", { name: "Actualiser les notifications" }).click();
+    await expect(page.getByRole("alert")).toContainText("Réseau indisponible");
+    await expect(page.locator(".notification-item")).toHaveCount(1);
+    await page.route("**/notifications/?*", route => json(route, { count: 1, next: null, previous: null, results: [{ ...items[0], body: "Message actualisé" }] }));
+    await page.getByRole("button", { name: "Réessayer", exact: true }).click();
+    await expect(page.locator(".notification-item")).toContainText("Message actualisé");
+    await expect(page.getByRole("searchbox")).toHaveValue("Arielle");
+  });
+  test("un historique inaccessible ne se présente pas comme vide", async ({ page }) => {
+    await page.route("**/notifications/?*", route => json(route, { detail: "Indisponible" }, 503));
+    await page.goto("/notifications");
+    await expect(page.getByRole("heading", { name: "Historique indisponible" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Aucune notification en attente" })).toHaveCount(0);
+    await page.route("**/notifications/?*", route => json(route, { count: 0, next: null, previous: null, results: [] }));
+    await page.getByRole("button", { name: "Réessayer", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Aucune notification en attente" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Actualiser les notifications" })).toBeEnabled();
+  });
+});
