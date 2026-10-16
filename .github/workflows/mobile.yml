@@ -39,6 +39,9 @@ jobs:
       - name: Build browser preview (shared Flutter screens, fake account)
         working-directory: mobile
         run: flutter build web --target lib/main_preview.dart
+      - name: Build connected browser client
+        working-directory: mobile
+        run: flutter build web --target lib/main_browser.dart --base-href /mobile/
       - name: Prepare hardened Android project
         working-directory: mobile
         run: bash tool/prepare_android.sh
