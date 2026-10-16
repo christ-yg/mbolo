@@ -1,0 +1,7 @@
+.trust-history-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; padding: 24px; border: 1px solid currentColor; border-radius: 20px; margin-block: 20px; }
+.trust-history-controls label { display: grid; gap: 8px; flex: 1 1 190px; min-width: 0; }
+.trust-history-controls input, .trust-history-controls select, .trust-history-controls button { min-height: 44px; padding: 10px 14px; border: 1px solid currentColor; border-radius: 12px; color: inherit; background: inherit; font: inherit; max-width: 100%; }
+.trust-history-controls option { color: #171726; background: white; }
+.trust-history-controls p { flex-basis: 100%; margin: 0; }
+.trust-history-controls :focus-visible { outline: 3px solid #9772d9; outline-offset: 3px; }
+.trust-history-controls button:disabled { opacity: .5; cursor: wait; }

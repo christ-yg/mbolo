@@ -10,6 +10,10 @@ from .views import (
     ConversationMessageListCreateView,
     UnreadMessageCountView,
     ConversationTypingView,
+    ConversationPreferenceView,
+    MessageReactionView,
+    MessageDetailView,
+    MessageReportView,
 )
 
 
@@ -32,6 +36,11 @@ urlpatterns = [
         name="conversation-message-list-create",
     ),
     path(
+        "conversations/<uuid:conversation_id>/preferences/",
+        ConversationPreferenceView.as_view(),
+        name="conversation-preferences",
+    ),
+    path(
         (
             "conversations/"
             "<uuid:conversation_id>/"
@@ -48,6 +57,21 @@ urlpatterns = [
         ),
         ConversationTypingView.as_view(),
         name="conversation-typing",
+    ),
+    path(
+        "conversations/<uuid:conversation_id>/messages/<uuid:message_id>/reaction/",
+        MessageReactionView.as_view(),
+        name="message-reaction",
+    ),
+    path(
+        "conversations/<uuid:conversation_id>/messages/<uuid:message_id>/",
+        MessageDetailView.as_view(),
+        name="message-detail",
+    ),
+    path(
+        "conversations/<uuid:conversation_id>/messages/<uuid:message_id>/report/",
+        MessageReportView.as_view(),
+        name="message-report",
     ),
     path(
         "messages/unread-count/",

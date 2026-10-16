@@ -26,8 +26,16 @@
   border: 1px solid rgba(164, 37, 91, 0.13);
   border-radius: 2.6rem;
   background:
-    radial-gradient(circle at 3% 5%, rgba(249, 218, 232, 0.65), transparent 34%),
-    radial-gradient(circle at 98% 10%, rgba(255, 236, 245, 0.9), transparent 30%),
+    radial-gradient(
+      circle at 3% 5%,
+      rgba(249, 218, 232, 0.65),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 98% 10%,
+      rgba(255, 236, 245, 0.9),
+      transparent 30%
+    ),
     rgba(255, 251, 253, 0.95);
   box-shadow: 0 30px 90px rgba(89, 28, 57, 0.09);
 }
@@ -149,7 +157,10 @@
   background: #fffafd;
   color: #2d1d27;
   font: inherit;
-  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
 }
 
 .form-field textarea {
@@ -401,5 +412,112 @@
 
   .email-verification-card__actions {
     display: grid;
+  }
+}
+
+/* Entrée nocturne : la confiance reste immédiate dès l’inscription. */
+:root[data-theme="dark"]
+  :is(.auth-page, .email-verification-page, .appeal-page) {
+  color: var(--mbolo-text, #fff8fb);
+}
+
+:root[data-theme="dark"] .auth-page__panel {
+  color: var(--mbolo-text, #fff8fb);
+  border-color: var(--mbolo-border, rgb(255 190 214 / 14%));
+  background:
+    radial-gradient(circle at 3% 5%, rgb(213 48 112 / 17%), transparent 28rem),
+    radial-gradient(circle at 98% 10%, rgb(103 54 98 / 16%), transparent 26rem),
+    linear-gradient(145deg, #24161f, #171016);
+  box-shadow: 0 36px 96px rgb(0 0 0 / 42%);
+}
+
+:root[data-theme="dark"] .auth-page__intro > p:not(.section-heading__eyebrow),
+:root[data-theme="dark"]
+  :is(
+    .auth-card__heading p,
+    .appeal-card > p,
+    .appeal-page__intro > p:not(.section-heading__eyebrow),
+    .email-verification-card__message,
+    .email-verification-card__note
+  ) {
+  color: var(--mbolo-muted, #d6c2cc);
+}
+
+:root[data-theme="dark"] .auth-page__trust-list > * {
+  color: #f6d6e3;
+  border-color: var(--mbolo-border, rgb(255 190 214 / 14%));
+  background: rgb(255 255 255 / 5%);
+}
+
+:root[data-theme="dark"]
+  :is(.auth-card, .appeal-card, .email-verification-card) {
+  color: var(--mbolo-text, #fff8fb);
+  border-color: var(--mbolo-border, rgb(255 190 214 / 14%));
+  background: linear-gradient(145deg, #2a1924, #191017);
+  box-shadow: 0 28px 76px rgb(0 0 0 / 42%);
+}
+
+:root[data-theme="dark"] :is(.form-field label, .form-field__label-row) {
+  color: #f8e4ec;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .form-field input,
+    .form-field textarea,
+    .form-field select,
+    .password-input input
+  ) {
+  color: var(--mbolo-text, #fff8fb);
+  border-color: var(--mbolo-border, rgb(255 190 214 / 14%));
+  background: #21151d;
+  caret-color: #ff7aaa;
+}
+
+:root[data-theme="dark"]
+  :is(
+    .form-field input,
+    .form-field textarea,
+    .form-field select,
+    .password-input input
+  ):focus {
+  border-color: #ff7aaa;
+  background: #281821;
+  box-shadow: 0 0 0 0.25rem rgb(255 122 170 / 13%);
+}
+
+:root[data-theme="dark"] .password-input__toggle {
+  color: #ffc4da;
+}
+
+:root[data-theme="dark"] .legal-confirmation {
+  color: var(--mbolo-muted, #d6c2cc);
+  border-color: var(--mbolo-border, rgb(255 190 214 / 14%));
+  background: rgb(255 255 255 / 4%);
+}
+
+:root[data-theme="dark"] .form-alert--error {
+  color: #ffd9e3;
+  border-color: rgb(255 105 135 / 24%);
+  background: rgb(118 28 53 / 23%);
+}
+
+:root[data-theme="dark"] .form-alert--success {
+  color: #bff1dc;
+  border-color: rgb(82 203 151 / 22%);
+  background: rgb(32 110 80 / 20%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .auth-form__submit,
+    .link-button--primary,
+    .link-button--secondary,
+    .password-input__toggle,
+    .form-field input,
+    .form-field textarea,
+    .form-field select
+  ) {
+    transition: none;
   }
 }

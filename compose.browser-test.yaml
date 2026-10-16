@@ -1,0 +1,31 @@
+# Local-only additional service; preserve existing backend configuration and data.
+services:
+  browser-test:
+    image: caddy:2.10.2-alpine
+    ports:
+      - "127.0.0.1:8444:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile.browser-test:/etc/caddy/Caddyfile:ro
+      - type: bind
+        source: ${MBOLO_CONNECTED_WEB_DIR:?Set MBOLO_CONNECTED_WEB_DIR to the compiled build/web directory}
+        target: /srv/flutter
+        read_only: true
+        bind:
+          create_host_path: false
+      - browser_test_data:/data
+      - browser_test_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+    networks:
+      - app_network
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+volumes:
+  browser_test_data:
+  browser_test_config:

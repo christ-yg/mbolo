@@ -34,6 +34,11 @@ function getModerationTone(status: ProfilePhoto["moderation_status"]): string {
 
 export function ProfilePhotosPage() {
   const inputReference = useRef<HTMLInputElement | null>(null);
+  const operationLock = useRef(false);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const galleryHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const [synchronized, setSynchronized] = useState(false);
+  const [moderationFilter, setModerationFilter] = useState("all");
   const [photos, setPhotos] = useState<ProfilePhoto[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -63,7 +68,7 @@ export function ProfilePhotosPage() {
 
     void getMyProfilePhotos()
       .then((result) => {
-        if (isActive) setPhotos(sortProfilePhotos(result.results));
+        if (isActive) { setPhotos(sortProfilePhotos(result.results)); setSynchronized(true); }
       })
       .catch((error: unknown) => {
         if (isActive) {
@@ -84,6 +89,37 @@ export function ProfilePhotosPage() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    if (!deleteTarget) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    const fallback = galleryHeadingRef.current;
+    dialog?.showModal();
+    return () => {
+      dialog?.close();
+      if (opener?.isConnected) opener.focus();
+      else fallback?.focus();
+    };
+  }, [deleteTarget]);
+
+  async function refreshGallery(): Promise<void> {
+    if (operationLock.current) return;
+    operationLock.current = true;
+    setIsWorking(true);
+    setErrorMessage("");
+    try {
+      const result = await getMyProfilePhotos();
+      setPhotos(sortProfilePhotos(result.results));
+      setSynchronized(true);
+    } catch (error: unknown) {
+      setSynchronized(false);
+      setErrorMessage(error instanceof Error ? error.message : "Actualisation impossible.");
+    } finally {
+      operationLock.current = false;
+      setIsWorking(false);
+    }
+  }
 
   function resetSelectedFile(): void {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -123,8 +159,9 @@ export function ProfilePhotosPage() {
   }
 
   async function handleUpload(): Promise<void> {
-    if (!selectedFile || isWorking || photos.length >= MAX_PHOTOS) return;
+    if (!selectedFile || operationLock.current || !synchronized || photos.length >= MAX_PHOTOS) return;
 
+    operationLock.current = true;
     setIsWorking(true);
     setErrorMessage("");
     setSuccessMessage("");
@@ -137,13 +174,15 @@ export function ProfilePhotosPage() {
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : "Envoi impossible.");
     } finally {
+      operationLock.current = false;
       setIsWorking(false);
     }
   }
 
   async function handlePrimary(photo: ProfilePhoto): Promise<void> {
-    if (photo.is_primary || isWorking) return;
+    if (photo.is_primary || operationLock.current || !synchronized) return;
 
+    operationLock.current = true;
     setIsWorking(true);
     setErrorMessage("");
     setSuccessMessage("");
@@ -158,13 +197,15 @@ export function ProfilePhotosPage() {
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : "Modification impossible.");
     } finally {
+      operationLock.current = false;
       setIsWorking(false);
     }
   }
 
   async function confirmDeletion(): Promise<void> {
-    if (!deleteTarget || isWorking) return;
+    if (!deleteTarget || operationLock.current || !synchronized) return;
 
+    operationLock.current = true;
     setIsWorking(true);
     setErrorMessage("");
     setSuccessMessage("");
@@ -172,15 +213,22 @@ export function ProfilePhotosPage() {
     try {
       await deleteProfilePhoto(deleteTarget.id);
 
-      // Le backend peut désigner automatiquement une nouvelle photo principale.
-      // On recharge donc la galerie pour afficher exactement l'état enregistré.
-      const refreshed = await getMyProfilePhotos();
-      setPhotos(sortProfilePhotos(refreshed.results));
+      setPhotos(current => current.filter(photo => photo.id !== deleteTarget.id));
       setDeleteTarget(null);
       setSuccessMessage("Photo supprimée.");
+      setSynchronized(false);
+      // La suppression est acquise, même si la lecture suivante échoue.
+      try {
+        const refreshed = await getMyProfilePhotos();
+        setPhotos(sortProfilePhotos(refreshed.results));
+        setSynchronized(true);
+      } catch {
+        setErrorMessage("La photo a été supprimée. Actualise la galerie pour vérifier la nouvelle photo principale.");
+      }
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : "Suppression impossible.");
     } finally {
+      operationLock.current = false;
       setIsWorking(false);
     }
   }
@@ -201,7 +249,7 @@ export function ProfilePhotosPage() {
       <section className="profile-photos-hero">
         <div className="profile-photos-hero__copy">
           <p className="profile-photos-kicker">Ton image sur Mbolo</p>
-          <h1>Construis une galerie qui te ressemble.</h1>
+          <h1 ref={galleryHeadingRef} tabIndex={-1}>Construis une galerie qui te ressemble.</h1>
           <p className="profile-photos-hero__lead">
             Ajoute jusqu’à six photos authentiques. Chaque image passe par un contrôle technique puis une vérification avant d’être affichée aux autres membres.
           </p>
@@ -221,6 +269,19 @@ export function ProfilePhotosPage() {
             <span><b>{pendingCount}</b> en attente</span>
           </div>
         </aside>
+      </section>
+
+      <section className="profile-gallery-controls" aria-label="Contrôles de la galerie">
+        <button type="button" className="profile-photo-button profile-photo-button--secondary" disabled={isWorking} onClick={() => void refreshGallery()}>
+          {isWorking ? "Traitement…" : "Actualiser la galerie"}
+        </button>
+        <label>Filtrer par modération
+          <select value={moderationFilter} onChange={event => setModerationFilter(event.target.value)}>
+            <option value="all">Toutes les photos</option><option value="approved">Approuvées</option>
+            <option value="pending">En attente</option><option value="rejected">Rejetées</option>
+          </select>
+        </label>
+        {!synchronized ? <p role="status">Galerie à synchroniser. Actualise avant de modifier tes photos.</p> : null}
       </section>
 
       <section className="profile-photo-upload" aria-labelledby="profile-photo-upload-title">
@@ -243,14 +304,14 @@ export function ProfilePhotosPage() {
             className="profile-photo-upload__native-input"
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            disabled={hasReachedLimit || isWorking}
+            disabled={hasReachedLimit || isWorking || !synchronized}
             onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
           />
 
           <label
             className={`profile-photo-upload__picker${hasReachedLimit ? " profile-photo-upload__picker--disabled" : ""}`}
             htmlFor="profile-photo-input"
-            aria-disabled={hasReachedLimit || isWorking}
+            aria-disabled={hasReachedLimit || isWorking || !synchronized}
           >
             <span aria-hidden="true">＋</span>
             <strong>{hasReachedLimit ? "Limite atteinte" : "Sélectionner une photo"}</strong>
@@ -288,7 +349,7 @@ export function ProfilePhotosPage() {
             <button
               type="button"
               className="profile-photo-button profile-photo-button--primary"
-              disabled={!selectedFile || isWorking || hasReachedLimit}
+              disabled={!selectedFile || isWorking || hasReachedLimit || !synchronized}
               onClick={() => void handleUpload()}
             >
               {isWorking ? "Traitement…" : "Ajouter cette photo"}
@@ -317,7 +378,9 @@ export function ProfilePhotosPage() {
         </header>
 
         <div className="profile-photos-gallery" aria-label="Galerie du profil">
-          {photos.length === 0 ? (
+          {!synchronized && photos.length === 0 ? (
+            <div className="profile-photos-empty"><h3>Galerie indisponible</h3><p>Actualise pour retrouver tes photos et leur statut.</p></div>
+          ) : photos.length === 0 ? (
             <div className="profile-photos-empty">
               <span className="profile-photos-empty__icon" aria-hidden="true">✓</span>
               <p className="profile-photos-kicker">Galerie prête</p>
@@ -327,7 +390,11 @@ export function ProfilePhotosPage() {
                 Sélectionner une photo
               </label>
             </div>
-          ) : photos.map((photo, index) => (
+          ) : photos.filter(photo => moderationFilter === "all" || photo.moderation_status === moderationFilter).length === 0 ? (
+            <p role="status">Aucune photo dans cette catégorie.</p>
+          ) : photos.filter(photo => moderationFilter === "all" || photo.moderation_status === moderationFilter).map((photo) => {
+            const index = photos.findIndex(item => item.id === photo.id);
+            return (
             <article className={`profile-photo-card${photo.is_primary ? " profile-photo-card--primary" : ""}`} key={photo.id}>
               <div className="profile-photo-card__image">
                 {photo.image_url ? (
@@ -365,7 +432,7 @@ export function ProfilePhotosPage() {
                   <button
                     type="button"
                     className="profile-photo-button profile-photo-button--secondary"
-                    disabled={photo.is_primary || isWorking}
+                    disabled={photo.is_primary || isWorking || !synchronized}
                     onClick={() => void handlePrimary(photo)}
                   >
                     {photo.is_primary ? "Photo principale" : "Définir comme principale"}
@@ -373,15 +440,15 @@ export function ProfilePhotosPage() {
                   <button
                     type="button"
                     className="profile-photo-button profile-photo-button--danger"
-                    disabled={isWorking}
-                    onClick={() => setDeleteTarget(photo)}
+                    disabled={isWorking || !synchronized}
+                    onClick={() => { setErrorMessage(""); setDeleteTarget(photo); }}
                   >
                     Supprimer
                   </button>
                 </div>
               </div>
             </article>
-          ))}
+          ); })}
         </div>
       </section>
 
@@ -402,20 +469,17 @@ export function ProfilePhotosPage() {
       </footer>
 
       {deleteTarget ? (
-        <div className="profile-photo-dialog-backdrop" role="presentation" onMouseDown={() => !isWorking && setDeleteTarget(null)}>
-          <section
-            className="profile-photo-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-photo-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
+        <dialog ref={dialogRef} className="profile-photo-dialog profile-photo-native-dialog"
+          aria-labelledby="delete-photo-title" aria-describedby="delete-photo-description"
+          onCancel={event => { event.preventDefault(); if (!operationLock.current) setDeleteTarget(null); }}>
+          <section>
             <span className="profile-photo-dialog__icon" aria-hidden="true">!</span>
             <p className="profile-photos-kicker">Confirmation sensible</p>
             <h2 id="delete-photo-title">Supprimer cette photo ?</h2>
-            <p>
+            <p id="delete-photo-description">
               Cette action retirera définitivement la photo de ton profil. Si elle est principale, le serveur pourra désigner automatiquement une autre photo.
             </p>
+            {errorMessage ? <p role="alert">{errorMessage}</p> : null}
             <div className="profile-photo-dialog__actions">
               <button type="button" className="profile-photo-button profile-photo-button--ghost" disabled={isWorking} onClick={() => setDeleteTarget(null)}>
                 Annuler
@@ -425,7 +489,7 @@ export function ProfilePhotosPage() {
               </button>
             </div>
           </section>
-        </div>
+        </dialog>
       ) : null}
     </main>
   );

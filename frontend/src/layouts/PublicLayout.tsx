@@ -1,19 +1,24 @@
 /** Structure commune de toutes les pages publiques et privées. */
 
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
+import { PremiumMotion } from "../components/common/PremiumMotion";
 import { RealtimeNotificationToast } from
   "../components/notifications/RealtimeNotificationToast";
 import { PublicHeader } from "../components/navigation/PublicHeader";
 import { NotificationProvider } from "../context/NotificationContext";
 
 export function PublicLayout() {
+  const location = useLocation();
   return (
     <NotificationProvider>
       <div className="public-layout">
         <PublicHeader />
         <RealtimeNotificationToast />
-        <Outlet />
+        <div className="route-stage" key={location.pathname}>
+          <PremiumMotion />
+          <Outlet />
+        </div>
 
         <footer className="public-footer">
           <p>© 2026 Mbolo · Rencontres adultes, respectueuses et sécurisées.</p>
@@ -26,6 +31,7 @@ export function PublicLayout() {
             <Link to="/legal/notice">Mentions légales</Link>
             <Link to="/legal/terms">Conditions</Link>
             <Link to="/legal/privacy">Confidentialité</Link>
+            <Link to="/account-deletion">Supprimer mon compte</Link>
             <Link to="/legal/cookies">Cookies</Link>
             <Link to="/legal/community">Communauté</Link>
           </nav>

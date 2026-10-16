@@ -11,6 +11,8 @@ import type {
   NotificationItem,
   NotificationsPaginatedResponse,
   NotificationUnreadCountResponse,
+  NotificationPreferences,
+  NotificationPreferencesUpdate,
 } from "../types/notifications";
 
 function readCookie(name: string): string {
@@ -158,4 +160,34 @@ export async function deleteNotification(
   );
 
   await parseJsonResponse<void>(response);
+}
+
+export async function getNotificationPreferences():
+Promise<NotificationPreferences> {
+  const response = await fetch(
+    "/api/v1/notifications/preferences/",
+    {
+      method: "GET",
+      credentials: "include",
+      headers: {Accept: "application/json"},
+    },
+  );
+
+  return parseJsonResponse<NotificationPreferences>(response);
+}
+
+export async function updateNotificationPreferences(
+  preferences: NotificationPreferencesUpdate,
+): Promise<NotificationPreferences> {
+  const response = await fetch(
+    "/api/v1/notifications/preferences/",
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: mutationHeaders(),
+      body: JSON.stringify(preferences),
+    },
+  );
+
+  return parseJsonResponse<NotificationPreferences>(response);
 }

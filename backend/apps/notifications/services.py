@@ -15,13 +15,14 @@ L'identité de la personne qui a liké n'est pas exposée.
 """
 
 from dataclasses import dataclass
+from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.realtime import broadcast_account_event
 
-from .models import Notification
+from .models import Notification, NotificationPreference
 from .serializers import NotificationSerializer
 
 
@@ -29,6 +30,31 @@ from .serializers import NotificationSerializer
 class NotificationCreationResult:
     notification: Notification
     created: bool
+
+
+def notification_category_enabled(*, recipient, category: str) -> bool:
+    preference = NotificationPreference.objects.filter(user=recipient).first()
+    if preference is None:
+        return True
+    if not preference.notifications_enabled:
+        return False
+    return bool(getattr(preference, f"{category}_enabled", True))
+
+
+def notification_delivery_is_quiet(*, recipient) -> bool:
+    """Indique si une alerte temps réel non urgente doit être suspendue."""
+    preference = NotificationPreference.objects.filter(user=recipient).first()
+    if preference is None or not preference.quiet_hours_enabled:
+        return False
+    local_time = (
+        timezone.now()
+        + timedelta(minutes=preference.timezone_offset_minutes)
+    ).time().replace(tzinfo=None)
+    start = preference.quiet_start
+    end = preference.quiet_end
+    if start < end:
+        return start <= local_time < end
+    return local_time >= start or local_time < end
 
 
 def get_unread_notification_count(*, actor) -> int:
@@ -87,10 +113,16 @@ def create_message_notification(
     conversation_id,
     message_id,
     body_preview: str,
-) -> NotificationCreationResult:
+) -> NotificationCreationResult | None:
     """
     Crée une notification durable et idempotente pour un message.
     """
+
+    if not notification_category_enabled(
+        recipient=recipient,
+        category="messages",
+    ):
+        return None
 
     normalized_sender = (
         sender_display_name or "Un membre"
@@ -124,12 +156,48 @@ def create_message_notification(
 
 
 @transaction.atomic
+def create_reaction_notification(
+    *,
+    recipient,
+    actor,
+    actor_display_name: str,
+    conversation_id,
+    message_id,
+    emoji: str,
+) -> NotificationCreationResult | None:
+    """Crée ou actualise une notification de réaction sans doublon."""
+    if not notification_category_enabled(
+        recipient=recipient,
+        category="messages",
+    ):
+        return None
+    normalized_actor = (actor_display_name or "Un membre").strip()[:80]
+    notification, created = Notification.objects.update_or_create(
+        recipient=recipient,
+        source_key=f"reaction:{message_id}:{actor.id}",
+        defaults={
+            "kind": Notification.Kind.MESSAGE,
+            "title": f"{normalized_actor} a réagi à ton message",
+            "body": emoji,
+            "target_path": f"/messages/{conversation_id}",
+            "metadata": {
+                "conversation_id": str(conversation_id),
+                "message_id": str(message_id),
+                "reaction": emoji,
+            },
+            "read_at": None,
+        },
+    )
+    return NotificationCreationResult(notification=notification, created=created)
+
+
+@transaction.atomic
 def create_like_notification(
     *,
     recipient,
     interaction_id,
     is_super_like: bool = False,
-) -> NotificationCreationResult:
+) -> NotificationCreationResult | None:
     """
     Crée une notification de like respectueuse de la confidentialité.
 
@@ -137,6 +205,11 @@ def create_like_notification(
     le titre ni dans le corps de la notification publique.
     """
 
+    if not notification_category_enabled(
+        recipient=recipient,
+        category="likes",
+    ):
+        return None
     notification, created = Notification.objects.get_or_create(
         recipient=recipient,
         source_key=(
@@ -186,7 +259,7 @@ def create_match_notification(
     recipient,
     other_display_name: str,
     match_id,
-) -> NotificationCreationResult:
+) -> NotificationCreationResult | None:
     """
     Crée une notification de nouveau match.
 
@@ -194,6 +267,11 @@ def create_match_notification(
     utilisateurs ont exprimé un intérêt réciproque.
     """
 
+    if not notification_category_enabled(
+        recipient=recipient,
+        category="matches",
+    ):
+        return None
     normalized_name = (
         other_display_name or "un membre"
     ).strip()[:80]

@@ -8,6 +8,7 @@ import { PublicLayout } from "../layouts/PublicLayout";
 import { AccessibilityPage } from "../pages/accessibility/AccessibilityPage";
 import { AboutPage } from "../pages/about/AboutPage";
 import { MySpacePage } from "../pages/account/MySpacePage";
+import { AccountDeletionPage } from "../pages/account/AccountDeletionPage";
 import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
@@ -51,6 +52,7 @@ export const appRouter = createBrowserRouter([
       { path: "/how-it-works", element: <HowItWorksPage /> },
       { path: "/help", element: <HelpPage /> },
       { path: "/contact", element: <ContactPage /> },
+      { path: "/account-deletion", element: <AccountDeletionPage /> },
       { path: "/accessibility", element: <AccessibilityPage /> },
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },

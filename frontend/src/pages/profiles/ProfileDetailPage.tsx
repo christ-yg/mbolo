@@ -32,6 +32,7 @@ import type {
   ReportReason,
 } from "../../types/safety";
 
+import { ProfilePhotoViewer } from "../../components/profiles/ProfilePhotoViewer";
 import "./ProfileDetailPage.css";
 
 
@@ -59,6 +60,8 @@ function getSafetyActionErrorMessage(error: unknown): string {
 
 export function ProfileDetailPage() {
   const navigate = useNavigate();
+  const [reload, setReload] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const { profileId = "" } = useParams();
 
   const [status, setStatus] =
@@ -147,6 +150,13 @@ export function ProfileDetailPage() {
 
     async function loadProfile(): Promise<void> {
       setStatus("loading");
+      setProfile(null);
+      setViewerOpen(false);
+      setSelectedPhotoId(null);
+      setIsSafetyMenuOpen(false);
+      setIsBlockDialogOpen(false);
+      setIsReportDialogOpen(false);
+      setActionMessage("");
       setErrorMessage("");
 
       try {
@@ -177,7 +187,7 @@ export function ProfileDetailPage() {
     return () => {
       isActive = false;
     };
-  }, [profileId]);
+  }, [profileId, reload]);
 
 
   const orderedPhotos = useMemo(
@@ -372,6 +382,7 @@ export function ProfileDetailPage() {
           </p>
 
           <h1>Profil indisponible</h1>
+          <button type="button" onClick={() => setReload(value => value + 1)}>Réessayer le profil</button>
 
           <p>
             {errorMessage ||
@@ -401,6 +412,7 @@ export function ProfileDetailPage() {
           ← Retour
         </button>
 
+        <button type="button" disabled={pendingDecision !== null || isSafetyActionPending || isBlockDialogOpen || isReportDialogOpen} onClick={() => setReload(value => value + 1)}>Actualiser le profil</button>
         <div className="profile-detail-safety-menu">
           <span className="profile-detail-page__context">
             {profile.relationship === "match"
@@ -482,6 +494,9 @@ export function ProfileDetailPage() {
                 : "0 photo"}
             </div>
           </div>
+
+          {selectedPhoto && <button type="button" onClick={() => setViewerOpen(true)}>Ouvrir la galerie en grand</button>}
+          {viewerOpen && selectedPhoto && <ProfilePhotoViewer photos={orderedPhotos} initialId={selectedPhoto.id} name={profile.display_name} onClose={() => setViewerOpen(false)} />}
 
           {orderedPhotos.length > 1 ? (
             <div

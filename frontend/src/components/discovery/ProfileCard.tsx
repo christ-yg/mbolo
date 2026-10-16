@@ -169,6 +169,7 @@ export function ProfileCard({
 }: ProfileCardProps) {
   const [activePhotoIndex, setActivePhotoIndex] =
     useState(0);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   /**
    * Calcul des initiales utilisées dans la partie visuelle.
@@ -198,13 +199,38 @@ export function ProfileCard({
 
   const activePhoto =
     visiblePhotos[activePhotoIndex] ?? null;
+  const commonInterestLabels =
+    profile.common_interest_labels ?? [];
 
   /**
    * Chaque nouvelle carte recommence sur sa photo principale.
    */
   useEffect(() => {
     setActivePhotoIndex(0);
+    setIsViewerOpen(false);
   }, [profile.id]);
+
+  useEffect(() => {
+    if (!isViewerOpen) return undefined;
+
+    function handleViewerKey(event: KeyboardEvent): void {
+      if (event.key === "Escape") setIsViewerOpen(false);
+      if (visiblePhotos.length < 2) return;
+      if (event.key === "ArrowLeft") {
+        setActivePhotoIndex((current) =>
+          current === 0 ? visiblePhotos.length - 1 : current - 1,
+        );
+      }
+      if (event.key === "ArrowRight") {
+        setActivePhotoIndex((current) =>
+          current === visiblePhotos.length - 1 ? 0 : current + 1,
+        );
+      }
+    }
+
+    document.addEventListener("keydown", handleViewerKey);
+    return () => document.removeEventListener("keydown", handleViewerKey);
+  }, [isViewerOpen, visiblePhotos.length]);
 
   function showPreviousPhoto(): void {
     setActivePhotoIndex((current) =>
@@ -223,6 +249,7 @@ export function ProfileCard({
   }
 
   return (
+    <>
     <article className="discovery-profile-card">
       <div
         className="discovery-profile-card__visual"
@@ -240,14 +267,21 @@ export function ProfileCard({
         }}
       >
         {activePhoto?.image_url ? (
-          <img
-            className="discovery-profile-card__photo"
-            src={activePhoto.image_url}
-            alt={
-              `Photo ${activePhotoIndex + 1} sur ` +
-              `${visiblePhotos.length} de ${profile.display_name}`
-            }
-          />
+          <button
+            type="button"
+            className="discovery-profile-card__viewer-trigger"
+            onClick={() => setIsViewerOpen(true)}
+            aria-label={`Agrandir la photo de ${profile.display_name}`}
+          >
+            <img
+              className="discovery-profile-card__photo"
+              src={activePhoto.image_url}
+              alt={
+                `Photo ${activePhotoIndex + 1} sur ` +
+                `${visiblePhotos.length} de ${profile.display_name}`
+              }
+            />
+          </button>
         ) : null}
         {/*
          * Indicateur de progression dans la page courante.
@@ -384,14 +418,68 @@ export function ProfileCard({
           ) : null}
         </div>
 
-        {(profile.common_interest_labels ?? []).length > 0 ? (
+        <details className="discovery-profile-card__trust">
+          <summary>
+            <span aria-hidden="true">✦</span>
+            Signaux de confiance
+            <small>
+              {profile.is_verified
+                ? "Profil vérifié"
+                : "Protection MBOLO active"}
+            </small>
+          </summary>
+
+          <div className="discovery-profile-card__trust-grid">
+            <div>
+              <span aria-hidden="true">
+                {profile.is_verified ? "✓" : "⌛"}
+              </span>
+              <p>
+                <strong>
+                  {profile.is_verified
+                    ? "Identité vérifiée"
+                    : "Vérification en attente"}
+                </strong>
+                <small>
+                  {profile.is_verified
+                    ? "Contrôle approuvé par MBOLO"
+                    : "Les données privées restent masquées"}
+                </small>
+              </p>
+            </div>
+
+            <div>
+              <span aria-hidden="true">◎</span>
+              <p>
+                <strong>Localisation protégée</strong>
+                <small>Aucune position GPS exacte n’est exposée</small>
+              </p>
+            </div>
+
+            <div>
+              <span aria-hidden="true">♥</span>
+              <p>
+                <strong>
+                  {commonInterestLabels.length > 0
+                    ? `${commonInterestLabels.length} intérêt${
+                        commonInterestLabels.length > 1 ? "s" : ""
+                      } en commun`
+                    : "Découverte respectueuse"}
+                </strong>
+                <small>La conversation commence après intérêt mutuel</small>
+              </p>
+            </div>
+          </div>
+        </details>
+
+        {commonInterestLabels.length > 0 ? (
           <section className="discovery-profile-card__compatibility">
             <div>
               <p className="section-heading__eyebrow">Compatibilité</p>
               <strong>{profile.compatibility_score}%</strong>
             </div>
             <div>
-              {(profile.common_interest_labels ?? []).map((label) => (
+              {commonInterestLabels.map((label) => (
                 <span key={label}>{label}</span>
               ))}
             </div>
@@ -473,5 +561,63 @@ export function ProfileCard({
         </div>
       </div>
     </article>
+
+    {isViewerOpen && activePhoto?.image_url ? (
+      <div
+        className="profile-photo-viewer"
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setIsViewerOpen(false);
+        }}
+      >
+        <section
+          className="profile-photo-viewer__dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Galerie de ${profile.display_name}`}
+        >
+          <button
+            type="button"
+            className="profile-photo-viewer__close"
+            onClick={() => setIsViewerOpen(false)}
+            aria-label="Fermer la galerie"
+          >
+            ×
+          </button>
+
+          <img
+            src={activePhoto.image_url}
+            alt={`Photo agrandie de ${profile.display_name}`}
+          />
+
+          {visiblePhotos.length > 1 ? (
+            <>
+              <button
+                type="button"
+                className="profile-photo-viewer__previous"
+                onClick={showPreviousPhoto}
+                aria-label="Photo précédente"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                className="profile-photo-viewer__next"
+                onClick={showNextPhoto}
+                aria-label="Photo suivante"
+              >
+                ›
+              </button>
+            </>
+          ) : null}
+
+          <div className="profile-photo-viewer__caption">
+            <strong>{profile.display_name}</strong>
+            <span>{activePhotoIndex + 1}/{visiblePhotos.length}</span>
+          </div>
+        </section>
+      </div>
+    ) : null}
+    </>
   );
 }

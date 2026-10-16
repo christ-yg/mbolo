@@ -15,6 +15,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
@@ -27,6 +28,7 @@ import type {
 } from "../../types/safety";
 
 import "./ReportsPage.css";
+import "./TrustHistoryControls.css";
 
 
 type PageStatus =
@@ -138,6 +140,11 @@ export function ReportsPage() {
     useState("");
 
 
+  const busy = useRef(false);
+  const [query, setQuery] = useState("");
+  const [oldestFirst, setOldestFirst] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+
   const counterLabel = useMemo(
     () => (
       totalCount === 1
@@ -150,6 +157,8 @@ export function ReportsPage() {
 
   const loadFirstPage =
     useCallback(async (): Promise<void> => {
+      if (busy.current) return;
+      busy.current = true;
       setStatus("loading");
       setErrorMessage("");
 
@@ -172,6 +181,8 @@ export function ReportsPage() {
             : "Impossible de charger tes signalements.",
         );
         setStatus("error");
+      } finally {
+        busy.current = false;
       }
     }, []);
 
@@ -182,10 +193,11 @@ export function ReportsPage() {
 
 
   async function loadMore(): Promise<void> {
-    if (isLoadingMore || !hasNextPage) {
+    if (busy.current || isLoadingMore || !hasNextPage) {
       return;
     }
 
+    busy.current = true;
     setIsLoadingMore(true);
     setErrorMessage("");
 
@@ -213,10 +225,15 @@ export function ReportsPage() {
           : "Impossible de charger la suite.",
       );
     } finally {
+      busy.current = false;
       setIsLoadingMore(false);
     }
   }
 
+
+  const filteredItems = items.filter((item) =>
+    `${item.reported_profile?.display_name ?? "Profil indisponible"} ${item.reported_profile?.city ?? ""} ${REASON_LABELS[item.reason]} ${item.description}`.toLocaleLowerCase("fr").includes(query.trim().toLocaleLowerCase("fr")) && (statusFilter === "all" || item.status === statusFilter)
+  ).sort((a, b) => oldestFirst ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at));
 
   return (
     <main className="reports-premium-page">
@@ -326,6 +343,27 @@ export function ReportsPage() {
         </div>
       ) : null}
 
+      <section className="trust-history-controls" aria-label="Recherche et filtres">
+        <label>Rechercher dans la liste
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+        <label>Statut du dossier
+          <select aria-label="Statut du dossier" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="all">Tous les statuts</option>
+            {Object.entries(STATUS_CONTENT).map(([value, content]) => <option key={value} value={value}>{content.label}</option>)}
+          </select>
+        </label>
+        <label>Ordre chronologique
+          <select aria-label="Ordre chronologique" value={oldestFirst ? "oldest" : "newest"} onChange={(event) => setOldestFirst(event.target.value === "oldest")}>
+            <option value="newest">Plus récents d’abord</option><option value="oldest">Plus anciens d’abord</option>
+          </select>
+        </label>
+        <button type="button" disabled={status === "loading" || isLoadingMore} onClick={() => void loadFirstPage()}>Actualiser la liste</button>
+        <button type="button" onClick={() => { setQuery(""); setOldestFirst(false); setStatusFilter("all"); }}>Réinitialiser les filtres</button>
+        <p role="status">{filteredItems.length} résultat(s) sur {items.length} entrée(s) chargée(s). Recherche et tri limités aux entrées chargées.</p>
+        {status === "success" && filteredItems.length === 0 && <p>Aucun résultat pour ces filtres. Tu peux charger la suite si elle est disponible.</p>}
+      </section>
+
       {status === "loading" ? (
         <section
           className="reports-premium-state"
@@ -411,14 +449,14 @@ export function ReportsPage() {
               <p className="reports-premium-eyebrow">Suivi de tes dossiers</p>
               <h2>Une lecture simple de chaque signalement.</h2>
             </div>
-            <p>Les dossiers les plus récents apparaissent en premier. Le statut est mis à jour côté serveur.</p>
+            <p>Choisis l’ordre des dossiers avec les filtres. Le statut est mis à jour côté serveur.</p>
           </header>
 
           <section
             className="reports-premium-list"
             aria-label="Liste de mes signalements"
           >
-            {items.map((item) => {
+            {filteredItems.map((item) => {
               const profile = item.reported_profile;
               const photo = getProfilePhoto(item);
               const statusContent = STATUS_CONTENT[item.status];

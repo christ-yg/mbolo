@@ -9,8 +9,18 @@ from apps.profiles.serializers import (
     DiscoveryProfileSerializer,
 )
 from apps.subscriptions.services import get_subscription_state
+from apps.safety.models import ReportReason
 
-from .models import Conversation, Message
+from .models import Conversation, ConversationPreference, Message, MessageReaction
+
+
+class MessageReactionInputSerializer(serializers.Serializer):
+    emoji = serializers.ChoiceField(
+        choices=MessageReaction.ALLOWED_EMOJIS,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
 
 
 class ConversationCreateSerializer(
@@ -25,6 +35,18 @@ class ConversationCreateSerializer(
     )
 
 
+class ConversationPreferenceSerializer(serializers.Serializer):
+    pinned = serializers.BooleanField(required=False)
+    muted = serializers.BooleanField(required=False)
+    archived = serializers.BooleanField(required=False)
+    marked_unread = serializers.BooleanField(required=False)
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError("Aucune préférence à modifier.")
+        return attrs
+
+
 class MessageCreateSerializer(
     serializers.Serializer
 ):
@@ -35,11 +57,48 @@ class MessageCreateSerializer(
     """
 
     body = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        trim_whitespace=True,
+        max_length=Message.MAX_BODY_LENGTH,
+        default="",
+    )
+    image = serializers.ImageField(required=False, allow_null=True, write_only=True)
+    reply_to_id = serializers.UUIDField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        if not attrs.get("body", "").strip() and not attrs.get("image"):
+            raise serializers.ValidationError("Ajoutez un texte ou une image.")
+        return attrs
+
+
+class MessageEditSerializer(serializers.Serializer):
+    body = serializers.CharField(
         required=True,
         allow_blank=False,
         trim_whitespace=True,
         max_length=Message.MAX_BODY_LENGTH,
     )
+
+
+class MessageReportSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=ReportReason.choices)
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        trim_whitespace=True,
+        max_length=1200,
+    )
+
+    def validate(self, attrs):
+        if attrs.get("reason") == ReportReason.OTHER and not attrs.get(
+            "description", ""
+        ).strip():
+            raise serializers.ValidationError(
+                {"description": "Précisez le motif du signalement."}
+            )
+        return attrs
 
 
 class MessageSerializer(
@@ -54,6 +113,10 @@ class MessageSerializer(
         read_only=True,
     )
     read_receipts_available = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
+    reactions = serializers.SerializerMethodField()
+    my_reaction = serializers.SerializerMethodField()
+    reply_preview = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -61,6 +124,12 @@ class MessageSerializer(
         fields = (
             "id",
             "body",
+            "image_url",
+            "reactions",
+            "my_reaction",
+            "reply_preview",
+            "is_deleted",
+            "is_edited",
             "created_at",
             "read_at",
             "is_read",
@@ -69,6 +138,53 @@ class MessageSerializer(
         )
 
         read_only_fields = fields
+
+    is_deleted = serializers.SerializerMethodField()
+    is_edited = serializers.SerializerMethodField()
+
+    def get_is_deleted(self, message: Message) -> bool:
+        return message.deleted_at is not None
+
+    def get_is_edited(self, message: Message) -> bool:
+        return message.edited_at is not None
+
+    def get_image_url(self, message: Message) -> str | None:
+        if not message.image:
+            return None
+        request = self.context.get("request")
+        url = message.image.url
+        return request.build_absolute_uri(url) if request else url
+
+    def get_reactions(self, message: Message) -> list[dict[str, object]]:
+        counts: dict[str, int] = {}
+        for emoji in message.reactions.values_list("emoji", flat=True):
+            counts[emoji] = counts.get(emoji, 0) + 1
+        return [{"emoji": emoji, "count": count} for emoji, count in counts.items()]
+
+    def get_my_reaction(self, message: Message) -> str | None:
+        request = self.context["request"]
+        return (
+            message.reactions.filter(user=request.user)
+            .values_list("emoji", flat=True)
+            .first()
+        )
+
+    def get_reply_preview(self, message: Message) -> dict[str, object] | None:
+        reply = message.reply_to
+        if reply is None:
+            return None
+        request = self.context["request"]
+        if reply.sender_id == request.user.id:
+            sender_name = "Vous"
+        else:
+            sender_name = reply.sender.profile.display_name
+        return {
+            "id": str(reply.id),
+            "body": "" if reply.deleted_at else reply.body[:160],
+            "has_image": bool(reply.image) if reply.deleted_at is None else False,
+            "sender_name": sender_name,
+            "is_deleted": reply.deleted_at is not None,
+        }
 
     def get_is_mine(
         self,
@@ -135,6 +251,11 @@ class ConversationSerializer(
         serializers.SerializerMethodField()
     )
 
+    pinned = serializers.SerializerMethodField()
+    muted = serializers.SerializerMethodField()
+    archived = serializers.SerializerMethodField()
+    marked_unread = serializers.SerializerMethodField()
+
     class Meta:
         model = Conversation
 
@@ -145,11 +266,46 @@ class ConversationSerializer(
             "last_message",
             "unread_count",
             "other_presence",
+            "pinned",
+            "muted",
+            "archived",
+            "marked_unread",
             "created_at",
             "updated_at",
         )
 
         read_only_fields = fields
+
+    def _preference(self, conversation: Conversation):
+        request = self.context["request"]
+        prefetched = getattr(conversation, "_prefetched_objects_cache", {}).get(
+            "preferences"
+        )
+        if prefetched is not None:
+            return next(
+                (item for item in prefetched if item.user_id == request.user.id),
+                None,
+            )
+        return ConversationPreference.objects.filter(
+            conversation=conversation,
+            user=request.user,
+        ).first()
+
+    def get_pinned(self, conversation: Conversation) -> bool:
+        preference = self._preference(conversation)
+        return bool(preference and preference.pinned)
+
+    def get_muted(self, conversation: Conversation) -> bool:
+        preference = self._preference(conversation)
+        return bool(preference and preference.muted)
+
+    def get_archived(self, conversation: Conversation) -> bool:
+        preference = self._preference(conversation)
+        return bool(preference and preference.archived)
+
+    def get_marked_unread(self, conversation: Conversation) -> bool:
+        preference = self._preference(conversation)
+        return bool(preference and preference.marked_unread)
 
     def get_other_profile(
         self,
@@ -192,8 +348,11 @@ class ConversationSerializer(
     ) -> int:
         request = self.context["request"]
 
-        return conversation.unread_count_for_user(
-            request.user
+        unread_count = conversation.unread_count_for_user(request.user)
+        preference = self._preference(conversation)
+        return max(
+            unread_count,
+            1 if preference and preference.marked_unread else 0,
         )
 
     def get_other_presence(

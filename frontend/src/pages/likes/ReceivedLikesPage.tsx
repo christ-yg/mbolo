@@ -12,6 +12,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
@@ -73,10 +74,31 @@ export function ReceivedLikesPage() {
   const [matchMessage, setMatchMessage] =
     useState<string | null>(null);
 
-  const pendingCount = useMemo(() => items.length, [items]);
+  const [search, setSearch] = useState("");
+  const [kind, setKind] = useState("all");
+  const [sort, setSort] = useState("recent");
+  const [refreshing, setRefreshing] = useState(false);
+  const fetching = useRef(false);
+  const deciding = useRef(false);
+  const restartPagination = useRef(false);
+  const visibleItems = useMemo(() => {
+    const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
+    const query = normalize(search.trim());
+    return items.filter(item =>
+      (kind === "all" || (kind === "super" ? item.is_super_like : item.is_identity_revealed)) &&
+      normalize(`${item.city} ${item.age_range} ${item.dating_intent} ${item.is_identity_revealed ? item.display_name ?? "" : ""}`).includes(query),
+    ).sort((a, b) => {
+      const difference = (Date.parse(b.received_at) || 0) - (Date.parse(a.received_at) || 0);
+      return sort === "oldest" ? -difference : difference;
+    });
+  }, [items, search, kind, sort]);
+  function resetFilters() { setSearch(""); setKind("all"); setSort("recent"); }
+  const pendingCount = visibleItems.length;
 
   const loadFirstPage = useCallback(async (): Promise<void> => {
-    setStatus("loading");
+    if (fetching.current) return;
+    fetching.current = true;
+    setRefreshing(true);
     setErrorMessage(null);
 
     try {
@@ -85,12 +107,16 @@ export function ReceivedLikesPage() {
       setItems(response.results);
       setTotalCount(response.count);
       setCurrentPage(1);
+      restartPagination.current = false;
       setHasNextPage(response.next !== null);
       setStatus(response.results.length > 0 ? "success" : "empty");
     } catch (error: unknown) {
       const normalized = normalizeApiError(error);
       setErrorMessage(normalized.message);
-      setStatus("error");
+      setStatus(current => current === "loading" ? "error" : current);
+    } finally {
+      fetching.current = false;
+      setRefreshing(false);
     }
   }, []);
 
@@ -99,10 +125,12 @@ export function ReceivedLikesPage() {
   }, [loadFirstPage]);
 
   async function handleLoadMore(): Promise<void> {
-    if (isLoadingMore || !hasNextPage) {
+    if (fetching.current || deciding.current || !hasNextPage) {
       return;
     }
 
+    if (restartPagination.current) { await loadFirstPage(); return; }
+    fetching.current = true;
     setIsLoadingMore(true);
     setErrorMessage(null);
 
@@ -131,6 +159,7 @@ export function ReceivedLikesPage() {
       const normalized = normalizeApiError(error);
       setErrorMessage(normalized.message);
     } finally {
+      fetching.current = false;
       setIsLoadingMore(false);
     }
   }
@@ -139,10 +168,11 @@ export function ReceivedLikesPage() {
     item: ReceivedLikeItem,
     decision: InteractionDecision,
   ): Promise<void> {
-    if (pendingIds.has(item.interaction_id)) {
+    if (deciding.current || fetching.current) {
       return;
     }
 
+    deciding.current = true;
     setPendingIds((currentIds) => {
       const nextIds = new Set(currentIds);
       nextIds.add(item.interaction_id);
@@ -165,6 +195,7 @@ export function ReceivedLikesPage() {
       );
 
       setTotalCount((currentCount) => Math.max(0, currentCount - 1));
+      restartPagination.current = true;
 
       if (response.matched && response.revealed_profile) {
         setMatchMessage(
@@ -172,13 +203,16 @@ export function ReceivedLikesPage() {
         );
       }
 
-      if (items.length === 1 && !hasNextPage) {
+      if (hasNextPage || currentPage > 1) {
+        await loadFirstPage();
+      } else if (items.length === 1) {
         setStatus("empty");
       }
     } catch (error: unknown) {
       const normalized = normalizeApiError(error);
       setErrorMessage(normalized.message);
     } finally {
+      deciding.current = false;
       setPendingIds((currentIds) => {
         const nextIds = new Set(currentIds);
         nextIds.delete(item.interaction_id);
@@ -241,6 +275,29 @@ export function ReceivedLikesPage() {
         </span>
       </section>
 
+      <section className="received-likes-explorer" aria-label="Organiser les intérêts reçus">
+        <label>Rechercher les informations visibles
+          <input type="search" value={search} onChange={event => setSearch(event.target.value)} />
+        </label>
+        <label>Filtrer les intérêts
+          <select value={kind} onChange={event => setKind(event.target.value)}>
+            <option value="all">Tous les intérêts</option>
+            <option value="super">Super Likes</option>
+            <option value="revealed">Identités révélées</option>
+          </select>
+        </label>
+        <label>Trier les intérêts
+          <select value={sort} onChange={event => setSort(event.target.value)}>
+            <option value="recent">Plus récents</option><option value="oldest">Plus anciens</option>
+          </select>
+        </label>
+        <button type="button" onClick={resetFilters}>Réinitialiser les filtres</button>
+        <button type="button" disabled={refreshing || isLoadingMore || pendingIds.size > 0} onClick={() => void loadFirstPage()}>
+          {refreshing ? "Actualisation…" : "Actualiser les intérêts"}
+        </button>
+        <p>Recherche et filtres sur les {items.length} intérêts chargés. Les identités protégées restent masquées.</p>
+      </section>
+
       {matchMessage ? (
         <section className="received-likes-match-alert" role="status">
           <div>
@@ -281,7 +338,7 @@ export function ReceivedLikesPage() {
           <p className="received-likes-eyebrow">Sélection à jour</p>
           <h2>Aucun like en attente</h2>
           <p>
-            Les prochains intérêts apparaîtront ici automatiquement.
+            Actualise cette liste pour consulter les prochains intérêts.
             Continue à explorer les profils pour créer de nouvelles connexions.
           </p>
           <div className="received-likes-state__actions">
@@ -301,7 +358,8 @@ export function ReceivedLikesPage() {
           </section>
 
           <section className="received-likes-grid">
-            {items.map((item, index) => {
+            {visibleItems.length === 0 ? <p role="status">Aucun intérêt ne correspond aux filtres.</p> : null}
+            {visibleItems.map((item, index) => {
               const isPending = pendingIds.has(item.interaction_id);
 
               return (
@@ -322,6 +380,7 @@ export function ReceivedLikesPage() {
                     <div className="received-like-card__visual-topline">
                       <span>Profil {String(index + 1).padStart(2, "0")}</span>
                       <span>{item.is_identity_revealed ? "Révélé" : "Protégé"}</span>
+                      {item.is_super_like ? <span>Super Like</span> : null}
                     </div>
                   </div>
 
@@ -347,7 +406,7 @@ export function ReceivedLikesPage() {
                       <button
                         type="button"
                         className="received-like-card__pass"
-                        disabled={isPending}
+                        disabled={pendingIds.size > 0 || refreshing || isLoadingMore}
                         onClick={() => void handleDecision(item, "pass")}
                       >
                         Passer
@@ -356,7 +415,7 @@ export function ReceivedLikesPage() {
                       <button
                         type="button"
                         className="received-like-card__like"
-                        disabled={isPending}
+                        disabled={pendingIds.size > 0 || refreshing || isLoadingMore}
                         onClick={() => void handleDecision(item, "like")}
                       >
                         {isPending ? "Traitement…" : "Ça m’intéresse"}
@@ -372,7 +431,7 @@ export function ReceivedLikesPage() {
             <div className="received-likes-pagination">
               <button
                 type="button"
-                disabled={isLoadingMore}
+                disabled={isLoadingMore || refreshing || pendingIds.size > 0}
                 onClick={() => void handleLoadMore()}
               >
                 {isLoadingMore ? "Chargement…" : "Charger plus"}

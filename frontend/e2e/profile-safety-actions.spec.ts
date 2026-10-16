@@ -224,3 +224,53 @@ test.describe("Actions de sécurité depuis un profil Mbolo", () => {
     await expect(safetyButton).toBeFocused();
   });
 });
+
+test.describe("Galerie publique accessible", () => {
+  test.beforeEach(async ({ page }) => { await installProfileApi(page); });
+  const photos = [1, 2].map(index => ({ id: `photo-${index}`, image_url: `https://images.mbolo.invalid/photo-${index}.svg`, is_primary: index === 1, position: index }));
+  async function gallery(page: Page) {
+    await page.route("https://images.mbolo.invalid/**", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="purple"/></svg>' }));
+    await page.route(`**/profiles/public/${PROFILE_ID}/`, route => json(route, { ...PROFILE, photos }));
+    await page.goto(`/profiles/${PROFILE_ID}`);
+    await page.getByRole("button", { name: "Ouvrir la galerie en grand" }).click();
+  }
+  test("navigation clavier, zoom et restauration du focus", async ({ page }) => {
+    await gallery(page);
+    const dialog = page.getByRole("dialog", { name: "Photos de Arielle Test" });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await expect(dialog.getByRole("status")).toHaveText("Photo 2 sur 2");
+    await dialog.getByRole("button", { name: "Agrandir la photo" }).click();
+    await expect(dialog.getByRole("button", { name: "Réduire la photo" })).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("ArrowLeft");
+    await expect(dialog.getByRole("status")).toHaveText("Photo 1 sur 2");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Ouvrir la galerie en grand" })).toBeFocused();
+  });
+  test("une image en erreur peut être rechargée", async ({ page }) => {
+    await page.route(`**/profiles/public/${PROFILE_ID}/`, route => json(route, { ...PROFILE, photos }));
+    await page.route("https://images.mbolo.invalid/**", route => route.abort());
+    await page.goto(`/profiles/${PROFILE_ID}`);
+    await page.getByRole("button", { name: "Ouvrir la galerie en grand" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("alert")).toBeVisible();
+    await page.unroute("https://images.mbolo.invalid/**");
+    await page.route("https://images.mbolo.invalid/**", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"/>' }));
+    await dialog.getByRole("button", { name: "Réessayer la photo" }).click();
+    await expect(dialog.getByRole("img")).toBeVisible();
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+  });
+  test("actualiser un profil devenu inaccessible retire ses informations", async ({ page }) => {
+    await page.goto(`/profiles/${PROFILE_ID}`);
+    await expect(page.getByRole("heading", { name: "Arielle Test" })).toBeVisible();
+    await page.route(`**/profiles/public/${PROFILE_ID}/`, route => json(route, { detail: "Indisponible" }, 404));
+    await page.getByRole("button", { name: "Actualiser le profil" }).click();
+    await expect(page.getByRole("heading", { name: "Profil indisponible" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Arielle Test" })).toHaveCount(0);
+    await page.route(`**/profiles/public/${PROFILE_ID}/`, route => json(route, PROFILE));
+    await page.getByRole("button", { name: "Réessayer le profil" }).click();
+    await expect(page.getByRole("heading", { name: "Arielle Test" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ouvrir la galerie en grand" })).toHaveCount(0);
+  });
+});

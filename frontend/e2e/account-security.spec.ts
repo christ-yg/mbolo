@@ -229,3 +229,66 @@ test.describe("Centre de sécurité du compte Mbolo", () => {
     await expect(page).toHaveURL("/account/security");
   });
 });
+
+test.describe("Historique de sécurité interactif", () => {
+  test.beforeEach(async ({ page }) => { await installSecurityApi(page); });
+
+  test("recherche toutes les connexions chargées et affiche la suite", async ({ page }) => {
+    await page.route("**/auth/security/login-activity/", (route) => json(route, { data: Array.from({ length: 14 }, (_, index) => ({
+      id: String(index), device: `Appareil ${index}`, method: "password", ipFingerprint: `empreinte-${index}`, createdAt: "2026-10-13T08:00:00Z",
+    })) }));
+    await page.goto("/account/security");
+    const card = page.getByRole("region", { name: "Historique des connexions" });
+    await expect(card.locator("li")).toHaveCount(10);
+    await card.getByRole("button", { name: "Afficher la suite" }).click();
+    await expect(card.locator("li")).toHaveCount(14);
+    await card.getByRole("searchbox").fill("empreinte-13");
+    await expect(card.locator("li")).toHaveCount(1);
+    await expect(card.getByText("Appareil 13", { exact: true })).toBeVisible();
+    await card.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await expect(card.locator("li")).toHaveCount(10);
+  });
+
+  test("distingue les résultats et conserve les données après une erreur", async ({ page }) => {
+    let failed = false;
+    await page.route("**/auth/security/events/", (route) => failed ? json(route, {}, 503) : json(route, { data: ["success", "blocked", "accepted", "unknown"].map((outcome) => ({
+      id: outcome, event: "auth.login", outcome, reason: "authenticated", createdAt: "invalid-date",
+    })) }));
+    await page.goto("/account/security");
+    const card = page.getByRole("region", { name: "Journal de sécurité" });
+    await expect(card.locator("li")).toHaveCount(4);
+    await card.getByLabel("Résultat", { exact: true }).selectOption("other");
+    await expect(card.locator("li")).toHaveCount(1);
+    await expect(card.locator("li")).toContainText("Non précisé · Date indisponible");
+    failed = true;
+    await card.getByRole("button", { name: "Actualiser", exact: true }).click();
+    await expect(card.getByRole("alert")).toBeVisible();
+    await expect(card.locator("li")).toHaveCount(1);
+    failed = false;
+    await card.getByRole("button", { name: "Actualiser", exact: true }).click();
+    await expect(card.getByRole("alert")).toHaveCount(0);
+  });
+
+  test("un échec initial ne ressemble pas à un historique vide", async ({ page }) => {
+    let failed = true;
+    await page.route("**/auth/security/login-activity/", (route) => json(route, failed ? {} : { data: [] }, failed ? 503 : 200));
+    await page.goto("/account/security");
+    const card = page.getByRole("region", { name: "Historique des connexions" });
+    await expect(card.getByRole("alert")).toBeVisible();
+    await expect(card.getByText("Aucune connexion récente enregistrée.")).toHaveCount(0);
+    failed = false;
+    await card.getByRole("button", { name: "Actualiser", exact: true }).click();
+    await expect(card.getByText("Aucune connexion récente enregistrée.")).toBeVisible();
+  });
+
+  test("la préférence indisponible interdit une modification et permet une reprise", async ({ page }) => {
+    let failed = true;
+    await page.route("**/auth/security/login-alert-emails/", (route) => json(route, failed ? {} : { data: { loginAlertEmailsEnabled: false } }, failed ? 503 : 200));
+    await page.goto("/account/security");
+    const form = page.getByRole("heading", { name: "Nouvelles connexions par e-mail" }).locator("..");
+    await expect(form.getByRole("button", { name: "Désactiver les e-mails d’alerte" })).toBeDisabled();
+    failed = false;
+    await form.getByRole("button", { name: "Recharger la préférence des alertes" }).click();
+    await expect(form.getByRole("button", { name: "Activer les e-mails d’alerte" })).toBeEnabled();
+  });
+});

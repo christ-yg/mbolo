@@ -349,3 +349,14 @@
   .received-likes-state { min-height: 430px; padding: 52px 20px; border-radius: 28px; }
   .received-likes-state h2 { font-size: 3rem; }
 }
+
+.received-likes-explorer { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; margin-block: 1.5rem; }
+.received-likes-explorer label { display: grid; gap: .4rem; }
+.received-likes-explorer input, .received-likes-explorer select, .received-likes-explorer button {
+  min-height: 44px; padding: .65rem .9rem; border: 1px solid currentColor; border-radius: .75rem;
+  background: transparent; color: inherit; font: inherit; max-width: 100%;
+}
+.received-likes-explorer p { flex-basis: 100%; }
+.received-likes-explorer :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.received-likes-explorer button:disabled { opacity: .55; cursor: wait; }
+@media (max-width: 600px) { .received-likes-explorer > label, .received-likes-explorer > button { width: 100%; } }

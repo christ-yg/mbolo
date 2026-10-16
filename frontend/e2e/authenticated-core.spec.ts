@@ -472,3 +472,318 @@ test.describe("Parcours privés essentiels Mbolo", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 });
+
+
+test.describe("Messagerie Web organisée", () => {
+  test.beforeEach(async ({ page }) => { await installAuthenticatedApi(page); });
+  const conversations = [CONVERSATION, {
+    ...CONVERSATION, id: "conversation-zoe", other_profile: { ...PROFILE, display_name: "Zoé" },
+    unread_count: 0, other_presence: { is_online: false, last_seen_at: null }, last_message: null,
+    updated_at: "2026-10-01T12:00:00Z",
+  }];
+  test("filtres combinés, tri et réinitialisation", async ({ page }) => {
+    await page.route("**/conversations/?*", route => json(route, { count: 2, next: null, previous: null, results: conversations }));
+    await page.goto("/messages");
+    const cards = page.locator(".conversation-card");
+    await expect(cards).toHaveCount(2);
+    await page.getByLabel("Trier les conversations", { exact: true }).selectOption("name");
+    await expect(cards.first()).toContainText("Arielle Test");
+    await page.getByLabel("Filtrer les conversations", { exact: true }).selectOption("unread");
+    await expect(cards).toHaveCount(1);
+    await page.getByRole("searchbox").fill("Zoé");
+    await expect(cards).toHaveCount(0);
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await page.getByLabel("Filtrer les conversations", { exact: true }).selectOption("no_message");
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toContainText("Zoé");
+    await page.getByLabel("Filtrer les conversations", { exact: true }).selectOption("online");
+    await expect(cards).toContainText("Arielle Test");
+  });
+  test("actualisation conserve la recherche et reflète les nouveaux messages", async ({ page }) => {
+    let unread = 0;
+    await page.route("**/conversations/?*", route => json(route, { count: 1, next: null, previous: null, results: [{ ...CONVERSATION, unread_count: unread }] }));
+    await page.goto("/messages");
+    await page.getByRole("searchbox").fill("Arielle");
+    await page.getByLabel("Filtrer les conversations", { exact: true }).selectOption("unread");
+    await expect(page.locator(".conversation-card")).toHaveCount(0);
+    unread = 2;
+    await page.getByRole("button", { name: "Actualiser les conversations" }).click();
+    await expect(page.locator(".conversation-card")).toHaveCount(1);
+    await expect(page.getByRole("searchbox")).toHaveValue("Arielle");
+  });
+  test("une boîte vide peut être actualisée", async ({ page }) => {
+    let empty = true;
+    await page.route("**/conversations/?*", route => json(route, { count: empty ? 0 : 1, next: null, previous: null, results: empty ? [] : [CONVERSATION] }));
+    await page.goto("/messages");
+    await expect(page.getByRole("heading", { name: "Une vraie conversation commence après un match." })).toBeVisible();
+    empty = false;
+    await page.getByRole("button", { name: "Actualiser les conversations" }).click();
+    await expect(page.locator(".conversation-card")).toHaveCount(1);
+  });
+  test("une erreur puis une reprise conservent les filtres", async ({ page }) => {
+    let failed = false;
+    await page.route("**/conversations/?*", route => json(route, failed ? { detail: "Indisponible" } : { count: 1, next: null, previous: null, results: [CONVERSATION] }, failed ? 503 : 200));
+    await page.goto("/messages");
+    await page.getByRole("searchbox").fill("Arielle");
+    failed = true;
+    await page.getByRole("button", { name: "Actualiser les conversations" }).click();
+    await expect(page.getByRole("heading", { name: "Impossible de charger tes conversations" })).toBeVisible();
+    failed = false;
+    await page.getByRole("button", { name: "Réessayer" }).click();
+    await expect(page.getByRole("searchbox")).toHaveValue("Arielle");
+    await expect(page.locator(".conversation-card")).toHaveCount(1);
+  });
+});
+
+test.describe("Matchs Web organisés", () => {
+  test.beforeEach(async ({ page }) => { await installAuthenticatedApi(page); });
+  const matches = [
+    { id: "match-a", other_profile: PROFILE, created_at: "2026-10-01T12:00:00Z" },
+    { id: "match-b", other_profile: { ...PROFILE, id: "profile-b", display_name: "Zoé", is_verified: false }, created_at: "2026-10-12T12:00:00Z" },
+  ];
+  test("recherche et filtre vérifié se combinent sans modifier les matchs", async ({ page }) => {
+    await page.route("**/matches/?*", route => json(route, { count: 2, next: null, previous: null, results: matches }));
+    await page.goto("/matches");
+    const cards = page.locator(".matches-grid").locator(":scope > *");
+    await expect(cards).toHaveCount(2);
+    await page.getByLabel("Profils vérifiés uniquement").check();
+    await expect(cards).toHaveCount(1);
+    await page.getByRole("searchbox").fill("Zoé");
+    await expect(cards).toHaveCount(0);
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await page.getByLabel("Trier les matchs", { exact: true }).selectOption("name");
+    await expect(cards.first()).toContainText("Arielle Test");
+    await expect(cards).toHaveCount(2);
+  });
+  test("une liste vide peut être actualisée sans navigation", async ({ page }) => {
+    let empty = true;
+    await page.route("**/matches/?*", route => json(route, { count: empty ? 0 : 2, next: null, previous: null, results: empty ? [] : matches }));
+    await page.goto("/matches");
+    await expect(page.getByRole("heading", { name: "Ton prochain match commence dans Découvrir." })).toBeVisible();
+    empty = false;
+    await page.getByRole("button", { name: "Actualiser les matchs" }).click();
+    await expect(page.locator(".matches-grid").locator(":scope > *")).toHaveCount(2);
+  });
+});
+
+test.describe("Découverte continue", () => {
+  test.beforeEach(async ({ page }) => { await installAuthenticatedApi(page); });
+  test("la sélection repart de la première page après un pass", async ({ page }) => {
+    let evaluated = false;
+    const pages: string[] = [];
+    await page.route("**/profiles/discovery/?*", route => {
+      pages.push(new URL(route.request().url()).searchParams.get("page") ?? "1");
+      return json(route, { count: evaluated ? 1 : 2, next: evaluated ? null : "?page=2", previous: null,
+        results: [{ ...PROFILE, id: evaluated ? "next-profile" : PROFILE.id, display_name: evaluated ? "Profil suivant" : PROFILE.display_name }] });
+    });
+    await page.route("**/interactions/", route => { evaluated = true; return json(route, { matched: false, decision: "pass", is_super_like: false }); });
+    await page.goto("/discovery");
+    await page.getByRole("button", { name: "Passer", exact: false }).click();
+    await expect(page.getByRole("heading", { name: /^Profil suivant\s*, 29 ans$/ })).toBeVisible();
+    expect(pages).toEqual(["1", "1"]);
+  });
+  test("un refus conserve le profil et autorise une nouvelle tentative", async ({ page }) => {
+    let fail = true;
+    await page.route("**/interactions/", route => json(route, fail ? { detail: "Réessaie" } : { matched: false, decision: "pass", is_super_like: false }, fail ? 503 : 200));
+    await page.goto("/discovery");
+    await page.getByRole("button", { name: "Passer", exact: false }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Arielle Test\s*, 29 ans$/ })).toBeVisible();
+    fail = false;
+    await page.getByRole("button", { name: "Passer", exact: false }).click();
+    await expect(page.getByRole("heading", { name: "Ta sélection est complète." })).toBeVisible();
+  });
+  test("les flèches dans la galerie ne déclenchent aucune interaction", async ({ page }) => {
+    let interactions = 0;
+    await page.route("**/interactions/", route => { interactions += 1; return json(route, { matched: false }); });
+    await page.route("**/profiles/discovery/?*", route => json(route, { count: 1, next: null, previous: null, results: [{ ...PROFILE, photos: [{ id: "p", image_url: "https://images.mbolo.invalid/p.svg", is_primary: true, position: 1 }] }] }));
+    await page.route("https://images.mbolo.invalid/**", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"/>' }));
+    await page.goto("/discovery");
+    await page.getByRole("button", { name: "Agrandir la photo de Arielle Test" }).click();
+    await expect(page.getByRole("dialog", { name: "Galerie de Arielle Test" })).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowLeft");
+    await page.getByRole("button", { name: "Fermer la galerie", exact: true }).click();
+    expect(interactions).toBe(0);
+    await expect(page.getByRole("heading", { name: /^Arielle Test\s*, 29 ans$/ })).toBeVisible();
+  });
+});
+
+test.describe("Notifications Web organisées", () => {
+  const items = [
+    { id: "n1", kind: "message", title: "Échange avec Arielle", body: "Un nouveau message", target_path: "", is_read: false, read_at: null, created_at: "2026-10-01T12:00:00Z" },
+    { id: "n2", kind: "security", title: "Connexion sécurisée", body: "Nouvel appareil", target_path: "", is_read: true, read_at: "2026-10-02T12:00:00Z", created_at: "2026-10-02T12:00:00Z" },
+    { id: "n3", kind: "message", title: "Échange précédent", body: "Ancien message", target_path: "", is_read: true, read_at: "2026-10-03T12:00:00Z", created_at: "2026-10-03T12:00:00Z" },
+  ];
+  test.beforeEach(async ({ page }) => {
+    await installAuthenticatedApi(page);
+    await page.route("**/notifications/?*", route => json(route, { count: 30, next: "?page=2", previous: null, results: items }));
+  });
+  test("recherche sans accents, statut et tri se combinent", async ({ page }) => {
+    await page.goto("/notifications");
+    const cards = page.locator(".notification-item");
+    await expect(cards).toHaveCount(3);
+    await page.getByRole("searchbox").fill("echange");
+    await expect(cards).toHaveCount(2);
+    await page.getByLabel("Non lues uniquement").check();
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toContainText("Échange avec Arielle");
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await page.getByLabel("Trier les notifications").selectOption("oldest");
+    await expect(cards.first()).toContainText("Échange avec Arielle");
+    await page.getByLabel("Trier les notifications").selectOption("recent");
+    await expect(cards.first()).toContainText("Échange précédent");
+    const summary = page.getByRole("complementary", { name: "Résumé des notifications chargées" });
+    await expect(summary.locator(".notifications-summary__numbers strong").nth(1)).toHaveText("2");
+  });
+  test("actualiser conserve la recherche et reprend après une erreur", async ({ page }) => {
+    await page.goto("/notifications");
+    await expect(page.locator(".notification-item")).toHaveCount(3);
+    await page.getByRole("searchbox").fill("Arielle");
+    await page.route("**/notifications/?*", route => json(route, { detail: "Réseau indisponible" }, 503));
+    await page.getByRole("button", { name: "Actualiser les notifications" }).click();
+    await expect(page.getByRole("alert")).toContainText("Réseau indisponible");
+    await expect(page.locator(".notification-item")).toHaveCount(1);
+    await page.route("**/notifications/?*", route => json(route, { count: 1, next: null, previous: null, results: [{ ...items[0], body: "Message actualisé" }] }));
+    await page.getByRole("button", { name: "Réessayer", exact: true }).click();
+    await expect(page.locator(".notification-item")).toContainText("Message actualisé");
+    await expect(page.getByRole("searchbox")).toHaveValue("Arielle");
+  });
+  test("un historique inaccessible ne se présente pas comme vide", async ({ page }) => {
+    await page.route("**/notifications/?*", route => json(route, { detail: "Indisponible" }, 503));
+    await page.goto("/notifications");
+    await expect(page.getByRole("heading", { name: "Historique indisponible" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Aucune notification en attente" })).toHaveCount(0);
+    await page.route("**/notifications/?*", route => json(route, { count: 0, next: null, previous: null, results: [] }));
+    await page.getByRole("button", { name: "Réessayer", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Aucune notification en attente" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Actualiser les notifications" })).toBeEnabled();
+  });
+});
+
+test.describe("Intérêts reçus organisés", () => {
+  const masked = { interaction_id: "like-a", city: "Libreville", age_range: "25–30", dating_intent: "Relation sérieuse", has_photo: true, received_at: "2026-10-01T12:00:00Z", is_identity_revealed: false, is_super_like: false, profile_id: null, display_name: "Nom confidentiel", image_url: null };
+  const revealed = { ...masked, interaction_id: "like-b", display_name: "Arielle", is_identity_revealed: true, is_super_like: true, received_at: "2026-10-02T12:00:00Z" };
+  test.beforeEach(async ({ page }) => {
+    await installAuthenticatedApi(page);
+    await page.route("**/likes-received/?*", route => json(route, { count: 2, next: null, previous: null, results: [masked, revealed] }));
+  });
+  test("la recherche ignore les noms masqués et combine filtres et tri", async ({ page }) => {
+    await page.goto("/likes-received");
+    const cards = page.locator(".received-like-card");
+    await expect(cards).toHaveCount(2);
+    await expect(cards.first()).toContainText("Arielle");
+    await page.getByRole("searchbox").fill("Nom confidentiel");
+    await expect(cards).toHaveCount(0);
+    await page.getByRole("searchbox").fill("libreville");
+    await page.getByLabel("Filtrer les intérêts").selectOption("super");
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toContainText("Super Like");
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await page.getByLabel("Trier les intérêts").selectOption("oldest");
+    await expect(cards.first()).toContainText("Quelqu’un s’intéresse à toi");
+  });
+  test("une réponse recharge la première page sans sauter les intérêts suivants", async ({ page }) => {
+    let answered = false;
+    const pages: string[] = [];
+    await page.route("**/likes-received/?*", route => {
+      pages.push(new URL(route.request().url()).searchParams.get("page") ?? "1");
+      return json(route, { count: answered ? 1 : 2, next: answered ? null : "?page=2", previous: null, results: [answered ? revealed : masked] });
+    });
+    await page.route("**/likes-received/like-a/respond/", route => {
+      answered = true;
+      return json(route, { matched: false, decision: "pass", revealed_profile: null });
+    });
+    await page.goto("/likes-received");
+    await page.getByRole("button", { name: "Passer", exact: true }).click();
+    await expect(page.locator(".received-like-card")).toContainText("Arielle");
+    expect(pages).toEqual(["1", "1"]);
+  });
+  test("une réponse refusée conserve la carte et permet une nouvelle tentative", async ({ page }) => {
+    let fail = true;
+    await page.route("**/likes-received/?*", route => json(route, { count: 1, next: null, previous: null, results: [masked] }));
+    await page.route("**/likes-received/like-a/respond/", route => json(route, fail ? { detail: "Réponse indisponible" } : { matched: false, decision: "pass", revealed_profile: null }, fail ? 503 : 200));
+    await page.goto("/likes-received");
+    await page.getByRole("button", { name: "Passer", exact: true }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.locator(".received-like-card")).toHaveCount(1);
+    fail = false;
+    await page.getByRole("button", { name: "Passer", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Aucun like en attente" })).toBeVisible();
+  });
+  test("actualiser conserve la recherche après une erreur réseau", async ({ page }) => {
+    await page.goto("/likes-received");
+    await expect(page.locator(".received-like-card")).toHaveCount(2);
+    await page.getByRole("searchbox").fill("Arielle");
+    await page.route("**/likes-received/?*", route => json(route, { detail: "Indisponible" }, 503));
+    await page.getByRole("button", { name: "Actualiser les intérêts" }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.locator(".received-like-card")).toHaveCount(1);
+    await page.route("**/likes-received/?*", route => json(route, { count: 0, next: null, previous: null, results: [] }));
+    await page.getByRole("button", { name: "Actualiser les intérêts" }).click();
+    await expect(page.getByRole("heading", { name: "Aucun like en attente" })).toBeVisible();
+    await expect(page.getByRole("searchbox")).toHaveValue("Arielle");
+  });
+});
+
+test.describe("Galerie personnelle fiable", () => {
+  test.beforeEach(async ({ page }) => { await installAuthenticatedApi(page); });
+  test("une galerie inaccessible interdit les modifications puis se recharge", async ({ page }) => {
+    await page.route("**/profiles/photos/", route => json(route, { detail: "Galerie inaccessible" }, 503));
+    await page.goto("/profile/photos");
+    await expect(page.getByRole("heading", { name: "Galerie indisponible" })).toBeVisible();
+    await expect(page.locator("#profile-photo-input")).toBeDisabled();
+    await expect(page.getByRole("heading", { name: "Ajoute ta première photo." })).toHaveCount(0);
+    await page.route("**/profiles/photos/", route => json(route, { count: 1, results: [PHOTO] }));
+    await page.getByRole("button", { name: "Actualiser la galerie" }).click();
+    await expect(page.locator(".profile-photo-card")).toHaveCount(1);
+    await expect(page.locator("#profile-photo-input")).toBeEnabled();
+  });
+  test("le filtre de modération suit une actualisation", async ({ page }) => {
+    let approved = false;
+    await page.route("**/profiles/photos/", route => json(route, { count: 2, results: [PHOTO, { ...PHOTO, id: "photo-two", position: 2, is_primary: false, moderation_status: approved ? "approved" : "pending", moderation_status_label: approved ? "Approuvée" : "En attente" }] }));
+    await page.goto("/profile/photos");
+    await page.getByLabel("Filtrer par modération").selectOption("pending");
+    await expect(page.locator(".profile-photo-card")).toHaveCount(1);
+    approved = true;
+    await page.getByRole("button", { name: "Actualiser la galerie" }).click();
+    await expect(page.getByText("Aucune photo dans cette catégorie.", { exact: true })).toBeVisible();
+    await page.getByLabel("Filtrer par modération").selectOption("approved");
+    await expect(page.locator(".profile-photo-card")).toHaveCount(2);
+  });
+  test("la confirmation reçoit le focus et Échap restaure le bouton", async ({ page }) => {
+    await page.goto("/profile/photos");
+    const trigger = page.getByRole("button", { name: "Supprimer", exact: true });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "Supprimer cette photo ?" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Annuler", exact: true })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+  test("une suppression réussie reste acquise si la resynchronisation échoue", async ({ page }) => {
+    let deleted = false;
+    let recovered = false;
+    let deletions = 0;
+    await page.route("**/profiles/photos/", route => deleted && !recovered
+      ? json(route, { detail: "Lecture indisponible" }, 503)
+      : json(route, { count: deleted ? 0 : 1, results: deleted ? [] : [PHOTO] }));
+    await page.route(`**/profiles/photos/${PHOTO.id}/`, route => {
+      deleted = true; deletions += 1;
+      return route.fulfill({ status: 204 });
+    });
+    await page.goto("/profile/photos");
+    await page.getByRole("button", { name: "Supprimer", exact: true }).click();
+    await page.getByRole("button", { name: "Supprimer définitivement", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("alert")).toContainText("La photo a été supprimée.");
+    await expect(page.locator(".profile-photo-card")).toHaveCount(0);
+    await expect(page.locator("#profile-photo-input")).toBeDisabled();
+    expect(deletions).toBe(1);
+    recovered = true;
+    await page.getByRole("button", { name: "Actualiser la galerie" }).click();
+    await expect(page.getByRole("heading", { name: "Ajoute ta première photo." })).toBeVisible();
+    await expect(page.locator("#profile-photo-input")).toBeEnabled();
+  });
+});

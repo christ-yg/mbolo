@@ -6,6 +6,7 @@ des vues HTTP.
 """
 
 from dataclasses import dataclass
+from datetime import timedelta
 from uuid import UUID
 
 from django.core.exceptions import ValidationError
@@ -13,8 +14,10 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.interactions.models import Match
+from apps.photos.image_processing import process_profile_photo
+from apps.safety.report_services import create_report
 
-from .models import Conversation, Message
+from .models import Conversation, ConversationPreference, Message, MessageReaction
 
 
 @dataclass(frozen=True)
@@ -55,6 +58,38 @@ def get_actor_profile(actor):
             "Complétez votre profil avant d'accéder "
             "à la messagerie."
         ) from exc
+
+
+@transaction.atomic
+def update_conversation_preferences(
+    *, actor, conversation_id: UUID, pinned: bool | None = None,
+    muted: bool | None = None, archived: bool | None = None,
+    marked_unread: bool | None = None,
+):
+    conversation = get_conversation_for_actor(
+        actor=actor,
+        conversation_id=conversation_id,
+    )
+    preference, _ = ConversationPreference.objects.get_or_create(
+        conversation=conversation,
+        user=actor,
+    )
+    update_fields = []
+    if pinned is not None:
+        preference.pinned = pinned
+        update_fields.append("pinned")
+    if muted is not None:
+        preference.muted = muted
+        update_fields.append("muted")
+    if archived is not None:
+        preference.archived = archived
+        update_fields.append("archived")
+    if marked_unread is not None:
+        preference.marked_unread = marked_unread
+        update_fields.append("marked_unread")
+    if update_fields:
+        preference.save(update_fields=(*update_fields, "updated_at"))
+    return conversation
 
 
 @transaction.atomic
@@ -161,6 +196,8 @@ def send_message(
     actor,
     conversation_id: UUID,
     body: str,
+    image=None,
+    reply_to_id: UUID | None = None,
 ) -> Message:
     """
     Envoie un message dans une conversation active.
@@ -175,11 +212,11 @@ def send_message(
 
     normalized_body = (body or "").strip()
 
-    if not normalized_body:
+    if not normalized_body and image is None:
         raise ValidationError(
             {
                 "body": [
-                    "Le message ne peut pas être vide."
+                    "Ajoutez un texte ou une image."
                 ]
             }
         )
@@ -194,11 +231,27 @@ def send_message(
             }
         )
 
-    message = Message.objects.create(
+    processed = process_profile_photo(image) if image is not None else None
+    reply_to = None
+    if reply_to_id is not None:
+        try:
+            reply_to = Message.objects.get(
+                id=reply_to_id,
+                conversation=conversation,
+            )
+        except Message.DoesNotExist as exc:
+            raise ValidationError(
+                {"reply_to_id": ["Le message cité est introuvable."]}
+            ) from exc
+    message = Message(
         conversation=conversation,
         sender=actor,
         body=normalized_body,
+        reply_to=reply_to,
     )
+    if processed is not None:
+        message.image.save(processed.filename, processed.content, save=False)
+    message.save()
 
     Conversation.objects.filter(
         id=conversation.id,
@@ -206,7 +259,154 @@ def send_message(
         updated_at=timezone.now(),
     )
 
+    # A new exchange makes the discussion active again for both members.
+    ConversationPreference.objects.filter(
+        conversation=conversation,
+        archived=True,
+    ).update(archived=False, updated_at=timezone.now())
+
     return message
+
+
+@transaction.atomic
+def set_message_reaction(*, actor, conversation_id: UUID, message_id: UUID, emoji: str):
+    """Ajoute, remplace ou retire la réaction de l'acteur."""
+    conversation = get_conversation_for_actor(
+        actor=actor,
+        conversation_id=conversation_id,
+    )
+    try:
+        message = Message.objects.get(id=message_id, conversation=conversation)
+    except Message.DoesNotExist as exc:
+        raise ValidationError("Ce message est introuvable.") from exc
+
+    if message.deleted_at is not None:
+        raise ValidationError("Un message supprimé ne peut plus recevoir de réaction.")
+
+    reaction = MessageReaction.objects.filter(message=message, user=actor).first()
+    if not emoji:
+        if reaction is not None:
+            reaction.delete()
+        return message
+    if emoji not in MessageReaction.ALLOWED_EMOJIS:
+        raise ValidationError({"emoji": ["Cette réaction n'est pas autorisée."]})
+    MessageReaction.objects.update_or_create(
+        message=message,
+        user=actor,
+        defaults={"emoji": emoji},
+    )
+    return message
+
+
+@transaction.atomic
+def delete_message_for_everyone(*, actor, conversation_id: UUID, message_id: UUID):
+    """Masque définitivement le contenu d'un message appartenant à l'acteur."""
+    conversation = get_conversation_for_actor(
+        actor=actor,
+        conversation_id=conversation_id,
+    )
+    try:
+        message = (
+            Message.objects.select_for_update(of=("self",))
+            .select_related("sender", "reply_to", "reply_to__sender__profile")
+            .get(id=message_id, conversation=conversation)
+        )
+    except Message.DoesNotExist as exc:
+        raise ValidationError("Ce message est introuvable.") from exc
+
+    if message.sender_id != actor.id:
+        raise ValidationError("Seul l'expéditeur peut supprimer ce message.")
+    if message.deleted_at is not None:
+        return message
+
+    image_name = message.image.name if message.image else None
+    image_storage = message.image.storage if message.image else None
+    message.body = ""
+    message.image = None
+    message.deleted_at = timezone.now()
+    message.save(update_fields=("body", "image", "deleted_at"))
+    message.reactions.all().delete()
+    if image_name and image_storage:
+        transaction.on_commit(lambda: image_storage.delete(image_name))
+    return message
+
+
+@transaction.atomic
+def edit_message(*, actor, conversation_id: UUID, message_id: UUID, body: str):
+    """Modifie le texte d'un message récent appartenant à l'acteur."""
+    conversation = get_conversation_for_actor(
+        actor=actor,
+        conversation_id=conversation_id,
+    )
+    try:
+        message = Message.objects.select_for_update().get(
+            id=message_id,
+            conversation=conversation,
+        )
+    except Message.DoesNotExist as exc:
+        raise ValidationError("Ce message est introuvable.") from exc
+
+    if message.sender_id != actor.id:
+        raise ValidationError("Seul l'expéditeur peut modifier ce message.")
+    if message.deleted_at is not None:
+        raise ValidationError("Un message supprimé ne peut pas être modifié.")
+    if timezone.now() - message.created_at > timedelta(minutes=15):
+        raise ValidationError("Le délai de modification de 15 minutes est dépassé.")
+
+    normalized_body = (body or "").strip()
+    if not normalized_body:
+        raise ValidationError({"body": ["Le texte du message est requis."]})
+    if len(normalized_body) > Message.MAX_BODY_LENGTH:
+        raise ValidationError({"body": ["Le message est trop long."]})
+
+    message.body = normalized_body
+    message.edited_at = timezone.now()
+    message.save(update_fields=("body", "edited_at"))
+    return message
+
+
+@transaction.atomic
+def report_message(
+    *, actor, conversation_id: UUID, message_id: UUID, reason: str,
+    description: str = "",
+):
+    """Crée un signalement avec une preuve figée contrôlée par le serveur."""
+    conversation = get_conversation_for_actor(
+        actor=actor,
+        conversation_id=conversation_id,
+    )
+    try:
+        message = Message.objects.select_related("sender").get(
+            id=message_id,
+            conversation=conversation,
+        )
+    except Message.DoesNotExist as exc:
+        raise ValidationError("Ce message est introuvable.") from exc
+
+    if message.sender_id == actor.id:
+        raise ValidationError("Vous ne pouvez pas signaler votre propre message.")
+
+    if message.deleted_at is not None:
+        content = "[Message supprimé]"
+    elif message.body:
+        content = message.body[:500]
+    elif message.image:
+        content = "[Photo jointe]"
+    else:
+        content = "[Contenu indisponible]"
+    evidence = (
+        f"Preuve message {message.id} — envoyé le "
+        f"{message.created_at.isoformat()}\n{content}"
+    )
+    details = description.strip()
+    combined = evidence if not details else f"{evidence}\n\nPrécisions : {details}"
+    result = create_report(
+        reporter=actor,
+        reported_user_id=message.sender_id,
+        reason=reason,
+        description=combined[:2000],
+    )
+    return result.report
 
 
 @transaction.atomic
@@ -244,6 +444,12 @@ def mark_conversation_as_read(
             read_at=read_at,
         )
     )
+
+    ConversationPreference.objects.filter(
+        conversation=conversation,
+        user=actor,
+        marked_unread=True,
+    ).update(marked_unread=False, updated_at=read_at)
 
     return MarkConversationReadResult(
         conversation=conversation,

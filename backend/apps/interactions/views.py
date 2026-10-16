@@ -12,6 +12,7 @@ from apps.notifications.services import (
     broadcast_notification_created,
     create_like_notification,
     create_match_notification,
+    notification_delivery_is_quiet,
 )
 
 from .models import Match
@@ -76,7 +77,11 @@ def publish_interaction_notifications(*, result) -> None:
             match_id=result.match.id,
         )
 
-        if actor_result.created:
+        if (
+            actor_result is not None
+            and actor_result.created
+            and not notification_delivery_is_quiet(recipient=actor_user)
+        ):
             broadcast_notification_created(
                 notification=actor_result.notification,
                 event_name="match.notification",
@@ -88,7 +93,11 @@ def publish_interaction_notifications(*, result) -> None:
                 },
             )
 
-        if target_result.created:
+        if (
+            target_result is not None
+            and target_result.created
+            and not notification_delivery_is_quiet(recipient=target_user)
+        ):
             broadcast_notification_created(
                 notification=target_result.notification,
                 event_name="match.notification",
@@ -108,7 +117,11 @@ def publish_interaction_notifications(*, result) -> None:
         is_super_like=result.interaction.is_super_like,
     )
 
-    if like_result.created:
+    if (
+        like_result is not None
+        and like_result.created
+        and not notification_delivery_is_quiet(recipient=target_user)
+    ):
         broadcast_notification_created(
             notification=like_result.notification,
             event_name="like.notification",

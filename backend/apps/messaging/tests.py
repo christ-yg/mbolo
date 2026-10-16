@@ -3,12 +3,15 @@ Tests de sécurité de la messagerie privée Mbolo.
 """
 
 from datetime import date
+from io import BytesIO
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from PIL import Image
 
 from apps.interactions.models import Match
 from apps.profiles.models import Profile
@@ -18,13 +21,18 @@ from apps.subscriptions.models import (
     SubscriptionStatus,
 )
 
-from .models import Conversation, Message
+from .models import Conversation, ConversationPreference, Message
 from .serializers import MessageSerializer
 from .services import (
     get_or_create_conversation,
     get_total_unread_count,
     mark_conversation_as_read,
     send_message,
+    set_message_reaction,
+    delete_message_for_everyone,
+    edit_message,
+    report_message,
+    update_conversation_preferences,
 )
 from .typing import (
     get_other_typing_status,
@@ -33,6 +41,18 @@ from .typing import (
 
 
 User = get_user_model()
+
+
+def message_image_file() -> SimpleUploadedFile:
+    buffer = BytesIO()
+    image = Image.new("RGB", (640, 640), (125, 45, 92))
+    image.save(buffer, format="JPEG")
+    image.close()
+    return SimpleUploadedFile(
+        "client-name.jpg",
+        buffer.getvalue(),
+        content_type="image/jpeg",
+    )
 
 
 class MessagingServiceTests(TestCase):
@@ -178,6 +198,21 @@ class MessagingServiceTests(TestCase):
         self.assertIsNone(message.read_at)
         self.assertFalse(message.is_read)
 
+    @override_settings(MEDIA_ROOT="/tmp/mbolo-test-media")
+    def test_participant_can_send_sanitized_image_message(self):
+        conversation = Conversation.objects.create(match=self.match)
+
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="",
+            image=message_image_file(),
+        )
+
+        self.assertEqual(message.body, "")
+        self.assertTrue(message.image.name.endswith(".webp"))
+        self.assertNotIn("client-name", message.image.name)
+
     def test_free_sender_cannot_receive_read_receipt(self):
         conversation = Conversation.objects.create(match=self.match)
         message = send_message(
@@ -243,6 +278,230 @@ class MessagingServiceTests(TestCase):
                 actor=self.user_one,
                 conversation_id=conversation.id,
                 body="   ",
+            )
+
+    def test_participant_can_add_replace_and_remove_reaction(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Bonjour.",
+        )
+
+        set_message_reaction(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            emoji="❤️",
+        )
+        self.assertEqual(message.reactions.get().emoji, "❤️")
+
+        set_message_reaction(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            emoji="🔥",
+        )
+        self.assertEqual(message.reactions.get().emoji, "🔥")
+
+        set_message_reaction(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            emoji="",
+        )
+        self.assertFalse(message.reactions.exists())
+
+    def test_participant_can_reply_inside_same_conversation(self):
+        conversation = Conversation.objects.create(match=self.match)
+        original = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Premier message.",
+        )
+        reply = send_message(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            body="Réponse ciblée.",
+            reply_to_id=original.id,
+        )
+
+        self.assertEqual(reply.reply_to_id, original.id)
+
+    def test_sender_can_delete_message_for_everyone(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Contenu à supprimer.",
+        )
+        set_message_reaction(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            emoji="❤️",
+        )
+
+        deleted = delete_message_for_everyone(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            message_id=message.id,
+        )
+
+        self.assertIsNotNone(deleted.deleted_at)
+        self.assertEqual(deleted.body, "")
+        self.assertFalse(deleted.reactions.exists())
+
+    def test_recipient_cannot_delete_sender_message(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Message protégé.",
+        )
+
+        with self.assertRaises(ValidationError):
+            delete_message_for_everyone(
+                actor=self.user_two,
+                conversation_id=conversation.id,
+                message_id=message.id,
+            )
+
+    def test_sender_can_edit_recent_message(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Ancien texte.",
+        )
+
+        edited = edit_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            body="  Nouveau texte.  ",
+        )
+
+        self.assertEqual(edited.body, "Nouveau texte.")
+        self.assertIsNotNone(edited.edited_at)
+
+    def test_recipient_cannot_edit_sender_message(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Texte protégé.",
+        )
+
+        with self.assertRaises(ValidationError):
+            edit_message(
+                actor=self.user_two,
+                conversation_id=conversation.id,
+                message_id=message.id,
+                body="Tentative interdite.",
+            )
+
+    def test_recipient_can_report_message_with_server_evidence(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Contenu abusif à conserver.",
+        )
+
+        report = report_message(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            reason="harassment",
+            description="Ce message me met mal à l'aise.",
+        )
+
+        self.assertEqual(report.reported_user_id, self.user_one.id)
+        self.assertIn(str(message.id), report.description)
+        self.assertIn("Contenu abusif à conserver.", report.description)
+
+    def test_sender_cannot_report_own_message(self):
+        conversation = Conversation.objects.create(match=self.match)
+        message = send_message(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            body="Mon message.",
+        )
+
+        with self.assertRaises(ValidationError):
+            report_message(
+                actor=self.user_one,
+                conversation_id=conversation.id,
+                message_id=message.id,
+                reason="spam",
+            )
+
+    def test_participant_can_pin_and_mute_conversation_privately(self):
+        conversation = Conversation.objects.create(match=self.match)
+
+        update_conversation_preferences(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+            pinned=True,
+            muted=True,
+            archived=True,
+            marked_unread=True,
+        )
+
+        preference = ConversationPreference.objects.get(
+            conversation=conversation,
+            user=self.user_one,
+        )
+        self.assertTrue(preference.pinned)
+        self.assertTrue(preference.muted)
+        self.assertTrue(preference.archived)
+        self.assertTrue(preference.marked_unread)
+        self.assertFalse(
+            ConversationPreference.objects.filter(
+                conversation=conversation,
+                user=self.user_two,
+            ).exists()
+        )
+
+        send_message(
+            actor=self.user_two,
+            conversation_id=conversation.id,
+            body="Nouveau message",
+        )
+        preference.refresh_from_db()
+        self.assertFalse(preference.archived)
+
+        mark_conversation_as_read(
+            actor=self.user_one,
+            conversation_id=conversation.id,
+        )
+        preference.refresh_from_db()
+        self.assertFalse(preference.marked_unread)
+
+    def test_reply_from_another_conversation_is_rejected(self):
+        third_user, third_profile = self.create_user_with_profile(
+            email="third@example.com",
+            display_name="Troisième membre",
+        )
+        other_match = self.create_active_match(
+            profile_one=self.profile_one,
+            profile_two=third_profile,
+        )
+        other_conversation = Conversation.objects.create(match=other_match)
+        foreign_message = send_message(
+            actor=third_user,
+            conversation_id=other_conversation.id,
+            body="Message étranger.",
+        )
+        conversation = Conversation.objects.create(match=self.match)
+
+        with self.assertRaises(ValidationError):
+            send_message(
+                actor=self.user_one,
+                conversation_id=conversation.id,
+                body="Réponse interdite.",
+                reply_to_id=foreign_message.id,
             )
 
     def test_message_sender_must_belong_to_conversation(self):

@@ -14,6 +14,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Link } from "react-router-dom";
@@ -73,11 +74,22 @@ export function MessagesPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [sort, setSort] = useState("recent");
+  const [refreshing, setRefreshing] = useState(false);
+  const requestVersion = useRef(0);
+  const snapshot = useRef<{ page: number } | null>(null);
+  const requestedPage = useRef(1);
+
 
 
   const loadConversations = useCallback(
     async (page: number): Promise<void> => {
-      setStatus("loading");
+      const version = ++requestVersion.current;
+      requestedPage.current = page;
+      const previous = snapshot.current;
+      if (!previous || previous.page !== page) setStatus("loading");
+      setRefreshing(true);
       setErrorMessage("");
 
       try {
@@ -86,17 +98,23 @@ export function MessagesPage() {
           pageSize: DEFAULT_CONVERSATIONS_PAGE_SIZE,
         });
 
+        if (version !== requestVersion.current) return;
+        snapshot.current = { page };
         setData(result);
         setCurrentPage(page);
         setStatus(
           result.results.length === 0 ? "empty" : "success",
         );
       } catch (error: unknown) {
+        if (version !== requestVersion.current) return;
         const normalizedError = normalizeApiError(error);
 
+        snapshot.current = null;
         setData(null);
         setErrorMessage(normalizedError.message);
         setStatus("error");
+      } finally {
+        if (version === requestVersion.current) setRefreshing(false);
       }
     },
     [],
@@ -105,6 +123,7 @@ export function MessagesPage() {
 
   useEffect(() => {
     void loadConversations(1);
+    return () => { requestVersion.current += 1; };
   }, [loadConversations]);
 
 
@@ -118,9 +137,9 @@ export function MessagesPage() {
       lastEvent.event === "conversation.updated" ||
       lastEvent.event === "unread.count.changed"
     ) {
-      void loadConversations(currentPage);
+      void loadConversations(requestedPage.current);
     }
-  }, [currentPage, lastEvent, loadConversations, revision]);
+  }, [lastEvent, loadConversations, revision]);
 
 
   const conversations = useMemo<ConversationItem[]>(
@@ -130,10 +149,6 @@ export function MessagesPage() {
 
   const filteredConversations = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLocaleLowerCase("fr-FR");
-
-    if (!normalizedSearch) {
-      return conversations;
-    }
 
     return conversations.filter((conversation) => {
       const profile = conversation.other_profile;
@@ -148,9 +163,16 @@ export function MessagesPage() {
         .join(" ")
         .toLocaleLowerCase("fr-FR");
 
-      return searchableText.includes(normalizedSearch);
+      return searchableText.includes(normalizedSearch) &&
+        (filter === "all" || (filter === "unread" && conversation.unread_count > 0) ||
+          (filter === "online" && conversation.other_presence.is_online) ||
+          (filter === "no_message" && conversation.last_message === null));
+    }).sort((a, b) => {
+      if (sort === "name") return a.other_profile.display_name.localeCompare(b.other_profile.display_name, "fr");
+      if (sort === "unread") return b.unread_count - a.unread_count || b.updated_at.localeCompare(a.updated_at);
+      return b.updated_at.localeCompare(a.updated_at);
     });
-  }, [conversations, searchTerm]);
+  }, [conversations, searchTerm, filter, sort]);
 
 
   const unreadMessageCount = conversations.reduce(
@@ -190,7 +212,7 @@ export function MessagesPage() {
           <button
             type="button"
             onClick={() => {
-              void loadConversations(currentPage);
+              void loadConversations(requestedPage.current);
             }}
           >
             Réessayer
@@ -225,6 +247,7 @@ export function MessagesPage() {
               <Link className="messages-button messages-button--secondary" to="/matches">
                 Voir mes matchs
               </Link>
+              <button type="button" disabled={refreshing} onClick={() => void loadConversations(1)}>Actualiser les conversations</button>
             </div>
           </div>
         </section>
@@ -258,11 +281,11 @@ export function MessagesPage() {
           </div>
           <div>
             <strong>{unreadMessageCount}</strong>
-            <span>non lu{unreadMessageCount > 1 ? "s" : ""}</span>
+            <span>non lu{unreadMessageCount > 1 ? "s" : ""} sur cette page</span>
           </div>
           <div>
             <strong>{onlineCount}</strong>
-            <span>en ligne</span>
+            <span>en ligne sur cette page</span>
           </div>
         </div>
       </section>
@@ -284,6 +307,25 @@ export function MessagesPage() {
               placeholder="Rechercher un prénom, une ville…"
             />
           </label>
+        </div>
+
+        <div className="messages-organization" aria-label="Organisation des conversations">
+          <label>Afficher
+            <select aria-label="Filtrer les conversations" value={filter} onChange={(event) => setFilter(event.target.value)}>
+              <option value="all">Toutes</option><option value="unread">Non lues</option>
+              <option value="online">En ligne</option><option value="no_message">Sans premier message</option>
+            </select>
+          </label>
+          <label>Trier
+            <select aria-label="Trier les conversations" value={sort} onChange={(event) => setSort(event.target.value)}>
+              <option value="recent">Activité récente</option><option value="unread">Messages non lus</option><option value="name">Prénom</option>
+            </select>
+          </label>
+          <button type="button" disabled={refreshing} onClick={() => void loadConversations(currentPage)}>
+            {refreshing ? "Actualisation…" : "Actualiser les conversations"}
+          </button>
+          <button type="button" onClick={() => { setSearchTerm(""); setFilter("all"); setSort("recent"); }}>Réinitialiser les filtres</button>
+          <p role="status">{filteredConversations.length} conversation(s) affichée(s). Recherche, filtres et tri sur la page {currentPage} uniquement.</p>
         </div>
 
         {filteredConversations.length > 0 ? (
@@ -327,8 +369,8 @@ export function MessagesPage() {
           <div className="messages-search-empty" role="status">
             <div aria-hidden="true">⌕</div>
             <h3>Aucune conversation trouvée</h3>
-            <p>Essaie un autre prénom, une autre ville ou efface la recherche.</p>
-            <button type="button" onClick={() => setSearchTerm("")}>
+            <p>Ajuste les filtres ou consulte une autre page de conversations.</p>
+            <button type="button" onClick={() => { setSearchTerm(""); setFilter("all"); }}>
               Effacer la recherche
             </button>
           </div>
@@ -339,7 +381,7 @@ export function MessagesPage() {
         <nav className="messages-pagination" aria-label="Pagination des conversations">
           <button
             type="button"
-            disabled={!data.previous}
+            disabled={refreshing || !data.previous}
             onClick={() => {
               void loadConversations(Math.max(currentPage - 1, 1));
             }}
@@ -351,7 +393,7 @@ export function MessagesPage() {
 
           <button
             type="button"
-            disabled={!data.next}
+            disabled={refreshing || !data.next}
             onClick={() => {
               void loadConversations(currentPage + 1);
             }}

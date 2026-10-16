@@ -12,20 +12,24 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
   deleteNotification,
+  getNotificationPreferences,
   getNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  updateNotificationPreferences,
 } from "../../api/notificationService";
 import { useAccountRealtime } from "../../hooks/useAccountRealtime";
 import type {
   NotificationItem,
   NotificationKind,
+  NotificationPreferences,
 } from "../../types/notifications";
 import "./NotificationsPage.css";
 
@@ -39,6 +43,47 @@ interface NotificationGroup {
   key: NotificationGroupKey;
   label: string;
   items: NotificationItem[];
+}
+
+type NotificationFilter =
+  | "all"
+  | "unread"
+  | "messages"
+  | "matches"
+  | "likes"
+  | "security";
+
+const notificationFilters: ReadonlyArray<{
+  key: NotificationFilter;
+  label: string;
+  symbol: string;
+}> = [
+  {key: "all", label: "Tout", symbol: "◇"},
+  {key: "unread", label: "Non lues", symbol: "●"},
+  {key: "messages", label: "Messages", symbol: "✉"},
+  {key: "matches", label: "Matchs", symbol: "♥"},
+  {key: "likes", label: "Likes", symbol: "★"},
+  {key: "security", label: "Sécurité", symbol: "◆"},
+];
+
+function matchesNotificationFilter(
+  notification: NotificationItem,
+  filter: NotificationFilter,
+): boolean {
+  switch (filter) {
+    case "all":
+      return true;
+    case "unread":
+      return !notification.is_read;
+    case "messages":
+      return notification.kind === "message";
+    case "matches":
+      return notification.kind === "match";
+    case "likes":
+      return notification.kind === "like" || notification.kind === "super_like";
+    case "security":
+      return notification.kind === "security" || notification.kind === "system";
+  }
 }
 
 
@@ -213,36 +258,147 @@ export function NotificationsPage() {
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [preferences, setPreferences] =
+    useState<NotificationPreferences | null>(null);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [preferencesLoading, setPreferencesLoading] = useState(false);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
+  const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] =
+    useState<NotificationFilter>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkActionPending, setIsBulkActionPending] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [sortOrder, setSortOrder] = useState("recent");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const requestVersion = useRef(0);
+  const refreshPending = useRef(false);
+  const morePending = useRef(false);
+
+  function resetFilters(): void {
+    setSearch("");
+    setUnreadOnly(false);
+    setSortOrder("recent");
+    setActiveFilter("all");
+    setSelectedIds(new Set());
+  }
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.is_read).length,
     [notifications],
   );
 
-  const groupedNotifications = useMemo(
-    () => groupNotifications(notifications),
-    [notifications],
+  const filteredNotifications = useMemo(
+    () => {
+      const normalize = (value: string) => value.normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
+      const query = normalize(search.trim());
+      return notifications.filter((notification) =>
+        matchesNotificationFilter(notification, activeFilter) &&
+        (!unreadOnly || !notification.is_read) &&
+        normalize(`${notification.title} ${notification.body} ${getKindLabel(notification.kind)}`).includes(query),
+      ).sort((a, b) => {
+        const difference = (parseDate(b.created_at)?.getTime() ?? 0) -
+          (parseDate(a.created_at)?.getTime() ?? 0);
+        return sortOrder === "oldest" ? -difference : difference;
+      });
+    },
+    [activeFilter, notifications, search, unreadOnly, sortOrder],
   );
 
-  const readCount = Math.max(0, totalCount - unreadCount);
+  const filteredIds = useMemo(
+    () => filteredNotifications.map((notification) => notification.id),
+    [filteredNotifications],
+  );
+
+  const selectedNotifications = useMemo(
+    () => notifications.filter((notification) => selectedIds.has(notification.id)),
+    [notifications, selectedIds],
+  );
+
+  const selectedUnreadCount = useMemo(
+    () => selectedNotifications.filter((notification) => !notification.is_read).length,
+    [selectedNotifications],
+  );
+
+  const allFilteredSelected = filteredIds.length > 0 &&
+    filteredIds.every((id) => selectedIds.has(id));
+
+  const groupedNotifications = useMemo(
+    () => {
+      const groups = groupNotifications(filteredNotifications);
+      return sortOrder === "oldest" ? groups.reverse() : groups;
+    },
+    [filteredNotifications, sortOrder],
+  );
+
+  const filterCounts = useMemo(() => {
+    const counts = new Map<NotificationFilter, number>();
+    for (const filter of notificationFilters) {
+      counts.set(
+        filter.key,
+        notifications.filter((notification) =>
+          matchesNotificationFilter(notification, filter.key)).length,
+      );
+    }
+    return counts;
+  }, [notifications]);
+
+  const readCount = notifications.length - unreadCount;
+
+  function toggleNotificationSelection(notificationId: string): void {
+    setSelectedIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      if (nextIds.has(notificationId)) {
+        nextIds.delete(notificationId);
+      } else {
+        nextIds.add(notificationId);
+      }
+      return nextIds;
+    });
+  }
+
+  function toggleFilteredSelection(): void {
+    setSelectedIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      if (allFilteredSelected) {
+        filteredIds.forEach((id) => nextIds.delete(id));
+      } else {
+        filteredIds.forEach((id) => nextIds.add(id));
+      }
+      return nextIds;
+    });
+  }
 
   const loadFirstPage = useCallback(async (): Promise<void> => {
+    refreshPending.current = true;
+    const version = ++requestVersion.current;
+    setIsRefreshing(true);
     setErrorMessage(null);
 
     try {
       const response = await getNotifications(1, 20);
+      if (version !== requestVersion.current) return;
       setNotifications(response.results);
+      setSelectedIds(new Set());
       setTotalCount(response.count);
       setCurrentPage(1);
       setHasNextPage(response.next !== null);
     } catch (error: unknown) {
+      if (version !== requestVersion.current) return;
       setErrorMessage(
         error instanceof Error
           ? error.message
           : "Impossible de charger les notifications.",
       );
     } finally {
-      setIsLoading(false);
+      if (version === requestVersion.current) {
+        refreshPending.current = false;
+        setIsRefreshing(false);
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -266,16 +422,19 @@ export function NotificationsPage() {
   }, [lastEvent, loadFirstPage, revision]);
 
   async function handleLoadMore(): Promise<void> {
-    if (isLoadingMore || !hasNextPage) {
+    if (morePending.current || refreshPending.current || !hasNextPage) {
       return;
     }
 
     const nextPage = currentPage + 1;
+    const version = requestVersion.current;
+    morePending.current = true;
     setIsLoadingMore(true);
     setErrorMessage(null);
 
     try {
       const response = await getNotifications(nextPage, 20);
+      if (version !== requestVersion.current) return;
 
       setNotifications((currentItems) => {
         const knownIds = new Set(currentItems.map((item) => item.id));
@@ -290,12 +449,14 @@ export function NotificationsPage() {
       setCurrentPage(nextPage);
       setHasNextPage(response.next !== null);
     } catch (error: unknown) {
+      if (version !== requestVersion.current) return;
       setErrorMessage(
         error instanceof Error
           ? error.message
           : "Impossible de charger la page suivante.",
       );
     } finally {
+      morePending.current = false;
       setIsLoadingMore(false);
     }
   }
@@ -387,6 +548,11 @@ export function NotificationsPage() {
         currentItems.filter((item) => item.id !== notificationId),
       );
       setTotalCount((currentCount) => Math.max(0, currentCount - 1));
+      setSelectedIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.delete(notificationId);
+        return nextIds;
+      });
     } catch (error: unknown) {
       setErrorMessage(
         error instanceof Error
@@ -399,6 +565,159 @@ export function NotificationsPage() {
         nextIds.delete(notificationId);
         return nextIds;
       });
+    }
+  }
+
+  async function handleMarkSelectedRead(): Promise<void> {
+    const unreadIds = selectedNotifications
+      .filter((notification) => !notification.is_read)
+      .map((notification) => notification.id);
+
+    if (isBulkActionPending || unreadIds.length === 0) {
+      return;
+    }
+
+    setIsBulkActionPending(true);
+    setErrorMessage(null);
+    setPendingIds((currentIds) => new Set([...currentIds, ...unreadIds]));
+
+    const results = await Promise.allSettled(
+      unreadIds.map((notificationId) => markNotificationRead(notificationId)),
+    );
+    const updatedNotifications = new Map<string, NotificationItem>();
+    let failedCount = 0;
+
+    results.forEach((result) => {
+      if (result.status === "fulfilled") {
+        updatedNotifications.set(result.value.id, result.value);
+      } else {
+        failedCount += 1;
+      }
+    });
+
+    setNotifications((currentItems) => currentItems.map((item) =>
+      updatedNotifications.get(item.id) ?? item));
+    setPendingIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      unreadIds.forEach((id) => nextIds.delete(id));
+      return nextIds;
+    });
+    setIsBulkActionPending(false);
+
+    if (failedCount > 0) {
+      setErrorMessage(
+        `${failedCount} notification${failedCount > 1 ? "s n’ont" : " n’a"} pas pu être marquée${failedCount > 1 ? "s" : ""} comme lue${failedCount > 1 ? "s" : ""}.`,
+      );
+    }
+  }
+
+  async function handleDeleteSelected(): Promise<void> {
+    const ids = selectedNotifications.map((notification) => notification.id);
+    if (isBulkActionPending || ids.length === 0) {
+      return;
+    }
+
+    setBulkDeleteOpen(false);
+    setIsBulkActionPending(true);
+    setErrorMessage(null);
+    setPendingIds((currentIds) => new Set([...currentIds, ...ids]));
+
+    const results = await Promise.allSettled(
+      ids.map((notificationId) => deleteNotification(notificationId)),
+    );
+    const deletedIds = new Set<string>();
+    let failedCount = 0;
+
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        deletedIds.add(ids[index]);
+      } else {
+        failedCount += 1;
+      }
+    });
+
+    setNotifications((currentItems) =>
+      currentItems.filter((item) => !deletedIds.has(item.id)));
+    setTotalCount((currentCount) =>
+      Math.max(0, currentCount - deletedIds.size));
+    setSelectedIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      deletedIds.forEach((id) => nextIds.delete(id));
+      return nextIds;
+    });
+    setPendingIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      ids.forEach((id) => nextIds.delete(id));
+      return nextIds;
+    });
+    setIsBulkActionPending(false);
+
+    if (failedCount > 0) {
+      setErrorMessage(
+        `${failedCount} notification${failedCount > 1 ? "s n’ont" : " n’a"} pas pu être supprimée${failedCount > 1 ? "s" : ""}.`,
+      );
+    }
+  }
+
+  async function handleOpenPreferences(): Promise<void> {
+    setPreferencesOpen(true);
+    setPreferencesLoading(true);
+    setPreferencesError(null);
+    try {
+      setPreferences(await getNotificationPreferences());
+    } catch (error: unknown) {
+      setPreferencesError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de charger les préférences.",
+      );
+    } finally {
+      setPreferencesLoading(false);
+    }
+  }
+
+  function updatePreference(
+    key: keyof NotificationPreferences,
+    value: boolean | string,
+  ): void {
+    setPreferences((current) => current === null
+      ? null
+      : {...current, [key]: value});
+  }
+
+  async function handleSavePreferences(): Promise<void> {
+    if (preferences === null || preferencesSaving) {
+      return;
+    }
+    if (preferences.quiet_start === preferences.quiet_end) {
+      setPreferencesError(
+        "Le début et la fin des heures silencieuses doivent différer.",
+      );
+      return;
+    }
+    setPreferencesSaving(true);
+    setPreferencesError(null);
+    try {
+      const saved = await updateNotificationPreferences({
+        notifications_enabled: preferences.notifications_enabled,
+        messages_enabled: preferences.messages_enabled,
+        matches_enabled: preferences.matches_enabled,
+        likes_enabled: preferences.likes_enabled,
+        quiet_hours_enabled: preferences.quiet_hours_enabled,
+        quiet_start: preferences.quiet_start,
+        quiet_end: preferences.quiet_end,
+        timezone_offset_minutes: -new Date().getTimezoneOffset(),
+      });
+      setPreferences(saved);
+      setPreferencesOpen(false);
+    } catch (error: unknown) {
+      setPreferencesError(
+        error instanceof Error
+          ? error.message
+          : "Impossible d’enregistrer les préférences.",
+      );
+    } finally {
+      setPreferencesSaving(false);
     }
   }
 
@@ -420,7 +739,8 @@ export function NotificationsPage() {
           </div>
         </div>
 
-        <aside className="notifications-summary" aria-label="Résumé">
+        <aside className="notifications-summary" aria-label="Résumé des notifications chargées">
+          <p>Parmi les notifications chargées</p>
           <div className="notifications-summary__icon" aria-hidden="true">◇</div>
           <div className="notifications-summary__numbers">
             <div>
@@ -439,6 +759,13 @@ export function NotificationsPage() {
             onClick={() => void handleMarkAllRead()}
           >
             {isMarkingAll ? "Traitement…" : "Tout marquer comme lu"}
+          </button>
+          <button
+            type="button"
+            className="notifications-summary__preferences"
+            onClick={() => void handleOpenPreferences()}
+          >
+            Régler mes notifications
           </button>
         </aside>
       </section>
@@ -466,6 +793,108 @@ export function NotificationsPage() {
           </div>
         ) : null}
 
+        <div className="notifications-explorer">
+          <label>Rechercher dans les notifications
+            <input type="search" value={search} onChange={(event) => {
+              setSearch(event.target.value); setSelectedIds(new Set());
+            }} />
+          </label>
+          <label>Trier les notifications
+            <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+              <option value="recent">Plus récentes</option>
+              <option value="oldest">Plus anciennes</option>
+            </select>
+          </label>
+          <label><input type="checkbox" checked={unreadOnly} onChange={(event) => {
+            setUnreadOnly(event.target.checked); setSelectedIds(new Set());
+          }} /> Non lues uniquement</label>
+          <button type="button" onClick={resetFilters}>Réinitialiser les filtres</button>
+          <button type="button" disabled={isRefreshing || isLoadingMore || isMarkingAll || isBulkActionPending || pendingIds.size > 0}
+            onClick={() => void loadFirstPage()}>
+            {isRefreshing ? "Actualisation…" : "Actualiser les notifications"}
+          </button>
+          <p role="status">{filteredNotifications.length} résultat(s) parmi {notifications.length} notification(s) chargée(s).</p>
+        </div>
+
+        <div className="notifications-filters" aria-label="Filtrer les notifications">
+          <div className="notifications-filters__heading">
+            <strong>Filtrer l’activité</strong>
+            <span>Résultats chargés sur cet appareil</span>
+          </div>
+          <div className="notifications-filters__scroller" role="toolbar">
+            {notificationFilters.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                className={activeFilter === filter.key
+                  ? "notifications-filter notifications-filter--active"
+                  : "notifications-filter"}
+                aria-pressed={activeFilter === filter.key}
+                onClick={() => {
+                  setActiveFilter(filter.key);
+                  setSelectedIds(new Set());
+                }}
+              >
+                <span aria-hidden="true">{filter.symbol}</span>
+                {filter.label}
+                <strong>{filterCounts.get(filter.key) ?? 0}</strong>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filteredNotifications.length > 0 ? (
+          <div className="notifications-bulk" aria-label="Actions groupées">
+            <label className="notifications-bulk__select">
+              <input
+                type="checkbox"
+                checked={allFilteredSelected}
+                onChange={toggleFilteredSelection}
+              />
+              <span>
+                {allFilteredSelected
+                  ? "Désélectionner le filtre"
+                  : "Tout sélectionner dans ce filtre"}
+              </span>
+            </label>
+
+            {selectedIds.size > 0 ? (
+              <div className="notifications-bulk__actions">
+                <strong>
+                  {selectedIds.size} sélectionnée{selectedIds.size > 1 ? "s" : ""}
+                </strong>
+                <button
+                  type="button"
+                  disabled={isBulkActionPending || selectedUnreadCount === 0}
+                  onClick={() => void handleMarkSelectedRead()}
+                >
+                  Marquer comme lu
+                </button>
+                <button
+                  type="button"
+                  className="notifications-bulk__delete"
+                  disabled={isBulkActionPending}
+                  onClick={() => setBulkDeleteOpen(true)}
+                >
+                  Supprimer
+                </button>
+                <button
+                  type="button"
+                  className="notifications-bulk__clear"
+                  disabled={isBulkActionPending}
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Annuler
+                </button>
+              </div>
+            ) : (
+              <span className="notifications-bulk__hint">
+                Sélectionne plusieurs éléments pour agir en une fois.
+              </span>
+            )}
+          </div>
+        ) : null}
+
         <div className="notifications-list" aria-busy={isLoading}>
           {isLoading ? (
             <div className="notifications-state">
@@ -473,6 +902,8 @@ export function NotificationsPage() {
               <h3>Chargement de ton activité…</h3>
               <p>Les notifications sont récupérées depuis ton compte Mbolo.</p>
             </div>
+          ) : notifications.length === 0 && errorMessage ? (
+            <div className="notifications-state"><h3>Historique indisponible</h3><p>Réessaie pour consulter ton activité.</p></div>
           ) : notifications.length === 0 ? (
             <div className="notifications-state notifications-state--empty">
               <span className="notifications-state__success" aria-hidden="true">✓</span>
@@ -484,6 +915,18 @@ export function NotificationsPage() {
               </p>
               <button type="button" onClick={() => navigate("/discover")}>
                 Continuer à découvrir →
+              </button>
+            </div>
+          ) : filteredNotifications.length === 0 ? (
+            <div className="notifications-state notifications-state--empty">
+              <span className="notifications-state__success" aria-hidden="true">◇</span>
+              <p className="notifications-eyebrow">Filtre actif</p>
+              <h3>Aucune notification ne correspond aux filtres</h3>
+              <p>
+                Les prochaines notifications correspondantes apparaîtront ici.
+              </p>
+              <button type="button" onClick={resetFilters}>
+                Voir toute l’activité
               </button>
             </div>
           ) : (
@@ -503,11 +946,24 @@ export function NotificationsPage() {
                       <article
                         key={notification.id}
                         className={
-                          notification.is_read
+                          `${notification.is_read
                             ? "notification-item"
-                            : "notification-item notification-item--unread"
+                            : "notification-item notification-item--unread"}${
+                            selectedIds.has(notification.id)
+                              ? " notification-item--selected"
+                              : ""
+                          }`
                         }
                       >
+                        <label className="notification-item__select">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(notification.id)}
+                            disabled={isPending || isBulkActionPending}
+                            aria-label={`Sélectionner la notification : ${notification.title}`}
+                            onChange={() => toggleNotificationSelection(notification.id)}
+                          />
+                        </label>
                         <button
                           type="button"
                           className="notification-item__main"
@@ -578,7 +1034,7 @@ export function NotificationsPage() {
           <div className="notifications-pagination">
             <button
               type="button"
-              disabled={isLoadingMore}
+              disabled={isLoadingMore || isRefreshing}
               onClick={() => void handleLoadMore()}
             >
               {isLoadingMore ? "Chargement…" : "Afficher plus de notifications"}
@@ -586,6 +1042,159 @@ export function NotificationsPage() {
           </div>
         ) : null}
       </section>
+
+      {bulkDeleteOpen ? (
+        <div
+          className="notification-confirm-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) {
+              setBulkDeleteOpen(false);
+            }
+          }}
+        >
+          <section
+            className="notification-confirm"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="notification-confirm-title"
+            aria-describedby="notification-confirm-description"
+          >
+            <span className="notification-confirm__symbol" aria-hidden="true">×</span>
+            <p className="notifications-eyebrow">Nettoyage du centre</p>
+            <h2 id="notification-confirm-title">Supprimer la sélection ?</h2>
+            <p id="notification-confirm-description">
+              {selectedIds.size} notification{selectedIds.size > 1 ? "s seront" : " sera"}
+              {" "}retirée{selectedIds.size > 1 ? "s" : ""} définitivement de ton historique.
+            </p>
+            <div className="notification-confirm__actions">
+              <button type="button" onClick={() => setBulkDeleteOpen(false)}>
+                Conserver
+              </button>
+              <button type="button" onClick={() => void handleDeleteSelected()}>
+                Supprimer définitivement
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {preferencesOpen ? (
+        <div
+          className="notification-preferences-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) {
+              setPreferencesOpen(false);
+            }
+          }}
+        >
+          <section
+            className="notification-preferences-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="notification-preferences-title"
+          >
+            <header>
+              <div>
+                <p className="notifications-eyebrow">Expérience maîtrisée</p>
+                <h2 id="notification-preferences-title">
+                  Préférences de notifications
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="notification-preferences-panel__close"
+                aria-label="Fermer les préférences"
+                onClick={() => setPreferencesOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+
+            {preferencesLoading ? (
+              <div className="notification-preferences-panel__loading">
+                Chargement des préférences…
+              </div>
+            ) : preferences === null ? (
+              <div className="notifications-error" role="alert">
+                <span aria-hidden="true">!</span>
+                <p>{preferencesError ?? "Préférences indisponibles."}</p>
+                <button type="button" onClick={() => void handleOpenPreferences()}>
+                  Réessayer
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="notification-preferences-list">
+                  <label className="notification-preference-row">
+                    <span><strong>Notifications MBOLO</strong><small>Activer les alertes personnalisées</small></span>
+                    <input
+                      type="checkbox"
+                      checked={preferences.notifications_enabled}
+                      onChange={(event) => updatePreference("notifications_enabled", event.target.checked)}
+                    />
+                  </label>
+                  {([
+                    ["messages_enabled", "Messages", "Nouveaux messages et réactions"],
+                    ["matches_enabled", "Matchs", "Nouvelles connexions réciproques"],
+                    ["likes_enabled", "Likes et Super Likes", "Activité reçue sur ton profil"],
+                  ] as const).map(([key, title, description]) => (
+                    <label className="notification-preference-row" key={key}>
+                      <span><strong>{title}</strong><small>{description}</small></span>
+                      <input
+                        type="checkbox"
+                        checked={preferences[key]}
+                        disabled={!preferences.notifications_enabled}
+                        onChange={(event) => updatePreference(key, event.target.checked)}
+                      />
+                    </label>
+                  ))}
+                  <label className="notification-preference-row notification-preference-row--locked">
+                    <span><strong>Sécurité du compte</strong><small>Toujours active pour protéger ton compte</small></span>
+                    <input type="checkbox" checked disabled aria-label="Sécurité toujours active" />
+                  </label>
+                  <label className="notification-preference-row">
+                    <span><strong>Heures silencieuses</strong><small>Suspendre les alertes non urgentes pendant ton repos</small></span>
+                    <input
+                      type="checkbox"
+                      checked={preferences.quiet_hours_enabled}
+                      disabled={!preferences.notifications_enabled}
+                      onChange={(event) => updatePreference("quiet_hours_enabled", event.target.checked)}
+                    />
+                  </label>
+                </div>
+
+                {preferences.quiet_hours_enabled ? (
+                  <div className="notification-preferences-times">
+                    <label>Début<input type="time" value={preferences.quiet_start} onChange={(event) => updatePreference("quiet_start", event.target.value)} /></label>
+                    <label>Fin<input type="time" value={preferences.quiet_end} onChange={(event) => updatePreference("quiet_end", event.target.value)} /></label>
+                  </div>
+                ) : null}
+
+                {preferencesError ? (
+                  <p className="notification-preferences-panel__error" role="alert">
+                    {preferencesError}
+                  </p>
+                ) : null}
+
+                <footer>
+                  <button type="button" onClick={() => setPreferencesOpen(false)}>
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    disabled={preferencesSaving}
+                    onClick={() => void handleSavePreferences()}
+                  >
+                    {preferencesSaving ? "Enregistrement…" : "Enregistrer"}
+                  </button>
+                </footer>
+              </>
+            )}
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

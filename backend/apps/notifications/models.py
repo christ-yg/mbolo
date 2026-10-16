@@ -7,10 +7,12 @@ Le frontend ne peut jamais choisir le destinataire ni créer
 directement une notification.
 """
 
+import datetime
 import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -168,3 +170,31 @@ class Notification(models.Model):
     def save(self, *args, **kwargs) -> None:
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class NotificationPreference(models.Model):
+    """Choix de diffusion synchronisés pour un compte Mbolo."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notification_preference",
+    )
+    notifications_enabled = models.BooleanField(default=True)
+    messages_enabled = models.BooleanField(default=True)
+    matches_enabled = models.BooleanField(default=True)
+    likes_enabled = models.BooleanField(default=True)
+    quiet_hours_enabled = models.BooleanField(default=False)
+    quiet_start = models.TimeField(default=datetime.time(22, 0))
+    quiet_end = models.TimeField(default=datetime.time(7, 0))
+    timezone_offset_minutes = models.SmallIntegerField(
+        default=60,
+        validators=(MinValueValidator(-720), MaxValueValidator(840)),
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "notifications_preference"
+
+    def __str__(self) -> str:
+        return f"NotificationPreference<{self.user_id}>"
