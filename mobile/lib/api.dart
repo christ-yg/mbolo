@@ -8,10 +8,15 @@ import 'auth_contract.dart';
 import 'session_store.dart';
 export 'auth_contract.dart';
 
-/// Native Android/iOS only. The Django session identifier is encrypted at rest.
+/// Native sessions use encrypted storage; browser sessions stay in HttpOnly cookies.
 /// Passwords, CSRF values and authentication challenges are never persisted.
 class MboloApi implements AuthApi {
-  MboloApi(String origin, {Dio? client, SessionStore? sessionStore})
+  MboloApi(
+    String origin, {
+    Dio? client,
+    SessionStore? sessionStore,
+    this.browserSession = false,
+  })
     : origin = validateOrigin(origin),
       client = client ?? Dio(),
       sessionStore = sessionStore ?? MemorySessionStore() {
@@ -21,8 +26,13 @@ class MboloApi implements AuthApi {
       receiveTimeout: const Duration(seconds: 20),
       sendTimeout: const Duration(seconds: 20),
       followRedirects: false,
-      headers: {'Accept': 'application/json', 'Origin': this.origin.origin},
+      headers: {
+        'Accept': 'application/json',
+        if (!browserSession) 'Origin': this.origin.origin,
+      },
     );
+    // Browser owns Cookie/Set-Cookie and supplies Origin. Never persist sessionid.
+    if (browserSession) return;
     this.client.interceptors.add(CookieManager(cookies));
     this.client.interceptors.add(
       InterceptorsWrapper(
@@ -46,6 +56,7 @@ class MboloApi implements AuthApi {
     );
   }
 
+  final bool browserSession;
   final Uri origin;
   final Dio client;
   final SessionStore sessionStore;
@@ -321,6 +332,7 @@ class MboloApi implements AuthApi {
   }
 
   Future<void> _clearLocalSession() async {
+    if (browserSession) return;
     await cookies.deleteAll();
     _sessionId = null;
     await sessionStore.clear();
@@ -347,16 +359,16 @@ class MboloApi implements AuthApi {
 
   @override
   Future<Account?> restoreSession() async {
-    _sessionId = await sessionStore.read();
-    if (_sessionId == null || _sessionId!.isEmpty) return null;
+    if (!browserSession) {
+      _sessionId = await sessionStore.read();
+      if (_sessionId == null || _sessionId!.isEmpty) return null;
+    }
     try {
       return await me();
     } on DioException catch (error) {
       if (error.response?.statusCode == 401 ||
           error.response?.statusCode == 403) {
-        _sessionId = null;
-        await sessionStore.clear();
-        await cookies.deleteAll();
+        await _clearLocalSession();
         return null;
       }
       rethrow;
